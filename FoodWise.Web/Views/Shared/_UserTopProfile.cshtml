@@ -1,0 +1,30 @@
+﻿@using Microsoft.AspNetCore.Http
+
+@*
+    Bu partial view, sağ üst kullanıcı profil kutusunu gösterir.
+    Kullanıcının ad-soyad bilgisinden baş harf avatarı oluşturur ve Profilim sayfasına yönlendirir.
+*@
+
+@{
+    var fullName = Context.Session.GetString("FullName") ?? "Kullanıcı";
+    var email = Context.Session.GetString("Email") ?? string.Empty;
+
+    var nameParts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    var initials = nameParts.Length >= 2
+        ? $"{nameParts[0][0]}{nameParts[^1][0]}".ToUpper()
+        : nameParts.Length == 1
+            ? nameParts[0][0].ToString().ToUpper()
+            : "K";
+}
+
+<a asp-controller="Profile" asp-action="Index" class="user-box profile-link">
+    <div class="user-avatar">
+        @initials
+    </div>
+
+    <div class="user-info">
+        <strong>@fullName</strong>
+        <span>@email</span>
+    </div>
+</a>

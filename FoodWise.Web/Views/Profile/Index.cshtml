@@ -1,0 +1,184 @@
+﻿@model FoodWise.Web.ViewModels.Profile.ProfileViewModel
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    ViewData["Title"] = "Profilim";
+    ViewData["PageDescription"] = "Kullanıcı bilgilerini, konum bilgilerini ve güvenilirlik puanını buradan görüntüleyebilirsin.";
+
+    var fullName = string.IsNullOrWhiteSpace(Model.FullName) ? "Kullanıcı" : Model.FullName;
+    var email = Model.Email ?? string.Empty;
+
+    var nameParts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    var initials = nameParts.Length >= 2
+        ? $"{nameParts[0][0]}{nameParts[^1][0]}".ToUpper()
+        : nameParts.Length == 1
+            ? nameParts[0][0].ToString().ToUpper()
+            : "K";
+}
+
+@*
+    Profil sayfası artık ortak FoodWise layout yapısını kullanır.
+    Bu dosyada sadece profil kartları ve sayfaya özel CSS bulunur.
+*@
+
+<section class="profile-grid">
+    <div class="profile-card main-profile">
+        <div class="avatar">
+            @initials
+        </div>
+
+        <h3>@fullName</h3>
+        <p>@email</p>
+
+        <div class="score-row">
+            <div>
+                <span>Güvenilirlik</span>
+                <strong>@Model.ReliabilityScore</strong>
+            </div>
+
+            <div>
+                <span>İhtiyaç Puanı</span>
+                <strong>@Model.NeedScore</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-card">
+        <h3>Konum Bilgileri</h3>
+
+        <div class="info-list">
+            <div>
+                <span>Şehir</span>
+                <strong>@(Model.City ?? "-")</strong>
+            </div>
+
+            <div>
+                <span>İlçe</span>
+                <strong>@(Model.District ?? "-")</strong>
+            </div>
+
+            <div>
+                <span>Mahalle</span>
+                <strong>@(Model.Neighborhood ?? "-")</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-card">
+        <h3>Hesap Bilgileri</h3>
+
+        <div class="info-list">
+            <div>
+                <span>Kullanıcı Id</span>
+                <strong>@Model.UserId</strong>
+            </div>
+
+            <div>
+                <span>Kayıt Tarihi</span>
+                <strong>@Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</strong>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Styles {
+    <style>
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr 1fr;
+            gap: 22px;
+        }
+
+        .profile-card {
+            background: white;
+            border-radius: 20px;
+            padding: 28px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .main-profile {
+            text-align: center;
+        }
+
+        .avatar {
+            width: 92px;
+            height: 92px;
+            border-radius: 50%;
+            background: #238636;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 42px;
+            font-weight: 800;
+            margin: 0 auto 18px;
+        }
+
+        .profile-card h3 {
+            color: #145c24;
+            margin: 0 0 18px;
+            font-size: 24px;
+        }
+
+        .main-profile h3 {
+            margin-bottom: 8px;
+        }
+
+        .main-profile p {
+            color: #526b7a;
+            margin: 0 0 22px;
+            word-break: break-word;
+        }
+
+        .score-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+            .score-row div,
+            .info-list div {
+                background: #f8faf8;
+                border-radius: 14px;
+                padding: 14px;
+            }
+
+            .score-row span,
+            .info-list span {
+                display: block;
+                color: #6b7280;
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+
+            .score-row strong {
+                color: #145c24;
+                font-size: 26px;
+            }
+
+        .info-list {
+            display: grid;
+            gap: 12px;
+        }
+
+            .info-list strong {
+                color: #1f2937;
+                line-height: 1.5;
+                word-break: break-word;
+            }
+
+        @@media (max-width: 1100px) {
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @@media (max-width: 700px) {
+            .score-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+}

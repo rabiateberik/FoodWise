@@ -1,0 +1,292 @@
+﻿@using FoodWise.Web.Helpers
+@model List<FoodWise.Web.ViewModels.Stock.StockItemViewModel>
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    ViewData["Title"] = "Riskli Ürünler";
+    ViewData["PageDescription"] = "Son kullanma tarihi yaklaşan veya israf riski yüksek ürünlerini buradan takip edebilirsin.";
+}
+
+@*
+    Riskli Ürünler sayfası ortak FoodWise layout yapısını kullanır.
+    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
+    Bu dosyada sadece riskli ürün kartları ve sayfaya özel stiller bulunur.
+*@
+
+@section TopbarActions {
+    <a asp-controller="Stock" asp-action="Index" class="btn-secondary">
+        Tüm Stoklara Dön
+    </a>
+}
+
+<section class="risk-grid">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            <h3>Şu anda riskli ürün yok.</h3>
+            <p>Harika! Stoklarında yüksek veya kritik riskli ürün görünmüyor.</p>
+
+            <a asp-controller="Stock" asp-action="Index" class="btn-primary">
+                Stokları Gör
+            </a>
+        </div>
+    }
+    else
+    {
+        @foreach (var item in Model)
+        {
+            var riskClass = item.RiskLevel switch
+            {
+                "Critical" => "risk-critical",
+                "High" => "risk-high",
+                "Medium" => "risk-medium",
+                "Low" => "risk-low",
+                _ => "risk-none"
+            };
+
+            var remainingDays = (item.ExpirationDate.Date - DateTime.Today).Days;
+
+            <article class="risk-card">
+                <div class="risk-card-header">
+                    <div>
+                        <h3>@item.ProductName</h3>
+                        <p>@item.Quantity @DisplayTextHelper.GetUnitText(item.UnitName)</p>
+                    </div>
+
+                    <span class="risk-badge @riskClass">
+                        @DisplayTextHelper.GetRiskLevelText(item.RiskLevel)
+
+                        @if (item.RiskScore.HasValue)
+                        {
+                            <span> / @item.RiskScore</span>
+                        }
+                    </span>
+                </div>
+
+                <div class="risk-info">
+                    <div>
+                        <span>Son Kullanma</span>
+                        <strong>@item.ExpirationDate.ToString("dd.MM.yyyy")</strong>
+                    </div>
+
+                    <div>
+                        <span>Kalan Gün</span>
+                        <strong>
+                            @if (remainingDays < 0)
+                            {
+                                <text>Süresi geçti</text>
+                            }
+                            else
+                            {
+                                <text>@remainingDays gün</text>
+                            }
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Saklama</span>
+                        <strong>@DisplayTextHelper.GetStorageConditionText(item.StorageCondition)</strong>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(item.RecommendationText))
+                {
+                    <p class="recommendation">
+                        @item.RecommendationText
+                    </p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(item.Note))
+                {
+                    <p class="note">
+                        Not: @item.Note
+                    </p>
+                }
+
+                <div class="card-actions">
+                    <a asp-controller="Recipe"
+                       asp-action="Recommendations"
+                       asp-route-stockItemId="@item.Id"
+                       asp-route-productName="@item.ProductName"
+                       class="btn-primary">
+                        Tarif Önerisi Al
+                    </a>
+
+                    <a asp-controller="Sharing"
+                       asp-action="Create"
+                       asp-route-stockItemId="@item.Id"
+                       asp-route-productName="@item.ProductName"
+                       class="btn-outline">
+                        Paylaşıma Aç
+                    </a>
+                </div>
+            </article>
+        }
+    }
+</section>
+
+@section Styles {
+    <style>
+        .risk-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+            gap: 22px;
+        }
+
+        .risk-card {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .risk-card-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .risk-card h3 {
+            color: #145c24;
+            font-size: 24px;
+            margin: 0 0 6px;
+        }
+
+        .risk-card-header p {
+            margin: 0;
+            color: #526b7a;
+            font-weight: 600;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .risk-critical {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .risk-high {
+            background: #ffedd5;
+            color: #9a3412;
+        }
+
+        .risk-medium {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .risk-low {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .risk-none {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .risk-info {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+            .risk-info div {
+                background: #f8faf8;
+                border-radius: 14px;
+                padding: 14px;
+            }
+
+            .risk-info span {
+                display: block;
+                color: #6b7280;
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+
+            .risk-info strong {
+                color: #1f2937;
+                font-size: 15px;
+                line-height: 1.5;
+            }
+
+        .recommendation {
+            background: #f3f8f4;
+            border-left: 4px solid #238636;
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: #405a68;
+            line-height: 1.5;
+            margin: 0 0 12px;
+        }
+
+        .note {
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn-outline {
+            display: inline-block;
+            background: white;
+            color: #238636;
+            text-decoration: none;
+            border: 1px solid #238636;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-weight: 700;
+        }
+
+            .btn-outline:hover {
+                background: #f3f8f4;
+            }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 20px;
+            padding: 50px 24px;
+            text-align: center;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+            .empty-state h3 {
+                color: #145c24;
+                font-size: 26px;
+                margin-bottom: 10px;
+            }
+
+            .empty-state p {
+                color: #526b7a;
+                margin-bottom: 24px;
+            }
+
+        @@media (max-width: 900px) {
+            .risk-info {
+                grid-template-columns: 1fr;
+            }
+
+            .risk-card-header {
+                flex-direction: column;
+            }
+        }
+    </style>
+}

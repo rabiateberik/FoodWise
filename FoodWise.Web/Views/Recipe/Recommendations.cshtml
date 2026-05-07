@@ -1,0 +1,281 @@
+﻿@using FoodWise.Web.Helpers
+@model List<FoodWise.Web.ViewModels.Recipe.RecipeRecommendationViewModel>
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    var productName = ViewBag.ProductName as string;
+
+    ViewData["Title"] = "Tarif Önerileri";
+
+    ViewData["PageDescription"] = !string.IsNullOrWhiteSpace(productName)
+        ? $"{productName} ürününü değerlendirmek için önerilen tarifleri buradan görebilirsin."
+        : "FoodWise tarif havuzundaki aktif tarifleri buradan görüntüleyebilirsin.";
+}
+
+@*
+    Tarif Önerileri sayfası ortak FoodWise layout yapısını kullanır.
+    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
+    Bu dosyada sadece tarif kartları, malzeme listesi ve sayfaya özel stiller bulunur.
+*@
+
+@section TopbarActions {
+    <a asp-controller="Stock" asp-action="Risky" class="btn-secondary">
+        Riskli Ürünlere Dön
+    </a>
+}
+
+<section class="recipe-grid">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            <h3>Tarif önerisi bulunamadı.</h3>
+            <p>Bu ürün için henüz sistemde eşleşen tarif bulunmuyor.</p>
+
+            <a asp-controller="Stock" asp-action="Risky" class="btn-primary">
+                Riskli Ürünlere Dön
+            </a>
+        </div>
+    }
+    else
+    {
+        @foreach (var recipe in Model)
+        {
+            <article class="recipe-card">
+                <div class="recipe-header">
+                    <div>
+                        <h3>@recipe.RecipeName</h3>
+                        <p>@(recipe.Description ?? "Açıklama bulunmuyor.")</p>
+                    </div>
+
+                    <span class="score-badge">
+                        %@recipe.MatchScore.ToString("0.##") eşleşme
+                    </span>
+                </div>
+
+                <div class="recipe-meta">
+                    <div>
+                        <span>Hazırlık Süresi</span>
+                        <strong>@recipe.PreparationTimeMinutes dk</strong>
+                    </div>
+
+                    <div>
+                        <span>Öneri Sebebi</span>
+                        <strong>@(recipe.RecommendationReason ?? "-")</strong>
+                    </div>
+                </div>
+
+                <div class="ingredients">
+                    <h4>Malzemeler</h4>
+
+                    @if (recipe.Ingredients != null && recipe.Ingredients.Any())
+                    {
+                        <ul>
+                            @foreach (var ingredient in recipe.Ingredients)
+                            {
+                                <li>
+                                    <span>
+                                        @ingredient.ProductName
+
+                                        @* Tarif için gerekli ve opsiyonel malzemeler kullanıcıya etiket olarak gösterilir. *@
+                                        @if (ingredient.IsRequired)
+                                        {
+                                            <small>Zorunlu</small>
+                                        }
+                                        else
+                                        {
+                                            <small class="optional">Opsiyonel</small>
+                                        }
+                                    </span>
+
+                                    <strong>
+                                        @if (ingredient.Quantity.HasValue)
+                                        {
+                                            @ingredient.Quantity.Value.ToString("0.##")
+                                        }
+
+                                        @DisplayTextHelper.GetUnitText(ingredient.UnitName)
+                                    </strong>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="empty-text">Malzeme bilgisi bulunmuyor.</p>
+                    }
+                </div>
+
+                <div class="instructions">
+                    <h4>Yapılış</h4>
+                    <p>@(recipe.Instructions ?? "Yapılış bilgisi bulunmuyor.")</p>
+                </div>
+            </article>
+        }
+    }
+</section>
+
+@section Styles {
+    <style>
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 22px;
+        }
+
+        .recipe-card {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .recipe-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+            .recipe-header h3 {
+                color: #145c24;
+                font-size: 24px;
+                margin: 0 0 8px;
+            }
+
+            .recipe-header p {
+                margin: 0;
+                color: #526b7a;
+                line-height: 1.5;
+            }
+
+        .score-badge {
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .recipe-meta {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+            .recipe-meta div {
+                background: #f8faf8;
+                border-radius: 14px;
+                padding: 14px;
+            }
+
+            .recipe-meta span {
+                display: block;
+                color: #6b7280;
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+
+            .recipe-meta strong {
+                color: #1f2937;
+                font-size: 15px;
+                line-height: 1.5;
+            }
+
+        .ingredients,
+        .instructions {
+            margin-top: 20px;
+        }
+
+            .ingredients h4,
+            .instructions h4 {
+                color: #145c24;
+                margin: 0 0 12px;
+            }
+
+            .ingredients ul {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+
+            .ingredients li {
+                display: flex;
+                justify-content: space-between;
+                gap: 16px;
+                padding: 10px 0;
+                border-bottom: 1px solid #edf2ef;
+            }
+
+                .ingredients li:last-child {
+                    border-bottom: none;
+                }
+
+            .ingredients small {
+                background: #e8f5e9;
+                color: #1b5e20;
+                padding: 3px 7px;
+                border-radius: 999px;
+                font-size: 11px;
+                margin-left: 6px;
+                font-weight: 700;
+            }
+
+                .ingredients small.optional {
+                    background: #e5e7eb;
+                    color: #374151;
+                }
+
+            .ingredients strong {
+                color: #1f2937;
+                white-space: nowrap;
+            }
+
+            .instructions p,
+            .empty-text {
+                color: #405a68;
+                line-height: 1.6;
+                margin: 0;
+            }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 20px;
+            padding: 50px 24px;
+            text-align: center;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+            .empty-state h3 {
+                color: #145c24;
+                font-size: 26px;
+                margin-bottom: 10px;
+            }
+
+            .empty-state p {
+                color: #526b7a;
+                margin-bottom: 24px;
+            }
+
+        @@media (max-width: 900px) {
+            .recipe-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .recipe-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .ingredients li {
+                flex-direction: column;
+                gap: 6px;
+            }
+        }
+    </style>
+}

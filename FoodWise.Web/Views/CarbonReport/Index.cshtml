@@ -1,0 +1,304 @@
+﻿@model FoodWise.Web.ViewModels.CarbonReport.CarbonReportPageViewModel
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    ViewData["Title"] = "Karbon Raporu";
+    ViewData["PageDescription"] = "Paylaşılan ürünler üzerinden kurtarılan gıda ve tahmini karbon tasarrufunu buradan takip edebilirsin.";
+}
+
+@*
+    Karbon Raporu sayfası ortak FoodWise layout yapısını kullanır.
+    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
+    Bu dosyada sadece karbon raporu özeti, rapor oluşturma formu, rapor listesi ve sayfaya özel stiller bulunur.
+*@
+
+<section class="summary-grid">
+    <div class="summary-card">
+        <div class="label">Kurtarılan Gıda</div>
+        <div class="value">@Model.Summary.TotalSavedFoodKg.ToString("0.##") kg</div>
+        <div class="hint">Teslimatı tamamlanan paylaşımlardan hesaplanır.</div>
+    </div>
+
+    <div class="summary-card">
+        <div class="label">Karbon Tasarrufu</div>
+        <div class="value">@Model.Summary.TotalEstimatedCarbonSaved.ToString("0.##") kg</div>
+        <div class="hint">Ürünlerin karbon faktörüne göre yaklaşık hesaplanır.</div>
+    </div>
+
+    <div class="summary-card">
+        <div class="label">Paylaşılan Ürün</div>
+        <div class="value">@Model.Summary.TotalSharedProductCount</div>
+        <div class="hint">Teslimatı tamamlanan paylaşım sayısı.</div>
+    </div>
+
+    <div class="summary-card">
+        <div class="label">Rapor Sayısı</div>
+        <div class="value">@Model.Summary.ReportCount</div>
+        <div class="hint">Oluşturulan aylık rapor sayısı.</div>
+    </div>
+</section>
+
+<section class="generate-card">
+    <div>
+        <h3>Aylık Rapor Oluştur</h3>
+        <p>Seçtiğin ay ve yıl için karbon raporunu oluşturabilir veya mevcut raporu güncelleyebilirsin.</p>
+    </div>
+
+    <form asp-controller="CarbonReport" asp-action="Generate" method="post" class="generate-form">
+        @Html.AntiForgeryToken()
+
+        @* Kullanıcı ay ve yıl seçerek ilgili dönem için rapor oluşturur. *@
+        <div class="form-group">
+            <label asp-for="Month">Ay</label>
+            <input asp-for="Month" type="number" min="1" max="12" />
+            <span asp-validation-for="Month"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Year">Yıl</label>
+            <input asp-for="Year" type="number" min="2024" max="2030" />
+            <span asp-validation-for="Year"></span>
+        </div>
+
+        <button type="submit" class="btn-primary">
+            Rapor Oluştur
+        </button>
+    </form>
+</section>
+
+<section class="report-list">
+    <h3>Aylık Raporlarım</h3>
+
+    @if (Model.Reports == null || !Model.Reports.Any())
+    {
+        <div class="empty-state">
+            <h3>Henüz rapor yok.</h3>
+            <p>İlk aylık karbon raporunu oluşturmak için yukarıdaki formu kullanabilirsin.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Dönem</th>
+                        <th>Kurtarılan Gıda</th>
+                        <th>Karbon Tasarrufu</th>
+                        <th>Paylaşılan Ürün</th>
+                        <th>İsraf/Geçmiş Ürün</th>
+                        <th>Oluşturulma</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var report in Model.Reports)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@report.Month/@report.Year</strong>
+                            </td>
+
+                            <td>
+                                @report.SavedFoodKg.ToString("0.##") kg
+                            </td>
+
+                            <td>
+                                @report.EstimatedCarbonSaved.ToString("0.##") kg
+                            </td>
+
+                            <td>
+                                @report.SharedProductCount
+                            </td>
+
+                            <td>
+                                @report.WastedProductCount
+                            </td>
+
+                            <td>
+                                @report.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@section Styles {
+    <style>
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card,
+        .generate-card,
+        .report-list {
+            background: white;
+            border-radius: 20px;
+            padding: 28px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .summary-card {
+            padding: 22px;
+        }
+
+        .generate-card,
+        .report-list {
+            margin-bottom: 24px;
+        }
+
+        .label {
+            color: #607d8b;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .value {
+            color: #145c24;
+            font-size: 30px;
+            font-weight: 800;
+        }
+
+        .hint {
+            margin-top: 10px;
+            color: #78909c;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .generate-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 24px;
+        }
+
+            .generate-card h3,
+            .report-list h3 {
+                color: #145c24;
+                margin: 0 0 8px;
+            }
+
+            .generate-card p {
+                margin: 0;
+                color: #526b7a;
+                line-height: 1.5;
+            }
+
+        .generate-form {
+            display: flex;
+            align-items: flex-end;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin: 0;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        input {
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 15px;
+            width: 110px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+            input:focus {
+                border-color: #238636;
+            }
+
+        .generate-form span {
+            color: #dc2626;
+            font-size: 13px;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            min-width: 760px;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        th {
+            text-align: left;
+            color: #486273;
+            padding: 14px;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 16px 14px;
+            border-bottom: 1px solid #eef2f4;
+            vertical-align: top;
+            color: #1f2937;
+        }
+
+        .empty-state {
+            background: #f8faf8;
+            border-radius: 16px;
+            padding: 38px 20px;
+            text-align: center;
+            margin-top: 16px;
+        }
+
+            .empty-state h3 {
+                color: #145c24;
+                margin-bottom: 10px;
+            }
+
+            .empty-state p {
+                color: #526b7a;
+                margin-bottom: 0;
+            }
+
+        @@media (max-width: 1100px) {
+            .summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .generate-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        @@media (max-width: 700px) {
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .generate-form {
+                width: 100%;
+            }
+
+            .form-group,
+            input {
+                width: 100%;
+            }
+        }
+    </style>
+}

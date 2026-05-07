@@ -1,0 +1,247 @@
+﻿@using FoodWise.Web.Helpers
+@model List<FoodWise.Web.ViewModels.Sharing.ShareRequestViewModel>
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    ViewData["Title"] = "İlan Talepleri";
+    ViewData["PageDescription"] = "Paylaşım ilanın için gelen talepleri buradan onaylayabilir veya reddedebilirsin.";
+
+    var listingId = ViewBag.ListingId as int? ?? 0;
+}
+
+@*
+    İlan Talepleri sayfası ortak FoodWise layout yapısını kullanır.
+    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
+    Bu dosyada sadece paylaşım talepleri, onay/red işlemleri ve sayfaya özel stiller bulunur.
+*@
+
+@section TopbarActions {
+    <a asp-controller="Sharing" asp-action="MyListings" class="btn-secondary">
+        İlanlarıma Dön
+    </a>
+}
+
+<section class="request-list">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            <h3>Bu ilan için henüz talep yok.</h3>
+            <p>Başka kullanıcılar talep gönderdiğinde burada listelenecek.</p>
+        </div>
+    }
+    else
+    {
+        @foreach (var request in Model)
+        {
+            var statusClass = request.Status switch
+            {
+                "Pending" => "status-pending",
+                "Approved" => "status-approved",
+                "Rejected" => "status-rejected",
+                "Cancelled" => "status-cancelled",
+                _ => "status-default"
+            };
+
+            <article class="request-card">
+                <div class="request-header">
+                    <div>
+                        <h3>@request.ProductName</h3>
+                        <p>@request.ShareListingTitle</p>
+                    </div>
+
+                    <span class="status-badge @statusClass">
+                        @DisplayTextHelper.GetShareRequestStatusText(request.Status)
+                    </span>
+                </div>
+
+                <div class="request-info">
+                    <div>
+                        <span>Talep Tarihi</span>
+                        <strong>@request.RequestedAt.ToString("dd.MM.yyyy HH:mm")</strong>
+                    </div>
+
+                    <div>
+                        <span>Eşleşme Skoru</span>
+                        <strong>@(request.MatchScore?.ToString("0.##") ?? "-")</strong>
+                    </div>
+
+                    <div>
+                        <span>Cevap Tarihi</span>
+                        <strong>@(request.RespondedAt?.ToString("dd.MM.yyyy HH:mm") ?? "-")</strong>
+                    </div>
+                </div>
+
+                <div class="card-actions">
+                    @* Bekleyen talepler bağış yapan kullanıcı tarafından onaylanabilir veya reddedilebilir. *@
+                    @if (request.Status == "Pending")
+                    {
+                        <form asp-controller="Sharing" asp-action="ApproveRequest" method="post" class="action-form">
+                            @Html.AntiForgeryToken()
+
+                            <input type="hidden" name="requestId" value="@request.Id" />
+                            <input type="hidden" name="listingId" value="@listingId" />
+
+                            <button type="submit" class="btn-primary">
+                                Onayla
+                            </button>
+                        </form>
+
+                        <form asp-controller="Sharing" asp-action="RejectRequest" method="post" class="action-form">
+                            @Html.AntiForgeryToken()
+
+                            <input type="hidden" name="requestId" value="@request.Id" />
+                            <input type="hidden" name="listingId" value="@listingId" />
+
+                            <button type="submit" class="btn-danger">
+                                Reddet
+                            </button>
+                        </form>
+                    }
+
+                    @* Onaylanan talep için teslimat kaydı oluşturulur. *@
+                    @if (request.Status == "Approved")
+                    {
+                        <form asp-controller="Delivery" asp-action="CreateFromRequest" method="post" class="action-form">
+                            @Html.AntiForgeryToken()
+
+                            <input type="hidden" name="shareRequestId" value="@request.Id" />
+
+                            <button type="submit" class="btn-primary">
+                                Teslimat Oluştur
+                            </button>
+                        </form>
+                    }
+                </div>
+            </article>
+        }
+    }
+</section>
+
+@section Styles {
+    <style>
+        .request-list {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .request-card,
+        .empty-state {
+            background: white;
+            border-radius: 20px;
+            padding: 28px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .request-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+            .request-header h3 {
+                color: #145c24;
+                margin: 0 0 6px;
+                font-size: 22px;
+            }
+
+            .request-header p {
+                color: #526b7a;
+                margin: 0;
+                line-height: 1.5;
+            }
+
+        .status-badge {
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .status-pending {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .status-approved {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-cancelled,
+        .status-default {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .request-info {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+            .request-info div {
+                background: #f8faf8;
+                border-radius: 14px;
+                padding: 14px;
+            }
+
+            .request-info span {
+                display: block;
+                color: #6b7280;
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+
+            .request-info strong {
+                color: #1f2937;
+                line-height: 1.5;
+            }
+
+        .card-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .action-form {
+            margin: 0;
+        }
+
+        .empty-state {
+            text-align: center;
+        }
+
+            .empty-state h3 {
+                color: #145c24;
+                font-size: 26px;
+                margin-bottom: 10px;
+            }
+
+            .empty-state p {
+                color: #526b7a;
+                margin-bottom: 0;
+            }
+
+        @@media (max-width: 900px) {
+            .request-info {
+                grid-template-columns: 1fr;
+            }
+
+            .request-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+}

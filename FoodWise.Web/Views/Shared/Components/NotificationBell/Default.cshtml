@@ -1,0 +1,48 @@
+﻿@model FoodWise.Web.ViewModels.Notification.NotificationBellViewModel
+
+@*
+    Bu ViewComponent görünümü, sağ üstteki bildirim zilini ve son bildirim dropdown listesini gösterir.
+    Zile tıklanınca bildirimler açılır, bildirime veya Tümünü Gör bağlantısına tıklanınca Bildirimler sayfasına gidilir.
+*@
+
+<div class="notification-wrapper">
+    <button type="button" class="notification-bell" id="notificationBell">
+        <span>🔔</span>
+
+        @if (Model.UnreadCount > 0)
+        {
+            <span class="notification-count">@Model.UnreadCount</span>
+        }
+    </button>
+
+    <div class="notification-dropdown" id="notificationDropdown">
+        <div class="notification-dropdown-header">
+            <strong>Bildirimler</strong>
+            <a asp-controller="Notification" asp-action="Index">Tümünü Gör</a>
+        </div>
+
+        @if (Model.RecentNotifications == null || !Model.RecentNotifications.Any())
+        {
+            <div class="notification-empty">
+                Henüz bildirim yok.
+            </div>
+        }
+        else
+        {
+            @foreach (var notification in Model.RecentNotifications)
+            {
+                var readClass = notification.IsRead ? "read" : "unread";
+
+                <a asp-controller="Notification"
+                   asp-action="Index"
+                   class="notification-item @readClass">
+                    <div>
+                        <strong>@notification.Title</strong>
+                        <p>@notification.Message</p>
+                        <span>@notification.CreatedAt.ToString("dd.MM.yyyy HH:mm")</span>
+                    </div>
+                </a>
+            }
+        }
+    </div>
+</div>

@@ -1,0 +1,575 @@
+﻿@*
+    FoodWise genel layout dosyasıdır.
+    Sidebar menüsü, üst başlık alanı, sağ üst bildirim zili, profil kutusu,
+    ortak buton stilleri ve ortak mesaj alanları bu dosyada tutulur.
+    Sayfalar sadece kendi içeriklerini RenderBody alanına gönderir.
+*@
+
+@{
+    // Sayfa başlığı ve açıklaması ilgili View tarafından ViewData ile gönderilir.
+    var pageTitle = ViewData["PageTitle"] as string ?? ViewData["Title"] as string ?? "FoodWise";
+    var pageDescription = ViewData["PageDescription"] as string ?? "";
+
+    // Aktif menü linkini belirlemek için mevcut controller/action bilgileri alınır.
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+
+    bool IsController(string controller)
+    {
+        return string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase);
+    }
+
+    bool IsAction(string controller, string action)
+    {
+        return string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Aynı menü altında değerlendirilecek sayfalar burada gruplanır.
+    var isStockIndexActive = IsAction("Stock", "Index") || IsAction("Stock", "Create");
+    var isStockRiskyActive = IsAction("Stock", "Risky");
+
+    var isSharingMineActive =
+        IsAction("Sharing", "MyListings") ||
+        IsAction("Sharing", "Requests") ||
+        IsAction("Sharing", "Create");
+
+    var isSharingAvailableActive = IsAction("Sharing", "Available");
+}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@pageTitle</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f3f8f4;
+            color: #1f2937;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: #145c24;
+            color: white;
+            padding: 28px 20px;
+            box-sizing: border-box;
+        }
+
+        .brand {
+            margin-bottom: 34px;
+        }
+
+            .brand h1 {
+                margin: 0 0 12px;
+                font-size: 34px;
+                font-weight: 800;
+            }
+
+            .brand p {
+                margin: 0;
+                color: #e6f4ea;
+                line-height: 1.5;
+                font-size: 14px;
+            }
+
+        .menu {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .menu-title {
+            font-size: 12px;
+            color: #c8e6c9;
+            text-transform: uppercase;
+            margin: 18px 0 6px;
+            letter-spacing: 0.6px;
+        }
+
+        .menu a,
+        .logout-button {
+            color: white;
+            text-decoration: none;
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            background: transparent;
+            border: none;
+            text-align: left;
+            font-size: 15px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+            .menu a.active,
+            .menu a:hover,
+            .logout-button:hover {
+                background: rgba(255, 255, 255, 0.18);
+            }
+
+        .logout-form {
+            margin: 0;
+        }
+
+        .content {
+            flex: 1;
+            padding: 36px;
+            box-sizing: border-box;
+        }
+
+        .topbar {
+            background: white;
+            border-radius: 20px;
+            padding: 24px 28px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+            .topbar h2 {
+                color: #145c24;
+                font-size: 30px;
+                margin: 0 0 8px;
+            }
+
+            .topbar p {
+                margin: 0;
+                color: #526b7a;
+                line-height: 1.5;
+            }
+
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        /* Sağ üst bildirim zili alanı */
+        .notification-wrapper {
+            position: relative;
+        }
+
+        .notification-bell {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #f4f7f5;
+            color: #1b5e20;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+            .notification-bell:hover {
+                background: #e8f5e9;
+            }
+
+        .notification-count {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 18px;
+            height: 18px;
+            background: #dc2626;
+            color: white;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+        }
+
+        .notification-dropdown {
+            display: none;
+            position: absolute;
+            top: 54px;
+            right: 0;
+            width: 340px;
+            max-height: 420px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+            z-index: 30;
+        }
+
+            .notification-dropdown.show {
+                display: block;
+            }
+
+        .notification-dropdown-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid #eef2f4;
+        }
+
+            .notification-dropdown-header strong {
+                color: #1b5e20;
+            }
+
+            .notification-dropdown-header a {
+                color: #2e7d32;
+                font-size: 13px;
+                font-weight: 700;
+                text-decoration: none;
+            }
+
+        .notification-item {
+            display: block;
+            padding: 14px 16px;
+            text-decoration: none;
+            border-bottom: 1px solid #eef2f4;
+        }
+
+            .notification-item:hover {
+                background: #f4f7f5;
+            }
+
+            .notification-item.unread {
+                border-left: 4px solid #238636;
+            }
+
+            .notification-item.read {
+                opacity: 0.75;
+            }
+
+            .notification-item strong {
+                display: block;
+                color: #263238;
+                font-size: 14px;
+                margin-bottom: 4px;
+            }
+
+            .notification-item p {
+                color: #607d8b;
+                font-size: 13px;
+                margin: 0 0 6px;
+                line-height: 1.4;
+            }
+
+            .notification-item span {
+                color: #90a4ae;
+                font-size: 12px;
+            }
+
+        .notification-empty {
+            padding: 18px 16px;
+            color: #607d8b;
+            font-size: 14px;
+        }
+
+        /* Sağ üst kullanıcı profil kutusu */
+        .user-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-align: left;
+            font-size: 14px;
+            color: #455a64;
+            padding: 8px 10px;
+            border-radius: 14px;
+        }
+
+        .user-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: #2e7d32;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .user-info strong {
+            display: block;
+            color: #263238;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .user-info span {
+            color: #607d8b;
+            font-size: 13px;
+        }
+
+        .profile-link {
+            text-decoration: none;
+        }
+
+            .profile-link:hover {
+                background: #f4f7f5;
+            }
+
+                .profile-link:hover strong {
+                    color: #1b5e20;
+                }
+
+        .success-message {
+            background: #e8f7ea;
+            border-left: 5px solid #238636;
+            color: #17652a;
+            padding: 16px 20px;
+            border-radius: 14px;
+            margin-bottom: 24px;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            border-left: 5px solid #dc2626;
+            color: #991b1b;
+            padding: 16px 20px;
+            border-radius: 14px;
+            margin-bottom: 24px;
+        }
+
+        .btn-primary,
+        .btn-secondary,
+        .btn-danger {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: #238636;
+        }
+
+            .btn-primary:hover {
+                background: #1f7a30;
+            }
+
+        .btn-secondary {
+            background: #405a68;
+        }
+
+            .btn-secondary:hover {
+                background: #344955;
+            }
+
+        .btn-danger {
+            background: #dc2626;
+        }
+
+            .btn-danger:hover {
+                background: #b91c1c;
+            }
+
+        @@media (max-width: 900px) {
+            .layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+            }
+
+            .content {
+                padding: 18px;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .topbar-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
+
+        @@media (max-width: 600px) {
+            .notification-dropdown {
+                right: auto;
+                left: 0;
+                width: 300px;
+            }
+        }
+    </style>
+
+    @* Her sayfa kendi özel CSS kodlarını bu section üzerinden ekleyebilir. *@
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="brand">
+                <h1>FoodWise</h1>
+                <p>Akıllı stok ve paylaşım sistemi</p>
+            </div>
+
+            <nav class="menu">
+                <div class="menu-title">Ana Menü</div>
+
+                <a asp-controller="Home"
+                   asp-action="Index"
+                   class="@(IsController("Home") ? "active" : "")">
+                    Dashboard
+                </a>
+
+                <a asp-controller="Stock"
+                   asp-action="Index"
+                   class="@(isStockIndexActive ? "active" : "")">
+                    Stoklarım
+                </a>
+
+                <a asp-controller="Stock"
+                   asp-action="Risky"
+                   class="@(isStockRiskyActive ? "active" : "")">
+                    Riskli Ürünler
+                </a>
+
+                <a asp-controller="Recipe"
+                   asp-action="Index"
+                   class="@(IsController("Recipe") ? "active" : "")">
+                    Tarif Önerileri
+                </a>
+
+                <a asp-controller="Sharing"
+                   asp-action="MyListings"
+                   class="@(isSharingMineActive ? "active" : "")">
+                    Paylaşım İlanları
+                </a>
+
+                <a asp-controller="Sharing"
+                   asp-action="Available"
+                   class="@(isSharingAvailableActive ? "active" : "")">
+                    Mevcut İlanlar
+                </a>
+
+                <a asp-controller="Delivery"
+                   asp-action="Index"
+                   class="@(IsController("Delivery") ? "active" : "")">
+                    Teslimatlar
+                </a>
+
+                <a asp-controller="Notification"
+                   asp-action="Index"
+                   class="@(IsController("Notification") ? "active" : "")">
+                    Bildirimler
+                </a>
+
+                <a asp-controller="CarbonReport"
+                   asp-action="Index"
+                   class="@(IsController("CarbonReport") ? "active" : "")">
+                    Karbon Raporu
+                </a>
+
+                <div class="menu-title">Hesap</div>
+
+                <a asp-controller="Profile"
+                   asp-action="Index"
+                   class="@(IsController("Profile") ? "active" : "")">
+                    Profilim
+                </a>
+
+                @* Çıkış işlemi güvenli olması için POST olarak yapılır. *@
+                <form asp-controller="Auth" asp-action="Logout" method="post" class="logout-form">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="logout-button">Çıkış Yap</button>
+                </form>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <section class="topbar">
+                <div>
+                    <h2>@pageTitle</h2>
+
+                    @if (!string.IsNullOrWhiteSpace(pageDescription))
+                    {
+                        <p>@pageDescription</p>
+                    }
+                </div>
+
+                <div class="topbar-actions">
+                    @* Sayfaya özel üst alan butonları buraya gelir. Örneğin: Yeni Stok Ekle, Geri Dön vb. *@
+                    @await RenderSectionAsync("TopbarActions", required: false)
+
+                    @* Sağ üst bildirim zili ortak ViewComponent olarak çağrılır. *@
+                    @await Component.InvokeAsync("NotificationBell")
+
+                    @* Sağ üst kullanıcı profil kutusu ortak partial view olarak çağrılır. *@
+                    <partial name="_UserTopProfile" />
+                </div>
+            </section>
+
+            @if (TempData["SuccessMessage"] != null)
+            {
+                <div class="success-message">
+                    @TempData["SuccessMessage"]
+                </div>
+            }
+
+            @if (TempData["ErrorMessage"] != null)
+            {
+                <div class="error-message">
+                    @TempData["ErrorMessage"]
+                </div>
+            }
+
+            @* Sayfaların asıl içerikleri burada gösterilir. *@
+            @RenderBody()
+        </main>
+    </div>
+
+    @* Bildirim zili dropdown aç/kapat işlemleri burada yönetilir. *@
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const notificationBell = document.getElementById("notificationBell");
+            const notificationDropdown = document.getElementById("notificationDropdown");
+
+            if (!notificationBell || !notificationDropdown) {
+                return;
+            }
+
+            notificationBell.addEventListener("click", function (event) {
+                event.stopPropagation();
+                notificationDropdown.classList.toggle("show");
+            });
+
+            document.addEventListener("click", function () {
+                notificationDropdown.classList.remove("show");
+            });
+
+            notificationDropdown.addEventListener("click", function (event) {
+                event.stopPropagation();
+            });
+        });
+    </script>
+
+    @* Her sayfa kendi JavaScript kodlarını bu section üzerinden ekleyebilir. *@
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

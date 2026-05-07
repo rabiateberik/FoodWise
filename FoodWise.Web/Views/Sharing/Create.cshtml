@@ -1,0 +1,186 @@
+﻿@model FoodWise.Web.ViewModels.Sharing.CreateShareListingViewModel
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    ViewData["Title"] = "Paylaşıma Aç";
+    ViewData["PageDescription"] = "Riskli ürününü güvenli teslim noktası üzerinden başka kullanıcılarla paylaşabilirsin.";
+}
+
+@*
+    Paylaşıma Aç sayfası ortak FoodWise layout yapısını kullanır.
+    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
+    Bu dosyada sadece paylaşım ilanı oluşturma formu ve sayfaya özel form stilleri bulunur.
+*@
+
+@section TopbarActions {
+    <a asp-controller="Stock" asp-action="Risky" class="btn-secondary">
+        Riskli Ürünlere Dön
+    </a>
+}
+
+<section class="form-card">
+    <div class="product-info">
+        @if (!string.IsNullOrWhiteSpace(Model.ProductName))
+        {
+            <p>
+                <strong>@Model.ProductName</strong> ürününü güvenli teslim noktası üzerinden paylaşabilirsin.
+            </p>
+        }
+        else
+        {
+            <p>
+                Stok ürününü güvenli teslim noktası üzerinden paylaşabilirsin.
+            </p>
+        }
+    </div>
+
+    <form asp-controller="Sharing" asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+
+        @* Paylaşıma açılacak stok ürünü bilgisi form içinde gizli olarak gönderilir. *@
+        <input asp-for="StockItemId" type="hidden" />
+        <input asp-for="ProductName" type="hidden" />
+
+        @* Model seviyesindeki doğrulama hataları burada gösterilir. *@
+        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label asp-for="Title"></label>
+                <input asp-for="Title" placeholder="Örn: Bugün alınabilecek yoğurt paylaşımı" />
+                <span asp-validation-for="Title"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="DeliveryPointId"></label>
+                <select asp-for="DeliveryPointId" asp-items="Model.DeliveryPoints">
+                    <option value="">Teslim noktası seçiniz</option>
+                </select>
+                <span asp-validation-for="DeliveryPointId"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Quantity"></label>
+                <input asp-for="Quantity" type="number" step="0.01" />
+                <span asp-validation-for="Quantity"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="PickupStartTime"></label>
+                <input asp-for="PickupStartTime" type="datetime-local" />
+                <span asp-validation-for="PickupStartTime"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="PickupEndTime"></label>
+                <input asp-for="PickupEndTime" type="datetime-local" />
+                <span asp-validation-for="PickupEndTime"></span>
+            </div>
+        </div>
+
+        <div class="form-group full">
+            <label asp-for="Description"></label>
+            <textarea asp-for="Description"
+                      rows="4"
+                      placeholder="Ürün durumu, teslim notu veya ek açıklama yazabilirsin."></textarea>
+            <span asp-validation-for="Description"></span>
+        </div>
+
+        <button type="submit" class="btn-primary">
+            Paylaşım İlanı Oluştur
+        </button>
+    </form>
+</section>
+
+@section Styles {
+    <style>
+        .form-card {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .product-info {
+            background: #f3f8f4;
+            border-left: 5px solid #238636;
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 24px;
+        }
+
+            .product-info p {
+                margin: 0;
+                color: #405a68;
+                line-height: 1.5;
+            }
+
+            .product-info strong {
+                color: #145c24;
+            }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+            .form-group.full {
+                margin-top: 4px;
+            }
+
+        label {
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        input,
+        select,
+        textarea {
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 13px 14px;
+            font-size: 15px;
+            outline: none;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+            input:focus,
+            select:focus,
+            textarea:focus {
+                border-color: #238636;
+            }
+
+        .form-group span {
+            color: #dc2626;
+            font-size: 13px;
+        }
+
+        .validation-summary {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+            .validation-summary:empty {
+                display: none;
+            }
+
+        @@media (max-width: 800px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+}

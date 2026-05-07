@@ -1,0 +1,197 @@
+﻿@*
+    Bu sayfa, FoodWise.Web kullanıcı kayıt ekranıdır.
+    Kullanıcıdan temel kayıt bilgileri alınır ve AuthController üzerinden FoodWise.API register endpointine gönderilir.
+    Kayıt başarılı olursa API'den gelen JWT token Session içine kaydedilir ve kullanıcı ana panele yönlendirilir.
+*@
+
+@model FoodWise.Web.ViewModels.Auth.RegisterViewModel
+
+@{
+    Layout = null;
+    ViewData["Title"] = "FoodWise - Kayıt Ol";
+}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"]</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: linear-gradient(135deg, #e8f5e9, #ffffff);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 460px;
+            background: #ffffff;
+            padding: 34px;
+            border-radius: 18px;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
+        }
+
+        .brand {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+            .brand h1 {
+                margin: 0;
+                color: #2e7d32;
+                font-size: 34px;
+                font-weight: 700;
+            }
+
+            .brand p {
+                margin-top: 8px;
+                color: #666;
+                font-size: 15px;
+            }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 7px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #d6d6d6;
+            border-radius: 10px;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+
+            input:focus {
+                outline: none;
+                border-color: #43a047;
+                box-shadow: 0 0 0 3px rgba(67, 160, 71, 0.14);
+            }
+
+        .btn-primary {
+            width: 100%;
+            border: none;
+            padding: 13px;
+            border-radius: 10px;
+            background: #2e7d32;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 6px;
+        }
+
+            .btn-primary:hover {
+                background: #1b5e20;
+            }
+
+        .bottom-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+            .bottom-link a {
+                color: #2e7d32;
+                font-weight: 700;
+                text-decoration: none;
+            }
+
+        .validation-summary {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 18px;
+            font-size: 14px;
+        }
+
+        .field-validation-error {
+            display: block;
+            margin-top: 6px;
+            color: #c62828;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="brand">
+            <h1>FoodWise</h1>
+            <p>Hanehalkı gıda israfını azaltmak için akıllı çözüm</p>
+        </div>
+
+        @* Form veya API kaynaklı genel hata mesajları burada gösterilir. *@
+        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+        <form asp-controller="Auth" asp-action="Register" method="post">
+            @Html.AntiForgeryToken()
+
+            <div class="form-group">
+                <label asp-for="FullName">Ad Soyad</label>
+                <input asp-for="FullName" placeholder="Adınızı ve soyadınızı giriniz" />
+                <span asp-validation-for="FullName"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Email">Email</label>
+                <input asp-for="Email" placeholder="ornek@mail.com" />
+                <span asp-validation-for="Email"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="City">Şehir</label>
+                <input asp-for="City" placeholder="Örn: İstanbul" />
+                <span asp-validation-for="City"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="District">İlçe</label>
+                <input asp-for="District" placeholder="Örn: Kadıköy" />
+                <span asp-validation-for="District"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Neighborhood">Mahalle</label>
+                <input asp-for="Neighborhood" placeholder="Örn: Eğitim Mahallesi" />
+                <span asp-validation-for="Neighborhood"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Password">Şifre</label>
+                <input asp-for="Password" placeholder="En az 6 karakter" />
+                <span asp-validation-for="Password"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="ConfirmPassword">Şifre Tekrar</label>
+                <input asp-for="ConfirmPassword" placeholder="Şifrenizi tekrar giriniz" />
+                <span asp-validation-for="ConfirmPassword"></span>
+            </div>
+
+            <button type="submit" class="btn-primary">Kayıt Ol</button>
+        </form>
+
+        <div class="bottom-link">
+            Zaten hesabın var mı?
+            <a asp-controller="Auth" asp-action="Login">Giriş Yap</a>
+        </div>
+    </div>
+</body>
+</html>

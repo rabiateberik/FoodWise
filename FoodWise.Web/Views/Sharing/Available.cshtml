@@ -1,0 +1,190 @@
+﻿@using FoodWise.Web.Helpers
+@model List<FoodWise.Web.ViewModels.Sharing.ShareListingViewModel>
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    ViewData["Title"] = "Mevcut Paylaşım İlanları";
+    ViewData["PageDescription"] = "Diğer kullanıcıların paylaşıma açtığı ürünlere buradan talep gönderebilirsin.";
+}
+
+@*
+    Mevcut Paylaşım İlanları sayfası ortak FoodWise layout yapısını kullanır.
+    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
+    Bu dosyada sadece mevcut ilan kartları, talep gönderme formu ve sayfaya özel stiller bulunur.
+*@
+
+@section TopbarActions {
+    <a asp-controller="Sharing" asp-action="MyListings" class="btn-secondary">
+        Benim İlanlarım
+    </a>
+}
+
+<section class="listing-grid">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            <h3>Şu anda mevcut ilan yok.</h3>
+            <p>Diğer kullanıcılar ürün paylaşıma açtığında burada görünecek.</p>
+        </div>
+    }
+    else
+    {
+        @foreach (var listing in Model)
+        {
+            <article class="listing-card">
+                <div class="listing-header">
+                    <div>
+                        <h3>@listing.Title</h3>
+                        <p>
+                            @listing.ProductName -
+                            @listing.Quantity @DisplayTextHelper.GetUnitText(listing.UnitName)
+                        </p>
+                    </div>
+
+                    <span class="status-badge">
+                        @DisplayTextHelper.GetShareListingStatusText(listing.Status)
+                    </span>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(listing.Description))
+                {
+                    <p class="description">@listing.Description</p>
+                }
+
+                <div class="listing-info">
+                    <div>
+                        <span>Teslim Noktası</span>
+                        <strong>@listing.DeliveryPointName</strong>
+                    </div>
+
+                    <div>
+                        <span>Teslim Aralığı</span>
+                        <strong>
+                            @listing.PickupStartTime.ToString("dd.MM.yyyy HH:mm")
+                            -
+                            @listing.PickupEndTime.ToString("dd.MM.yyyy HH:mm")
+                        </strong>
+                    </div>
+                </div>
+
+                @* Kullanıcı bu form ile seçtiği paylaşım ilanına talep gönderir. *@
+                <form asp-controller="Sharing" asp-action="CreateRequest" method="post" class="request-form">
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden" name="listingId" value="@listing.Id" />
+
+                    <button type="submit" class="btn-primary">
+                        Talep Gönder
+                    </button>
+                </form>
+            </article>
+        }
+    }
+</section>
+
+@section Styles {
+    <style>
+        .listing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 22px;
+        }
+
+        .listing-card {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .listing-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+            .listing-header h3 {
+                color: #145c24;
+                margin: 0 0 6px;
+                font-size: 22px;
+            }
+
+            .listing-header p,
+            .description {
+                color: #526b7a;
+                margin: 0;
+                line-height: 1.5;
+            }
+
+        .status-badge {
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .listing-info {
+            display: grid;
+            gap: 12px;
+            margin: 18px 0;
+        }
+
+            .listing-info div {
+                background: #f8faf8;
+                border-radius: 14px;
+                padding: 14px;
+            }
+
+            .listing-info span {
+                display: block;
+                color: #6b7280;
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+
+            .listing-info strong {
+                color: #1f2937;
+                line-height: 1.5;
+            }
+
+        .request-form {
+            margin: 0;
+        }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 20px;
+            padding: 50px 24px;
+            text-align: center;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+            .empty-state h3 {
+                color: #145c24;
+                font-size: 26px;
+                margin-bottom: 10px;
+            }
+
+            .empty-state p {
+                color: #526b7a;
+                margin-bottom: 0;
+            }
+
+        @@media (max-width: 900px) {
+            .listing-header {
+                flex-direction: column;
+            }
+
+            .listing-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+}
