@@ -39,6 +39,8 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ICarbonReportService, CarbonReportService>();
 // Profil bilgilerini yöneten servis burada Dependency Injection container'a eklenir.
 builder.Services.AddScoped<IProfileService, ProfileService>();
+// Eco puan geçmiþi ve toplam puan hesaplama iþlemleri için servis kaydý.
+builder.Services.AddScoped<IEcoPointService, EcoPointService>();
 // JWT Authentication ayarlarý yapýlýr.
 // Böylece [Authorize] kullanýlan endpointler token ile korunabilir.
 builder.Services.AddAuthentication(options =>

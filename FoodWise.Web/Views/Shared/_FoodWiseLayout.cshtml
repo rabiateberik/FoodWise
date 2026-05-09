@@ -479,7 +479,11 @@
                    class="@(IsController("Notification") ? "active" : "")">
                     Bildirimler
                 </a>
-
+                <a asp-controller="EcoPoint"
+                   asp-action="Index"
+                   class="@(IsController("EcoPoint") ? "active" : "")">
+                    Eco Puan
+                </a>
                 <a asp-controller="CarbonReport"
                    asp-action="Index"
                    class="@(IsController("CarbonReport") ? "active" : "")">

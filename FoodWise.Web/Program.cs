@@ -50,6 +50,8 @@ builder.Services.AddHttpClient<ICarbonReportWebService, CarbonReportWebService>(
 builder.Services.AddHttpClient<IDeliveryWebService, DeliveryWebService>();
 // Profile API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr.
 builder.Services.AddHttpClient<IProfileWebService, ProfileWebService>();
+// Eco puan özetini ve puan geçmiþini API'den çekmek için Web servis kaydý.
+builder.Services.AddHttpClient<IEcoPointWebService, EcoPointWebService>();
 var app = builder.Build();
 
 // Production ortamýnda hata sayfasý yönetimi yapýlýr.

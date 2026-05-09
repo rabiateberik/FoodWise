@@ -37,6 +37,11 @@
         <div class="value">@Model.CarbonSavedKg.ToString("0.##") kg</div>
         <div class="hint">Tamamlanan paylaşımlardan hesaplanan tahmini karbon tasarrufu.</div>
     </div>
+    <div class="card">
+        <div class="label">Eco Puanım</div>
+        <div class="value">@Model.EcoPoint</div>
+        <div class="hint">@Model.EcoPointLevelName seviyesindesin.</div>
+    </div>
 </section>
 
 <section class="section">
@@ -71,11 +76,10 @@
     <style>
         .cards {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 18px;
             margin-bottom: 26px;
         }
-
         .card {
             background: white;
             border-radius: 18px;

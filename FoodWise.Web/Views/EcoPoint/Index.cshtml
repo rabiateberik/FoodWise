@@ -1,0 +1,195 @@
+﻿@model FoodWise.Web.ViewModels.EcoPoint.EcoPointPageViewModel
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    ViewData["Title"] = "Eco Puan";
+    ViewData["PageDescription"] = "Sürdürülebilir davranışlarından kazandığın eco puanları ve puan geçmişini buradan takip edebilirsin.";
+}
+
+@*
+    Eco Puan sayfası ortak FoodWise layout yapısını kullanır.
+    Bu sayfada kullanıcının toplam eco puanı, seviye bilgisi ve puan geçmişi gösterilir.
+*@
+
+<section class="eco-summary-grid">
+    <div class="eco-summary-card main">
+        <span>Toplam Eco Puan</span>
+        <strong>@Model.Summary.TotalPoint</strong>
+        <p>@Model.Summary.LevelName seviyesindesin.</p>
+    </div>
+
+    <div class="eco-summary-card">
+        <span>Seviye</span>
+        <strong>@Model.Summary.LevelName</strong>
+        <p>Paylaşım ve teslimat süreçlerine katıldıkça seviyen yükselir.</p>
+    </div>
+
+    <div class="eco-summary-card">
+        <span>Puan Hareketi</span>
+        <strong>@Model.Summary.HistoryCount</strong>
+        <p>Bugüne kadar kazandığın eco puan işlem sayısı.</p>
+    </div>
+</section>
+
+<section class="eco-history-card">
+    <div class="section-header">
+        <div>
+            <h3>Eco Puan Geçmişi</h3>
+            <p>Hangi işlemden kaç puan kazandığını buradan görebilirsin.</p>
+        </div>
+    </div>
+
+    @if (Model.History == null || !Model.History.Any())
+    {
+        <div class="empty-state">
+            <h3>Henüz eco puan geçmişi yok.</h3>
+            <p>Teslimat tamamladığında kazandığın puanlar burada listelenecek.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>İşlem</th>
+                        <th>Açıklama</th>
+                        <th>Puan</th>
+                        <th>Tarih</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var item in Model.History)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@item.ActionTypeText</strong>
+                            </td>
+
+                            <td>
+                                @item.Description
+                            </td>
+
+                            <td>
+                                <span class="point-badge">+@item.Point</span>
+                            </td>
+
+                            <td>
+                                @item.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@section Styles {
+    <style>
+        .eco-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .eco-summary-card,
+        .eco-history-card {
+            background: white;
+            border-radius: 20px;
+            padding: 28px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+            .eco-summary-card.main {
+                border-left: 6px solid #238636;
+            }
+
+            .eco-summary-card span {
+                display: block;
+                color: #607d8b;
+                font-size: 14px;
+                margin-bottom: 12px;
+            }
+
+            .eco-summary-card strong {
+                display: block;
+                color: #145c24;
+                font-size: 30px;
+                margin-bottom: 10px;
+            }
+
+            .eco-summary-card p,
+            .section-header p {
+                margin: 0;
+                color: #526b7a;
+                line-height: 1.5;
+            }
+
+        .section-header {
+            margin-bottom: 18px;
+        }
+
+            .section-header h3 {
+                color: #145c24;
+                font-size: 24px;
+                margin: 0 0 8px;
+            }
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            min-width: 760px;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            color: #486273;
+            padding: 14px;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 16px 14px;
+            border-bottom: 1px solid #eef2f4;
+            vertical-align: top;
+            color: #1f2937;
+        }
+
+        .point-badge {
+            display: inline-block;
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .empty-state {
+            background: #f8faf8;
+            border-radius: 16px;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+            .empty-state h3 {
+                color: #145c24;
+                margin-bottom: 10px;
+            }
+
+            .empty-state p {
+                color: #526b7a;
+                margin: 0;
+            }
+    </style>
+}

@@ -21,4 +21,12 @@ public class ProfileViewModel
     public int ReliabilityScore { get; set; }
 
     public DateTime CreatedAt { get; set; }
+    // Kullanıcının toplam eco puanını profil sayfasında göstermek için kullanılır.
+    public int EcoPoint { get; set; }
+
+    // Kullanıcının eco puan seviyesini profil sayfasında göstermek için kullanılır.
+    public string EcoPointLevelName { get; set; } = string.Empty;
+
+    // Kullanıcının kaç eco puan işlemi olduğunu göstermek için kullanılır.
+    public int EcoPointHistoryCount { get; set; }
 }

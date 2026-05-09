@@ -30,7 +30,8 @@ public class FoodWiseDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DeliveryBox> DeliveryBoxes { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<CarbonReport> CarbonReports { get; set; }
-
+    // Kullanıcıların kazandığı eco puan geçmişi bu tablo üzerinden takip edilir.
+    public DbSet<EcoPointHistory> EcoPointHistories { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -343,5 +344,37 @@ public class FoodWiseDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Delivery>()
             .Property(x => x.DropOffImageUrl)
             .HasMaxLength(500);
+        // EcoPointHistory tablosu, kullanıcıların eco puan kazanma geçmişini tutar.
+        builder.Entity<EcoPointHistory>()
+            .HasKey(x => x.Id);
+
+        builder.Entity<EcoPointHistory>()
+            .Property(x => x.UserId)
+            .IsRequired();
+
+        builder.Entity<EcoPointHistory>()
+            .Property(x => x.Point)
+            .IsRequired();
+
+        builder.Entity<EcoPointHistory>()
+            .Property(x => x.ActionType)
+            .IsRequired();
+
+        builder.Entity<EcoPointHistory>()
+            .Property(x => x.Description)
+            .HasMaxLength(500);
+
+        builder.Entity<EcoPointHistory>()
+            .Property(x => x.CreatedAt)
+            .IsRequired();
+
+        // Eco puan kaydı bir teslimatla ilişkili olabilir.
+        // Teslimat silinse bile puan geçmişi korunur.
+        builder.Entity<EcoPointHistory>()
+            .HasOne(x => x.Delivery)
+            .WithMany()
+            .HasForeignKey(x => x.DeliveryId)
+            .OnDelete(DeleteBehavior.SetNull);
+
     }
 }

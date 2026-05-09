@@ -18,10 +18,13 @@ namespace FoodWise.Infrastructure.Services;
 public class DeliveryService : IDeliveryService
 {
     private readonly FoodWiseDbContext _context;
-
-    public DeliveryService(FoodWiseDbContext context)
+    private readonly IEcoPointService _ecoPointService;
+    public DeliveryService(
+      FoodWiseDbContext context,
+      IEcoPointService ecoPointService)
     {
         _context = context;
+        _ecoPointService = ecoPointService;
     }
 
     public async Task<DeliveryDto?> CreateDeliveryAsync(string donorUserId, int shareRequestId)
@@ -238,6 +241,23 @@ public class DeliveryService : IDeliveryService
         }
 
         await _context.SaveChangesAsync();
+
+        // Teslimat başarıyla tamamlandığında bağış yapan kullanıcı eco puan kazanır.
+        // Aynı teslimat için tekrar puan yazılmaması EcoPointService içinde kontrol edilir.
+        await _ecoPointService.AddPointAsync(
+            delivery.DonorUserId,
+            10,
+            EcoPointActionType.DeliveryCompletedAsDonor,
+            "Paylaştığın ürün başarıyla teslim edildi. Eco puan kazandın.",
+            delivery.Id);
+
+        // Teslim alan kullanıcı da sürdürülebilir paylaşım sürecine katıldığı için eco puan kazanır.
+        await _ecoPointService.AddPointAsync(
+            delivery.ReceiverUserId,
+            3,
+            EcoPointActionType.DeliveryCompletedAsReceiver,
+            "Paylaşılan ürünü başarıyla teslim aldın. Eco puan kazandın.",
+            delivery.Id);
 
         var completedDelivery = await GetDeliveryEntityByIdAsync(delivery.Id);
 

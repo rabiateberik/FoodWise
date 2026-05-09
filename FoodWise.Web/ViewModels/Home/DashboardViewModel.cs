@@ -18,5 +18,9 @@ public class DashboardViewModel
     public int UnreadNotificationCount { get; set; }
 
     public decimal CarbonSavedKg { get; set; }
+    // Dashboard üzerinde kullanıcının eco puan bilgisini göstermek için kullanılır.
+    public int EcoPoint { get; set; }
+
+    public string EcoPointLevelName { get; set; } = string.Empty;
     public List<NotificationViewModel> RecentNotifications { get; set; } = new();
 }
