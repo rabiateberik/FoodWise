@@ -71,11 +71,15 @@ public class StockService : IStockService
 
     public async Task<StockItemDto> CreateAsync(string userId, CreateStockItemDto model)
     {
+        // Ürün sistemde varsa mevcut ProductId kullanılır.
+        // Ürün sistemde yoksa ProductName ile yeni ürün otomatik oluşturulur.
+        var product = await GetOrCreateProductAsync(userId, model.ProductId, model.ProductName);
+
         // Yeni stok kaydı oluşturulur.
         var stockItem = new StockItem
         {
             UserId = userId,
-            ProductId = model.ProductId,
+            ProductId = product.Id,
             UnitId = model.UnitId,
             Quantity = model.Quantity,
             ExpirationDate = model.ExpirationDate,
@@ -101,7 +105,84 @@ public class StockService : IStockService
 
         return MapToDto(createdStockItem);
     }
+    private async Task<Product> GetOrCreateProductAsync(string userId, CreateStockItemDto model)
+    {
+        // Kullanıcı öneri listesinden mevcut ürünü seçtiyse o ürün kullanılır.
+        if (model.ProductId.HasValue && model.ProductId.Value > 0)
+        {
+            var existingProductById = await _context.Products
+                .FirstOrDefaultAsync(x =>
+                    x.Id == model.ProductId.Value &&
+                    x.IsActive &&
+                    x.IsApproved);
 
+            if (existingProductById != null)
+                return existingProductById;
+        }
+
+        var productName = model.ProductName?.Trim();
+
+        if (string.IsNullOrWhiteSpace(productName))
+            throw new InvalidOperationException("Ürün adı boş olamaz.");
+
+        // Aynı isimde aktif ürün varsa yeni kayıt açmadan mevcut ürün kullanılır.
+        var existingProductByName = await _context.Products
+            .FirstOrDefaultAsync(x =>
+                x.Name.ToLower() == productName.ToLower() &&
+                x.IsActive);
+
+        if (existingProductByName != null)
+            return existingProductByName;
+
+        // Kullanıcı listede olmayan bir ürün yazarsa ürün otomatik olarak Diğer kategorisine eklenir.
+        var otherCategory = await GetOrCreateOtherCategoryAsync();
+
+        var newProduct = new Product
+        {
+            CategoryId = otherCategory.Id,
+            Name = productName,
+            DefaultShelfLifeDays = 7,
+            OpenedShelfLifeDays = null,
+            CarbonFactor = 1,
+            IsSensitiveFood = false,
+
+            // Admin paneli gelene kadar kullanıcı ürünleri otomatik onaylı kabul edilir.
+            IsSystemDefined = false,
+            IsApproved = true,
+            CreatedByUserId = userId,
+
+            CreatedAt = DateTime.Now,
+            IsActive = true
+        };
+
+        await _context.Products.AddAsync(newProduct);
+        await _context.SaveChangesAsync();
+
+        return newProduct;
+    }
+
+    private async Task<Category> GetOrCreateOtherCategoryAsync()
+    {
+        // Yeni kullanıcı ürünleri için varsayılan kategori olarak Diğer kullanılır.
+        var otherCategory = await _context.Categories
+            .FirstOrDefaultAsync(x => x.Name == "Diğer" && x.IsActive);
+
+        if (otherCategory != null)
+            return otherCategory;
+
+        var category = new Category
+        {
+            Name = "Diğer",
+            Description = "Kullanıcı tarafından eklenen ve belirli kategoriye atanamayan ürünler için varsayılan kategori.",
+            CreatedAt = DateTime.Now,
+            IsActive = true
+        };
+
+        await _context.Categories.AddAsync(category);
+        await _context.SaveChangesAsync();
+
+        return category;
+    }
     public async Task<StockItemDto?> UpdateAsync(int id, string userId, UpdateStockItemDto model)
     {
         // Güncellenecek stok kaydı kullanıcıya ait mi kontrol edilir.
@@ -112,7 +193,10 @@ public class StockService : IStockService
             return null;
 
         // Ürün ve birim bilgileri de düzenleme formundan gelen değerlere göre güncellenir.
-        stockItem.ProductId = model.ProductId;
+        // Ürün adı değiştirildiyse mevcut ürün bulunur veya yeni ürün otomatik oluşturulur.
+        var product = await GetOrCreateProductAsync(userId, model.ProductId, model.ProductName);
+
+        stockItem.ProductId = product.Id;
         stockItem.UnitId = model.UnitId;
 
         stockItem.Quantity = model.Quantity;
@@ -136,17 +220,83 @@ public class StockService : IStockService
 
         return MapToDto(updatedStockItem);
     }
+    private async Task<Product> GetOrCreateProductAsync(string userId, int? productId, string? productName)
+    {
+        var normalizedProductName = productName?.Trim();
 
+        // Ürün adı varsa önce ada göre arama yapılır.
+        // Böylece kullanıcı düzenleme ekranında ürün adını değiştirirse yeni ad dikkate alınır.
+        if (!string.IsNullOrWhiteSpace(normalizedProductName))
+        {
+            var existingProductByName = await _context.Products
+                .FirstOrDefaultAsync(x =>
+                    x.Name.ToLower() == normalizedProductName.ToLower() &&
+                    x.IsActive &&
+                    x.IsApproved);
+
+            if (existingProductByName != null)
+                return existingProductByName;
+
+            var otherCategory = await GetOrCreateOtherCategoryAsync();
+
+            var newProduct = new Product
+            {
+                CategoryId = otherCategory.Id,
+                Name = normalizedProductName,
+                DefaultShelfLifeDays = 7,
+                OpenedShelfLifeDays = null,
+                CarbonFactor = 1,
+                IsSensitiveFood = false,
+                IsSystemDefined = false,
+                IsApproved = true,
+                CreatedByUserId = userId,
+                CreatedAt = DateTime.Now,
+                IsActive = true
+            };
+
+            await _context.Products.AddAsync(newProduct);
+            await _context.SaveChangesAsync();
+
+            return newProduct;
+        }
+
+        // Ürün adı boş geldiyse ProductId üzerinden mevcut ürün aranır.
+        if (productId.HasValue && productId.Value > 0)
+        {
+            var existingProductById = await _context.Products
+                .FirstOrDefaultAsync(x =>
+                    x.Id == productId.Value &&
+                    x.IsActive &&
+                    x.IsApproved);
+
+            if (existingProductById != null)
+                return existingProductById;
+        }
+
+        throw new InvalidOperationException("Ürün adı boş olamaz.");
+    }
     public async Task<bool> DeleteAsync(int id, string userId)
     {
-        // Fiziksel silmek yerine durum Deleted yapılır.
-        // Böylece raporlama ve geçmiş veri için kayıt korunur.
+        // Silinecek stok kaydı kullanıcıya ait mi kontrol edilir.
         var stockItem = await _context.StockItems
             .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
 
         if (stockItem == null)
             return false;
 
+        // Stok ürünü aktif bir paylaşım ilanında kullanılıyorsa silinmez.
+        // Böylece devam eden paylaşım/talep/teslimat akışı bozulmaz.
+        var hasActiveShareListing = await _context.ShareListings
+            .AnyAsync(x =>
+                x.StockItemId == id &&
+                x.Status != ShareListingStatus.Cancelled &&
+                x.Status != ShareListingStatus.Delivered);
+
+        if (hasActiveShareListing)
+            return false;
+
+        // Fiziksel silmek yerine durum Deleted yapılır.
+        // Böylece raporlama ve geçmiş veri için kayıt korunur.
         stockItem.Status = StockItemStatus.Deleted;
         stockItem.IsActive = false;
         stockItem.UpdatedAt = DateTime.Now;

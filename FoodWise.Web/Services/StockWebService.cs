@@ -69,21 +69,36 @@ public class StockWebService : IStockWebService
     {
         SetBearerToken(token);
 
+        // API tarafı StorageCondition değerini enum/int olarak beklediği için
+        // Web formundan gelen değer güvenli şekilde gönderilir.
+        var storageConditionValue = model.StorageCondition;
+
         var requestModel = new
         {
             model.ProductId,
+            model.ProductName,
             model.UnitId,
             model.Quantity,
             model.ExpirationDate,
             model.OpenedDate,
-            model.StorageCondition,
+            StorageCondition = storageConditionValue,
             ImageUrl = (string?)null,
             model.Note
         };
 
         var response = await _httpClient.PostAsJsonAsync("api/stock", requestModel);
 
-        return response.IsSuccessStatusCode;
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorMessage = await response.Content.ReadAsStringAsync();
+
+            // Ekleme hatasını terminal/Output ekranında görmek için geçici log.
+            Console.WriteLine($"Stock create failed. Status: {response.StatusCode}, Error: {errorMessage}");
+
+            return false;
+        }
+
+        return true;
     }
 
     public async Task<bool> UpdateAsync(int id, EditStockItemViewModel model, string token)
@@ -100,6 +115,7 @@ public class StockWebService : IStockWebService
         var requestModel = new
         {
             model.ProductId,
+            model.ProductName,
             model.UnitId,
             model.Quantity,
             model.ExpirationDate,
@@ -115,7 +131,6 @@ public class StockWebService : IStockWebService
         {
             var errorMessage = await response.Content.ReadAsStringAsync();
 
-            // Güncelleme hatasını terminal/Output ekranında görmek için geçici log.
             Console.WriteLine($"Stock update failed. Status: {response.StatusCode}, Error: {errorMessage}");
 
             return false;

@@ -110,6 +110,7 @@ public class StockController : Controller
         {
             Id = stockItem.Id,
             ProductId = stockItem.ProductId,
+            ProductName = stockItem.ProductName,
             UnitId = stockItem.UnitId,
             Quantity = stockItem.Quantity,
             ExpirationDate = stockItem.ExpirationDate,
@@ -166,7 +167,7 @@ public class StockController : Controller
 
         if (!result)
         {
-            TempData["ErrorMessage"] = "Stok ürünü silinirken bir hata oluştu.";
+            TempData["ErrorMessage"] = "Bu ürün aktif bir paylaşım ilanında kullanılıyor. Silmeden önce paylaşım ilanını iptal etmelisin.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -219,7 +220,8 @@ public class StockController : Controller
             new("Gram", "2"),
             new("Litre", "3"),
             new("Mililitre", "4"),
-            new("Adet", "5")
+            new("Adet", "5"),
+              new("Paket", "6")
         };
     }
 

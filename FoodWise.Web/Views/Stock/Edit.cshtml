@@ -26,16 +26,32 @@
         @* Güncellenecek stok ürününün Id değeri gizli olarak gönderilir. *@
         <input asp-for="Id" type="hidden" />
 
+        @* Mevcut ürün seçiliyse ProductId bilgisi de gizli olarak korunur. *@
+        <input asp-for="ProductId" type="hidden" />
+
         @* Model seviyesindeki doğrulama hataları burada gösterilir. *@
         <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
 
         <div class="form-grid">
             <div class="form-group">
-                <label asp-for="ProductId"></label>
-                <select asp-for="ProductId" asp-items="Model.Products">
-                    <option value="">Ürün seçiniz</option>
-                </select>
-                <span asp-validation-for="ProductId"></span>
+                <label asp-for="ProductName"></label>
+
+                <input asp-for="ProductName"
+                       list="productSuggestions"
+                       placeholder="Örn: Domates, Avokado, Yoğurt" />
+
+                <datalist id="productSuggestions">
+                    @foreach (var product in Model.Products)
+                    {
+                        <option value="@product.Text"></option>
+                    }
+                </datalist>
+
+                <small class="field-hint">
+                    Ürün listede yoksa yazdığın adla yeni ürün olarak kaydedilir.
+                </small>
+
+                <span asp-validation-for="ProductName"></span>
             </div>
 
             <div class="form-group">
@@ -151,6 +167,11 @@
                 display: none;
             }
 
+        .field-hint {
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.4;
+        }
         @@media (max-width: 800px) {
             .form-grid {
                 grid-template-columns: 1fr;

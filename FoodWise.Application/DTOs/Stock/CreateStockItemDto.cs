@@ -1,17 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// Kullanıcının stoğa yeni ürün eklerken göndereceği verileri temsil eder.
+// Ürün sistemde varsa ProductId kullanılır.
+// Ürün sistemde yoksa ProductName ile yeni ürün otomatik oluşturulur.
 
-// Kullanıcının stoğa yeni ürün eklerken göndereceği verileri temsil eder.
 using FoodWise.Domain.Enums;
 
 namespace FoodWise.Application.DTOs.Stock;
 
 public class CreateStockItemDto
 {
-    public int ProductId { get; set; }
+    // Ürün sistemde varsa mevcut ProductId gönderilir.
+    // Kullanıcı yeni ürün yazdıysa null veya 0 gelebilir.
+    public int? ProductId { get; set; }
+
+    // Kullanıcı listede olmayan bir ürün yazarsa bu alan kullanılır.
+    public string? ProductName { get; set; }
 
     public int UnitId { get; set; }
 

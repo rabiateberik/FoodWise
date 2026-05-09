@@ -9,8 +9,8 @@
 
 @*
     Stok Ekle sayfası ortak FoodWise layout yapısını kullanır.
+    Kullanıcı ürün adını yazabilir; ürün sistemde yoksa API tarafında otomatik yeni ürün olarak oluşturulur.
     Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-    Bu dosyada sadece stok ekleme formu ve sayfaya özel form stilleri bulunur.
 *@
 
 @section TopbarActions {
@@ -23,16 +23,32 @@
     <form asp-controller="Stock" asp-action="Create" method="post">
         @Html.AntiForgeryToken()
 
+        @* Kullanıcı öneriden seçim yapmasa bile ProductName ile stok eklenebilir. *@
+        <input asp-for="ProductId" type="hidden" />
+
         @* Model seviyesindeki doğrulama hataları burada gösterilir. *@
         <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
 
         <div class="form-grid">
             <div class="form-group">
-                <label asp-for="ProductId"></label>
-                <select asp-for="ProductId" asp-items="Model.Products">
-                    <option value="">Ürün seçiniz</option>
-                </select>
-                <span asp-validation-for="ProductId"></span>
+                <label asp-for="ProductName"></label>
+
+                <input asp-for="ProductName"
+                       list="productSuggestions"
+                       placeholder="Örn: Domates, Avokado, Yoğurt" />
+
+                <datalist id="productSuggestions">
+                    @foreach (var product in Model.Products)
+                    {
+                        <option value="@product.Text"></option>
+                    }
+                </datalist>
+
+                <small class="field-hint">
+                    Ürün listede yoksa yazdığın adla yeni ürün olarak eklenir.
+                </small>
+
+                <span asp-validation-for="ProductName"></span>
             </div>
 
             <div class="form-group">
@@ -130,6 +146,12 @@
             textarea:focus {
                 border-color: #238636;
             }
+
+        .field-hint {
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.4;
+        }
 
         .form-group span {
             color: #dc2626;

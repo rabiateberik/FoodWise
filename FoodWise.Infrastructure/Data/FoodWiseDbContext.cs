@@ -63,6 +63,37 @@ public class FoodWiseDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Product>()
             .Property(x => x.CarbonFactor)
             .HasColumnType("decimal(10,2)");
+        builder.Entity<Product>()
+    .Property(x => x.CarbonFactor)
+    .HasColumnType("decimal(10,2)");
+
+        // Product tablosunda sistem ürünleri ve kullanıcı tarafından eklenen ürünler birlikte tutulur.
+        // Kullanıcı ürünleri şimdilik otomatik onaylıdır; ileride admin panelinde yönetilebilir.
+        builder.Entity<Product>()
+            .Property(x => x.Name)
+            .HasMaxLength(150);
+
+        builder.Entity<Product>()
+            .Property(x => x.CreatedByUserId)
+            .HasMaxLength(450);
+
+        builder.Entity<Product>()
+            .Property(x => x.IsSystemDefined)
+            .HasDefaultValue(true);
+
+        builder.Entity<Product>()
+            .Property(x => x.IsApproved)
+            .HasDefaultValue(true);
+
+        builder.Entity<Product>()
+            .Property(x => x.IsActive)
+            .HasDefaultValue(true);
+
+        builder.Entity<Product>()
+            .HasOne(x => x.Category)
+            .WithMany(x => x.Products)
+            .HasForeignKey(x => x.CategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<Product>()
             .HasOne(x => x.Category)

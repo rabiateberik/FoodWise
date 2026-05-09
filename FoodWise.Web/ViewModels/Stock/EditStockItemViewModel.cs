@@ -1,5 +1,5 @@
 ﻿// EditStockItemViewModel, Web MVC tarafında stok ürünü düzenleme formu için kullanılır.
-// Mevcut stok bilgileri bu model ile forma doldurulur ve güncelleme işlemi API'ye gönderilir.
+// Ürün adı input olarak gösterilir; ürün sistemde yoksa API tarafında yeni ürün oluşturulabilir.
 
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.ComponentModel.DataAnnotations;
@@ -10,9 +10,14 @@ public class EditStockItemViewModel
 {
     public int Id { get; set; }
 
-    [Required(ErrorMessage = "Ürün seçimi zorunludur.")]
-    [Display(Name = "Ürün")]
-    public int ProductId { get; set; }
+    // Mevcut ürün seçili geldiyse ProductId tutulabilir.
+    // Kullanıcı ürün adını değiştirse bile asıl kontrol API tarafında ProductName üzerinden yapılır.
+    public int? ProductId { get; set; }
+
+    [Required(ErrorMessage = "Ürün adı zorunludur.")]
+    [StringLength(150, ErrorMessage = "Ürün adı en fazla 150 karakter olabilir.")]
+    [Display(Name = "Ürün Adı")]
+    public string ProductName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Birim seçimi zorunludur.")]
     [Display(Name = "Birim")]
@@ -36,10 +41,10 @@ public class EditStockItemViewModel
     [Display(Name = "Saklama Koşulu")]
     public string StorageCondition { get; set; } = string.Empty;
 
+    [StringLength(500, ErrorMessage = "Not en fazla 500 karakter olabilir.")]
     [Display(Name = "Not")]
     public string? Note { get; set; }
 
-    // Dropdown listeleri form ekranında ürün, birim ve saklama koşulu seçeneklerini göstermek için kullanılır.
     public List<SelectListItem> Products { get; set; } = new();
 
     public List<SelectListItem> Units { get; set; } = new();

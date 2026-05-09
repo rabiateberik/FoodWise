@@ -1,5 +1,6 @@
 ﻿// Bu ViewModel, Web arayüzünden yeni stok ürünü eklemek için kullanılır.
-// Formdan alınan bilgiler Stock API'ye gönderilir.
+// Kullanıcı ürün adını yazar; ürün sistemde varsa mevcut ürün kullanılır,
+// yoksa API tarafında yeni ürün otomatik oluşturulur.
 
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -8,9 +9,14 @@ namespace FoodWise.Web.ViewModels.Stock;
 
 public class CreateStockItemViewModel
 {
-    [Required(ErrorMessage = "Ürün seçimi zorunludur.")]
-    [Display(Name = "Ürün")]
-    public int ProductId { get; set; }
+    // Autocomplete veya öneri listesinden ürün seçilirse ProductId dolabilir.
+    // Kullanıcı yeni ürün yazarsa ProductId boş kalabilir.
+    public int? ProductId { get; set; }
+
+    [Required(ErrorMessage = "Ürün adı zorunludur.")]
+    [StringLength(150, ErrorMessage = "Ürün adı en fazla 150 karakter olabilir.")]
+    [Display(Name = "Ürün Adı")]
+    public string ProductName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Birim seçimi zorunludur.")]
     [Display(Name = "Birim")]
@@ -38,7 +44,10 @@ public class CreateStockItemViewModel
     [Display(Name = "Not")]
     public string? Note { get; set; }
 
+    // Ürün önerileri için kullanılır. Şimdilik datalist/autocomplete mantığına temel olacak.
     public List<SelectListItem> Products { get; set; } = new();
+
     public List<SelectListItem> Units { get; set; } = new();
+
     public List<SelectListItem> StorageConditions { get; set; } = new();
 }
