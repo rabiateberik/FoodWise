@@ -52,6 +52,19 @@ public class StockWebService : IStockWebService
         return result ?? new List<StockItemViewModel>();
     }
 
+    public async Task<StockItemViewModel?> GetByIdAsync(int id, string token)
+    {
+        SetBearerToken(token);
+
+        // Düzenleme sayfasında mevcut stok ürününü forma doldurmak için tekil stok kaydı alınır.
+        var response = await _httpClient.GetAsync($"api/stock/{id}");
+
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        return await response.Content.ReadFromJsonAsync<StockItemViewModel>(GetJsonOptions());
+    }
+
     public async Task<bool> CreateAsync(CreateStockItemViewModel model, string token)
     {
         SetBearerToken(token);
@@ -69,6 +82,54 @@ public class StockWebService : IStockWebService
         };
 
         var response = await _httpClient.PostAsJsonAsync("api/stock", requestModel);
+
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> UpdateAsync(int id, EditStockItemViewModel model, string token)
+    {
+        SetBearerToken(token);
+
+        // API tarafı StorageCondition değerini enum/int olarak beklediği için
+        // Web formundan gelen string değer güvenli şekilde int'e çevrilir.
+        var storageConditionValue = int.TryParse(model.StorageCondition, out var parsedStorageCondition)
+            ? parsedStorageCondition
+            : 5;
+
+        // API tarafındaki UpdateStockItemDto ile uyumlu olacak şekilde güncelleme modeli hazırlanır.
+        var requestModel = new
+        {
+            model.ProductId,
+            model.UnitId,
+            model.Quantity,
+            model.ExpirationDate,
+            model.OpenedDate,
+            StorageCondition = storageConditionValue,
+            ImageUrl = (string?)null,
+            model.Note
+        };
+
+        var response = await _httpClient.PutAsJsonAsync($"api/stock/{id}", requestModel);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorMessage = await response.Content.ReadAsStringAsync();
+
+            // Güncelleme hatasını terminal/Output ekranında görmek için geçici log.
+            Console.WriteLine($"Stock update failed. Status: {response.StatusCode}, Error: {errorMessage}");
+
+            return false;
+        }
+
+        return true;
+    }
+
+    public async Task<bool> DeleteAsync(int id, string token)
+    {
+        SetBearerToken(token);
+
+        // Kullanıcının kendi stok ürününü silmesi için API'ye DELETE isteği gönderilir.
+        var response = await _httpClient.DeleteAsync($"api/stock/{id}");
 
         return response.IsSuccessStatusCode;
     }

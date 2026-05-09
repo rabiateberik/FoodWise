@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
-// StockController, kullanıcının stok ürünlerini yönetmesini sağlayan API endpointlerini içerir.
+﻿// StockController, kullanıcının stok ürünlerini yönetmesini sağlayan API endpointlerini içerir.
 // Bu controller token ile korunur; sadece giriş yapan kullanıcı kendi stoklarını yönetebilir.
 using System.Security.Claims;
 using FoodWise.Application.DTOs.Stock;

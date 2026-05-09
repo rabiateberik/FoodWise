@@ -22,4 +22,6 @@ public class UpdateStockItemDto
     public string? ImageUrl { get; set; }
 
     public string? Note { get; set; }
+    public int ProductId { get; set; }
+    public int UnitId { get; set; }
 }

@@ -111,6 +111,10 @@ public class StockService : IStockService
         if (stockItem == null)
             return null;
 
+        // Ürün ve birim bilgileri de düzenleme formundan gelen değerlere göre güncellenir.
+        stockItem.ProductId = model.ProductId;
+        stockItem.UnitId = model.UnitId;
+
         stockItem.Quantity = model.Quantity;
         stockItem.ExpirationDate = model.ExpirationDate;
         stockItem.OpenedDate = model.OpenedDate;
@@ -121,7 +125,7 @@ public class StockService : IStockService
 
         await _context.SaveChangesAsync();
 
-        // Ürün bilgisi değiştiği için risk tahmini yeniden hesaplanır.
+        // Ürün, tarih veya saklama bilgisi değişmiş olabileceği için risk tahmini yeniden hesaplanır.
         await CreateRiskPredictionAsync(stockItem.Id);
 
         var updatedStockItem = await _context.StockItems

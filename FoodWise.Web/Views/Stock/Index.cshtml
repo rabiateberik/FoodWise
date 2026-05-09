@@ -5,13 +5,13 @@
     Layout = "_FoodWiseLayout";
 
     ViewData["Title"] = "Stoklarım";
-    ViewData["PageDescription"] = "Evindeki gıda ürünlerini buradan takip edebilir ve yeni ürün ekleyebilirsin.";
+    ViewData["PageDescription"] = "Evindeki gıda ürünlerini buradan takip edebilir, düzenleyebilir veya silebilirsin.";
 }
 
 @*
     Stoklarım sayfası ortak FoodWise layout yapısını kullanır.
     Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-    Bu dosyada sadece stok listesi ve sayfaya özel tablo stilleri bulunur.
+    Bu dosyada stok listesi, düzenleme/silme işlemleri ve sayfaya özel tablo stilleri bulunur.
 *@
 
 @section TopbarActions {
@@ -44,6 +44,7 @@
                         <th>Saklama</th>
                         <th>Risk</th>
                         <th>Öneri</th>
+                        <th>İşlemler</th>
                     </tr>
                 </thead>
 
@@ -95,6 +96,32 @@
                             <td>
                                 @(item.RecommendationText ?? "-")
                             </td>
+
+                            <td>
+                                <div class="action-buttons">
+                                    <a asp-controller="Stock"
+                                       asp-action="Edit"
+                                       asp-route-id="@item.Id"
+                                       class="btn-secondary btn-table">
+                                        Düzenle
+                                    </a>
+
+                                    @* Silme işlemi POST olarak yapılır ve kullanıcıdan onay alınır. *@
+                                    <form asp-controller="Stock"
+                                          asp-action="Delete"
+                                          method="post"
+                                          class="delete-form"
+                                          onsubmit="return confirm('Bu stok ürününü silmek istediğine emin misin?');">
+                                        @Html.AntiForgeryToken()
+
+                                        <input type="hidden" name="id" value="@item.Id" />
+
+                                        <button type="submit" class="btn-danger btn-table">
+                                            Sil
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -119,7 +146,7 @@
 
         table {
             width: 100%;
-            min-width: 850px;
+            min-width: 980px;
             border-collapse: collapse;
         }
 
@@ -176,6 +203,24 @@
         .risk-none {
             background: #e5e7eb;
             color: #374151;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .delete-form {
+            margin: 0;
+        }
+
+        .btn-table {
+            padding: 9px 12px;
+            font-size: 13px;
+            border-radius: 9px;
+            white-space: nowrap;
         }
 
         .empty-state {

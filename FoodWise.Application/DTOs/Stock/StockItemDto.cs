@@ -37,4 +37,5 @@ public class StockItemDto
     public string? RecommendationText { get; set; }
 
     public string? Note { get; set; }
+
 }
