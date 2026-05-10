@@ -26,16 +26,34 @@ public class SharingService : ISharingService
 
     public async Task<ShareListingDto?> CreateListingAsync(string userId, CreateShareListingDto model)
     {
-        // Paylaşıma açılacak stok ürününün giriş yapan kullanıcıya ait olması gerekir.
+        var now = DateTime.Now;
+
+        // Paylaşıma açılacak stok ürününün giriş yapan kullanıcıya ait ve aktif olması gerekir.
+        // Ürünün riskli olup olmamasına bakılmaz; kullanıcı isterse riskli olmayan ürünü de paylaşabilir.
         var stockItem = await _context.StockItems
             .Include(x => x.Product)
             .Include(x => x.Unit)
             .FirstOrDefaultAsync(x =>
                 x.Id == model.StockItemId &&
                 x.UserId == userId &&
-                x.Status == StockItemStatus.Active);
+                x.Status == StockItemStatus.Active &&
+                x.IsActive);
 
         if (stockItem == null)
+            return null;
+
+        // Aynı stok ürünü aktif bir paylaşım ilanında kullanılıyorsa tekrar paylaşım ilanı oluşturulmaz.
+        // İptal edilmiş, süresi dolmuş veya teslim edilmiş ilanlardan sonra ürün tekrar paylaşıma açılabilir.
+        var hasActiveListing = await _context.ShareListings
+            .AnyAsync(x =>
+                x.StockItemId == model.StockItemId &&
+                x.DonorUserId == userId &&
+                x.IsActive &&
+                x.Status != ShareListingStatus.Cancelled &&
+                x.Status != ShareListingStatus.Expired &&
+                x.Status != ShareListingStatus.Delivered);
+
+        if (hasActiveListing)
             return null;
 
         // Kullanıcı stoktaki miktardan fazla ürün paylaşamaz.
@@ -53,6 +71,10 @@ public class SharingService : ISharingService
         if (model.PickupEndTime <= model.PickupStartTime)
             return null;
 
+        // Teslim bitiş zamanı geçmiş bir tarih olamaz.
+        if (model.PickupEndTime <= now)
+            return null;
+
         var shareListing = new ShareListing
         {
             StockItemId = model.StockItemId,
@@ -64,7 +86,8 @@ public class SharingService : ISharingService
             PickupStartTime = model.PickupStartTime,
             PickupEndTime = model.PickupEndTime,
             Status = ShareListingStatus.Available,
-            CreatedAt = DateTime.Now
+            CreatedAt = now,
+            IsActive = true
         };
 
         await _context.ShareListings.AddAsync(shareListing);
@@ -106,7 +129,7 @@ public class SharingService : ISharingService
                 .ThenInclude(x => x.Unit)
             .Include(x => x.DeliveryPoint)
             .Include(x => x.ShareRequests)
-            .Where(x => x.IsActive && x.DonorUserId == userId)
+            .Where(x => x.DonorUserId == userId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
@@ -122,14 +145,15 @@ public class SharingService : ISharingService
 
     public async Task<ShareRequestDto?> CreateRequestAsync(string requesterUserId, int shareListingId)
     {
-        // Talep oluşturulacak ilan aktif ve alınabilir durumda olmalıdır.
+        // Talep oluşturulacak ilan aktif, alınabilir ve süresi geçmemiş durumda olmalıdır.
         var listing = await _context.ShareListings
             .Include(x => x.StockItem)
                 .ThenInclude(x => x.Product)
             .FirstOrDefaultAsync(x =>
                 x.Id == shareListingId &&
                 x.IsActive &&
-                x.Status == ShareListingStatus.Available);
+                x.Status == ShareListingStatus.Available &&
+                x.PickupEndTime > DateTime.Now);
 
         if (listing == null)
             return null;
@@ -138,11 +162,12 @@ public class SharingService : ISharingService
         if (listing.DonorUserId == requesterUserId)
             return null;
 
-        // Aynı kullanıcı aynı ilana ikinci kez talep göndermesin.
+        // Aynı kullanıcı aynı ilana ikinci kez aktif talep göndermesin.
         var alreadyRequested = await _context.ShareRequests.AnyAsync(x =>
             x.ShareListingId == shareListingId &&
             x.RequesterUserId == requesterUserId &&
-            x.Status != ShareRequestStatus.Cancelled);
+            x.Status != ShareRequestStatus.Cancelled &&
+            x.Status != ShareRequestStatus.Rejected);
 
         if (alreadyRequested)
             return null;
@@ -156,10 +181,6 @@ public class SharingService : ISharingService
             RequestedAt = DateTime.Now,
             CreatedAt = DateTime.Now
         };
-
-        // İlk talep oluştuğunda ilan durumu Requested yapılır.
-        listing.Status = ShareListingStatus.Requested;
-        listing.UpdatedAt = DateTime.Now;
 
         await _context.ShareRequests.AddAsync(request);
         await _context.SaveChangesAsync();
@@ -264,14 +285,34 @@ public class SharingService : ISharingService
     {
         // Sadece ilan sahibi kendi paylaşım ilanını iptal edebilir.
         var listing = await _context.ShareListings
-            .FirstOrDefaultAsync(x => x.Id == listingId && x.DonorUserId == userId);
+            .Include(x => x.ShareRequests)
+            .FirstOrDefaultAsync(x =>
+                x.Id == listingId &&
+                x.DonorUserId == userId &&
+                x.IsActive);
 
         if (listing == null)
             return false;
 
+        // Teslimat sürecine geçmiş veya tamamlanmış ilanlar iptal edilemez.
+        if (listing.Status == ShareListingStatus.Approved ||
+            listing.Status == ShareListingStatus.QrGenerated ||
+            listing.Status == ShareListingStatus.Delivered)
+        {
+            return false;
+        }
+
         listing.Status = ShareListingStatus.Cancelled;
         listing.IsActive = false;
         listing.UpdatedAt = DateTime.Now;
+
+        // İlan iptal edilince bekleyen talepler de iptal edilir.
+        foreach (var request in listing.ShareRequests.Where(x => x.Status == ShareRequestStatus.Pending))
+        {
+            request.Status = ShareRequestStatus.Cancelled;
+            request.RespondedAt = DateTime.Now;
+            request.UpdatedAt = DateTime.Now;
+        }
 
         await _context.SaveChangesAsync();
 
@@ -330,7 +371,7 @@ public class SharingService : ISharingService
             ProductName = request.ShareListing.StockItem.Product.Name,
             RequesterUserId = request.RequesterUserId,
             MatchScore = request.MatchScore,
-            Status = request.Status.ToString(),
+            Status = request.Status.ToString(), 
             RequestedAt = request.RequestedAt,
             RespondedAt = request.RespondedAt
         };

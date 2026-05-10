@@ -128,8 +128,8 @@ public class SharingController : ControllerBase
 
         var result = await _sharingService.CancelListingAsync(userId, listingId);
 
-        if (!result)
-            return BadRequest("Paylaşım ilanı iptal edilemedi.");
+        if(!result)
+    return BadRequest("Paylaşım ilanı iptal edilemedi. İlan teslimat sürecine geçmiş olabilir veya bu işlem için yetkiniz olmayabilir.");
 
         return Ok("Paylaşım ilanı başarıyla iptal edildi.");
     }

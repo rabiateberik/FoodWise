@@ -26,4 +26,9 @@ public class StockItemViewModel
     public string? RecommendationText { get; set; }
 
     public string? Note { get; set; }
+    // Ürün aktif bir paylaşım ilanındaysa Stoklarım sayfasında tekrar paylaşıma açma butonu gösterilmez.
+    public bool HasActiveShareListing { get; set; }
+
+    // Aktif paylaşım ilanının Id bilgisidir.
+    public int? ActiveShareListingId { get; set; }
 }

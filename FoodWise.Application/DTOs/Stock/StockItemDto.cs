@@ -37,5 +37,11 @@ public class StockItemDto
     public string? RecommendationText { get; set; }
 
     public string? Note { get; set; }
+    // Bu stok ürünü aktif bir paylaşım ilanında kullanılıyor mu?
+    public bool HasActiveShareListing { get; set; }
+
+    // Aktif paylaşım ilanının Id bilgisidir.
+    // Stoklarım sayfasından ilgili ilana yönlendirme için kullanılabilir.
+    public int? ActiveShareListingId { get; set; }
 
 }

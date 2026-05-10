@@ -11,7 +11,8 @@
 @*
     Paylaşım İlanlarım sayfası ortak FoodWise layout yapısını kullanır.
     Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-    Bu dosyada sadece kullanıcının paylaşım ilanları, talep görüntüleme bağlantısı ve sayfaya özel stiller bulunur.
+    Bu dosyada kullanıcının paylaşım ilanları, talep görüntüleme,
+    ilan iptal etme ve iptal edilen ürünü tekrar paylaşıma açma işlemleri bulunur.
 *@
 
 @section TopbarActions {
@@ -36,7 +37,25 @@
     {
         @foreach (var listing in Model)
         {
-            <article class="listing-card">
+            var statusClass = listing.Status switch
+            {
+                "Available" => "status-available",
+                "Requested" => "status-requested",
+                "Approved" => "status-approved",
+                "QrGenerated" => "status-qr",
+                "Delivered" => "status-delivered",
+                "Cancelled" => "status-cancelled",
+                "Expired" => "status-expired",
+                _ => "status-default"
+            };
+
+            // Teslimat sürecine geçmemiş ilanlar iptal edilebilir.
+            var canCancel = listing.Status == "Available" || listing.Status == "Requested";
+
+            // İptal edilen veya süresi dolan ilanların stok ürünü tekrar paylaşıma açılabilir.
+            var canShareAgain = listing.Status == "Cancelled" || listing.Status == "Expired";
+
+            <article id="listing-@listing.Id" class="listing-card">
                 <div class="listing-header">
                     <div>
                         <h3>@listing.Title</h3>
@@ -46,7 +65,7 @@
                         </p>
                     </div>
 
-                    <span class="status-badge">
+                    <span class="status-badge @statusClass">
                         @DisplayTextHelper.GetShareListingStatusText(listing.Status)
                     </span>
                 </div>
@@ -87,6 +106,36 @@
                        class="btn-primary">
                         Talepleri Gör
                     </a>
+
+                    @if (canCancel)
+                    {
+                        @* Teslimat sürecine geçmemiş paylaşım ilanları kullanıcı tarafından iptal edilebilir. *@
+                        <form asp-controller="Sharing"
+                              asp-action="Cancel"
+                              method="post"
+                              class="cancel-form"
+                              onsubmit="return confirm('Bu paylaşım ilanını iptal etmek istediğine emin misin?');">
+                            @Html.AntiForgeryToken()
+
+                            <input type="hidden" name="listingId" value="@listing.Id" />
+
+                            <button type="submit" class="btn-danger">
+                                İptal Et
+                            </button>
+                        </form>
+                    }
+
+                    @if (canShareAgain)
+                    {
+                        @* İptal edilen veya süresi dolan ilanın stok ürünü yeniden paylaşıma açılabilir. *@
+                        <a asp-controller="Sharing"
+                           asp-action="Create"
+                           asp-route-stockItemId="@listing.StockItemId"
+                           asp-route-productName="@listing.ProductName"
+                           class="btn-secondary">
+                            Tekrar Paylaşıma Aç
+                        </a>
+                    }
                 </div>
             </article>
         }
@@ -130,13 +179,43 @@
             }
 
         .status-badge {
-            background: #dcfce7;
-            color: #166534;
             border-radius: 999px;
             padding: 8px 12px;
             font-size: 13px;
             font-weight: 700;
             white-space: nowrap;
+        }
+
+        .status-available {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-requested {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .status-approved,
+        .status-qr {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .status-delivered {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .status-cancelled,
+        .status-expired {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-default {
+            background: #e5e7eb;
+            color: #374151;
         }
 
         .listing-info {
@@ -168,6 +247,11 @@
             gap: 12px;
             margin-top: 20px;
             flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .cancel-form {
+            margin: 0;
         }
 
         .empty-state {
@@ -179,6 +263,10 @@
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
         }
 
+        .listing-card:target {
+            outline: 3px solid #238636;
+            outline-offset: 4px;
+        }
             .empty-state h3 {
                 color: #145c24;
                 font-size: 26px;

@@ -1,4 +1,5 @@
-﻿// SharingController, Web arayüzünde paylaşım ilanı oluşturma ve kullanıcının ilanlarını listeleme işlemlerini yönetir.
+﻿// SharingController, Web arayüzünde paylaşım ilanı oluşturma,
+// ilan listeleme, talep yönetimi ve ilan iptal işlemlerini yönetir.
 // API ile doğrudan değil, ISharingWebService üzerinden haberleşir.
 
 using FoodWise.Web.Services;
@@ -26,9 +27,6 @@ public class SharingController : Controller
             return RedirectToAction("Login", "Auth");
 
         var listings = await _sharingWebService.GetMyListingsAsync(token);
-
-        ViewBag.FullName = HttpContext.Session.GetString("FullName");
-        ViewBag.Email = HttpContext.Session.GetString("Email");
 
         return View(listings);
     }
@@ -79,7 +77,7 @@ public class SharingController : Controller
 
         if (!result)
         {
-            ModelState.AddModelError(string.Empty, "Paylaşım ilanı oluşturulamadı. Miktar, stok ürünü veya teslim noktası bilgisini kontrol edin.");
+            ModelState.AddModelError(string.Empty, "Paylaşım ilanı oluşturulamadı. Ürün zaten aktif bir paylaşım ilanında olabilir veya miktar/teslim noktası bilgilerini kontrol etmelisin.");
             FillDeliveryPoints(model);
             return View(model);
         }
@@ -87,6 +85,7 @@ public class SharingController : Controller
         TempData["SuccessMessage"] = "Paylaşım ilanı başarıyla oluşturuldu.";
         return RedirectToAction(nameof(MyListings));
     }
+
     [HttpGet]
     public async Task<IActionResult> Available()
     {
@@ -96,9 +95,6 @@ public class SharingController : Controller
             return RedirectToAction("Login", "Auth");
 
         var listings = await _sharingWebService.GetAvailableListingsAsync(token);
-
-        ViewBag.FullName = HttpContext.Session.GetString("FullName");
-        ViewBag.Email = HttpContext.Session.GetString("Email");
 
         return View(listings);
     }
@@ -114,9 +110,14 @@ public class SharingController : Controller
 
         var result = await _sharingWebService.CreateRequestAsync(listingId, token);
 
-        TempData["SuccessMessage"] = result
-            ? "Paylaşım talebin başarıyla gönderildi."
-            : "Talep gönderilemedi. Kendi ilanına talep gönderemezsin veya daha önce talep göndermiş olabilirsin.";
+        if (result)
+        {
+            TempData["SuccessMessage"] = "Paylaşım talebin başarıyla gönderildi.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Talep gönderilemedi. Kendi ilanına talep gönderemezsin veya daha önce talep göndermiş olabilirsin.";
+        }
 
         return RedirectToAction(nameof(Available));
     }
@@ -132,8 +133,6 @@ public class SharingController : Controller
         var requests = await _sharingWebService.GetRequestsForListingAsync(listingId, token);
 
         ViewBag.ListingId = listingId;
-        ViewBag.FullName = HttpContext.Session.GetString("FullName");
-        ViewBag.Email = HttpContext.Session.GetString("Email");
 
         return View(requests);
     }
@@ -149,9 +148,14 @@ public class SharingController : Controller
 
         var result = await _sharingWebService.ApproveRequestAsync(requestId, token);
 
-        TempData["SuccessMessage"] = result
-            ? "Talep başarıyla onaylandı."
-            : "Talep onaylanamadı.";
+        if (result)
+        {
+            TempData["SuccessMessage"] = "Talep başarıyla onaylandı.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Talep onaylanamadı.";
+        }
 
         return RedirectToAction(nameof(Requests), new { listingId });
     }
@@ -167,12 +171,43 @@ public class SharingController : Controller
 
         var result = await _sharingWebService.RejectRequestAsync(requestId, token);
 
-        TempData["SuccessMessage"] = result
-            ? "Talep reddedildi."
-            : "Talep reddedilemedi.";
+        if (result)
+        {
+            TempData["SuccessMessage"] = "Talep reddedildi.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Talep reddedilemedi.";
+        }
 
         return RedirectToAction(nameof(Requests), new { listingId });
     }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Cancel(int listingId)
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+            return RedirectToAction("Login", "Auth");
+
+        // Kullanıcı kendi paylaşım ilanını iptal eder.
+        // Teslimat sürecine geçmiş ilanlar API tarafında iptal edilmez.
+        var result = await _sharingWebService.CancelListingAsync(listingId, token);
+
+        if (result)
+        {
+            TempData["SuccessMessage"] = "Paylaşım ilanı başarıyla iptal edildi.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Paylaşım ilanı iptal edilemedi. İlan teslimat sürecine geçmiş olabilir.";
+        }
+
+        return RedirectToAction(nameof(MyListings));
+    }
+
     private static void FillDeliveryPoints(CreateShareListingViewModel model)
     {
         // Teslim noktaları şu an seed data ile sabit tutulur.

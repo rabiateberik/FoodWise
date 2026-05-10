@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-// Paylaşım modülünün servis sözleşmesidir.
+﻿// Paylaşım modülünün servis sözleşmesidir.
 // Controller, paylaşım işlemlerini bu interface üzerinden servis katmanına iletir.
+
 using FoodWise.Application.DTOs.Sharing;
 
 namespace FoodWise.Application.Interfaces;

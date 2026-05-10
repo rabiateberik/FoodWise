@@ -23,6 +23,41 @@ public class SharingWebService : ISharingWebService
 
         _httpClient.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
     }
+
+    public async Task<bool> CreateListingAsync(CreateShareListingViewModel model, string token)
+    {
+        SetBearerToken(token);
+
+        var requestModel = new
+        {
+            model.StockItemId,
+            model.DeliveryPointId,
+            model.Title,
+            model.Description,
+            model.Quantity,
+            model.PickupStartTime,
+            model.PickupEndTime
+        };
+
+        var response = await _httpClient.PostAsJsonAsync("api/sharing/listings", requestModel);
+
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<List<ShareListingViewModel>> GetMyListingsAsync(string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync("api/sharing/listings/my");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<ShareListingViewModel>();
+
+        var result = await response.Content.ReadFromJsonAsync<List<ShareListingViewModel>>(GetJsonOptions());
+
+        return result ?? new List<ShareListingViewModel>();
+    }
+
     public async Task<List<ShareListingViewModel>> GetAvailableListingsAsync(string token)
     {
         SetBearerToken(token);
@@ -77,38 +112,25 @@ public class SharingWebService : ISharingWebService
 
         return response.IsSuccessStatusCode;
     }
-    public async Task<bool> CreateListingAsync(CreateShareListingViewModel model, string token)
+
+    public async Task<bool> CancelListingAsync(int listingId, string token)
     {
         SetBearerToken(token);
 
-        var requestModel = new
-        {
-            model.StockItemId,
-            model.DeliveryPointId,
-            model.Title,
-            model.Description,
-            model.Quantity,
-            model.PickupStartTime,
-            model.PickupEndTime
-        };
-
-        var response = await _httpClient.PostAsJsonAsync("api/sharing/listings", requestModel);
-
-        return response.IsSuccessStatusCode;
-    }
-
-    public async Task<List<ShareListingViewModel>> GetMyListingsAsync(string token)
-    {
-        SetBearerToken(token);
-
-        var response = await _httpClient.GetAsync("api/sharing/listings/my");
+        // Kullanıcının kendi paylaşım ilanını iptal etmesi için API'ye DELETE isteği gönderilir.
+        var response = await _httpClient.DeleteAsync($"api/sharing/listings/{listingId}");
 
         if (!response.IsSuccessStatusCode)
-            return new List<ShareListingViewModel>();
+        {
+            var errorMessage = await response.Content.ReadAsStringAsync();
 
-        var result = await response.Content.ReadFromJsonAsync<List<ShareListingViewModel>>(GetJsonOptions());
+            // İptal hatasını geliştirme aşamasında terminal/Output ekranında görmek için kullanılır.
+            Console.WriteLine($"Sharing cancel failed. Status: {response.StatusCode}, Error: {errorMessage}");
 
-        return result ?? new List<ShareListingViewModel>();
+            return false;
+        }
+
+        return true;
     }
 
     private void SetBearerToken(string token)

@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-// StockService, kullanıcının stok ürünlerini yönetir.
+﻿// StockService, kullanıcının stok ürünlerini yönetir.
 // Ürün ekleme, listeleme, güncelleme, silme ve basit risk tahmini işlemleri burada yapılır.
+
 using FoodWise.Application.DTOs.Stock;
 using FoodWise.Application.Interfaces;
 using FoodWise.Domain.Entities;
@@ -31,11 +26,21 @@ public class StockService : IStockService
             .Include(x => x.Product)
             .Include(x => x.Unit)
             .Include(x => x.WasteRiskPredictions)
-            .Where(x => x.UserId == userId && x.Status == StockItemStatus.Active)
+            .Where(x =>
+                x.UserId == userId &&
+                x.Status == StockItemStatus.Active &&
+                x.IsActive)
             .OrderBy(x => x.ExpirationDate)
             .ToListAsync();
 
-        return stockItems.Select(MapToDto).ToList();
+        // Her stok ürününün aktif paylaşım ilanında kullanılıp kullanılmadığı kontrol edilir.
+        var activeShareListingMap = await GetActiveShareListingMapAsync(
+            userId,
+            stockItems.Select(x => x.Id).ToList());
+
+        return stockItems
+            .Select(x => MapToDto(x, activeShareListingMap))
+            .ToList();
     }
 
     public async Task<List<StockItemDto>> GetRiskyStockItemsAsync(string userId)
@@ -48,34 +53,51 @@ public class StockService : IStockService
             .Where(x =>
                 x.UserId == userId &&
                 x.Status == StockItemStatus.Active &&
+                x.IsActive &&
                 x.WasteRiskPredictions.Any(r =>
                     r.RiskLevel == RiskLevel.High ||
                     r.RiskLevel == RiskLevel.Critical))
             .OrderBy(x => x.ExpirationDate)
             .ToListAsync();
 
-        return stockItems.Select(MapToDto).ToList();
+        var activeShareListingMap = await GetActiveShareListingMapAsync(
+            userId,
+            stockItems.Select(x => x.Id).ToList());
+
+        return stockItems
+            .Select(x => MapToDto(x, activeShareListingMap))
+            .ToList();
     }
 
     public async Task<StockItemDto?> GetByIdAsync(int id, string userId)
     {
-        // Sadece giriş yapan kullanıcının kendi stok kaydı getirilebilir.
+        // Sadece giriş yapan kullanıcının kendi aktif stok kaydı getirilebilir.
         var stockItem = await _context.StockItems
             .Include(x => x.Product)
             .Include(x => x.Unit)
             .Include(x => x.WasteRiskPredictions)
-            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+            .FirstOrDefaultAsync(x =>
+                x.Id == id &&
+                x.UserId == userId &&
+                x.Status == StockItemStatus.Active &&
+                x.IsActive);
 
-        return stockItem == null ? null : MapToDto(stockItem);
+        if (stockItem == null)
+            return null;
+
+        var activeShareListingMap = await GetActiveShareListingMapAsync(
+            userId,
+            new List<int> { stockItem.Id });
+
+        return MapToDto(stockItem, activeShareListingMap);
     }
 
     public async Task<StockItemDto> CreateAsync(string userId, CreateStockItemDto model)
     {
-        // Ürün sistemde varsa mevcut ProductId kullanılır.
+        // Ürün sistemde varsa mevcut Product kullanılır.
         // Ürün sistemde yoksa ProductName ile yeni ürün otomatik oluşturulur.
         var product = await GetOrCreateProductAsync(userId, model.ProductId, model.ProductName);
 
-        // Yeni stok kaydı oluşturulur.
         var stockItem = new StockItem
         {
             UserId = userId,
@@ -88,7 +110,8 @@ public class StockService : IStockService
             Status = StockItemStatus.Active,
             ImageUrl = model.ImageUrl,
             Note = model.Note,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.Now,
+            IsActive = true
         };
 
         await _context.StockItems.AddAsync(stockItem);
@@ -105,100 +128,25 @@ public class StockService : IStockService
 
         return MapToDto(createdStockItem);
     }
-    private async Task<Product> GetOrCreateProductAsync(string userId, CreateStockItemDto model)
-    {
-        // Kullanıcı öneri listesinden mevcut ürünü seçtiyse o ürün kullanılır.
-        if (model.ProductId.HasValue && model.ProductId.Value > 0)
-        {
-            var existingProductById = await _context.Products
-                .FirstOrDefaultAsync(x =>
-                    x.Id == model.ProductId.Value &&
-                    x.IsActive &&
-                    x.IsApproved);
 
-            if (existingProductById != null)
-                return existingProductById;
-        }
-
-        var productName = model.ProductName?.Trim();
-
-        if (string.IsNullOrWhiteSpace(productName))
-            throw new InvalidOperationException("Ürün adı boş olamaz.");
-
-        // Aynı isimde aktif ürün varsa yeni kayıt açmadan mevcut ürün kullanılır.
-        var existingProductByName = await _context.Products
-            .FirstOrDefaultAsync(x =>
-                x.Name.ToLower() == productName.ToLower() &&
-                x.IsActive);
-
-        if (existingProductByName != null)
-            return existingProductByName;
-
-        // Kullanıcı listede olmayan bir ürün yazarsa ürün otomatik olarak Diğer kategorisine eklenir.
-        var otherCategory = await GetOrCreateOtherCategoryAsync();
-
-        var newProduct = new Product
-        {
-            CategoryId = otherCategory.Id,
-            Name = productName,
-            DefaultShelfLifeDays = 7,
-            OpenedShelfLifeDays = null,
-            CarbonFactor = 1,
-            IsSensitiveFood = false,
-
-            // Admin paneli gelene kadar kullanıcı ürünleri otomatik onaylı kabul edilir.
-            IsSystemDefined = false,
-            IsApproved = true,
-            CreatedByUserId = userId,
-
-            CreatedAt = DateTime.Now,
-            IsActive = true
-        };
-
-        await _context.Products.AddAsync(newProduct);
-        await _context.SaveChangesAsync();
-
-        return newProduct;
-    }
-
-    private async Task<Category> GetOrCreateOtherCategoryAsync()
-    {
-        // Yeni kullanıcı ürünleri için varsayılan kategori olarak Diğer kullanılır.
-        var otherCategory = await _context.Categories
-            .FirstOrDefaultAsync(x => x.Name == "Diğer" && x.IsActive);
-
-        if (otherCategory != null)
-            return otherCategory;
-
-        var category = new Category
-        {
-            Name = "Diğer",
-            Description = "Kullanıcı tarafından eklenen ve belirli kategoriye atanamayan ürünler için varsayılan kategori.",
-            CreatedAt = DateTime.Now,
-            IsActive = true
-        };
-
-        await _context.Categories.AddAsync(category);
-        await _context.SaveChangesAsync();
-
-        return category;
-    }
     public async Task<StockItemDto?> UpdateAsync(int id, string userId, UpdateStockItemDto model)
     {
         // Güncellenecek stok kaydı kullanıcıya ait mi kontrol edilir.
         var stockItem = await _context.StockItems
-            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+            .FirstOrDefaultAsync(x =>
+                x.Id == id &&
+                x.UserId == userId &&
+                x.Status == StockItemStatus.Active &&
+                x.IsActive);
 
         if (stockItem == null)
             return null;
 
-        // Ürün ve birim bilgileri de düzenleme formundan gelen değerlere göre güncellenir.
         // Ürün adı değiştirildiyse mevcut ürün bulunur veya yeni ürün otomatik oluşturulur.
         var product = await GetOrCreateProductAsync(userId, model.ProductId, model.ProductName);
 
         stockItem.ProductId = product.Id;
         stockItem.UnitId = model.UnitId;
-
         stockItem.Quantity = model.Quantity;
         stockItem.ExpirationDate = model.ExpirationDate;
         stockItem.OpenedDate = model.OpenedDate;
@@ -220,12 +168,51 @@ public class StockService : IStockService
 
         return MapToDto(updatedStockItem);
     }
+
+    public async Task<bool> DeleteAsync(int id, string userId)
+    {
+        // Silinecek stok kaydı kullanıcıya ait mi kontrol edilir.
+        var stockItem = await _context.StockItems
+            .FirstOrDefaultAsync(x =>
+                x.Id == id &&
+                x.UserId == userId &&
+                x.Status == StockItemStatus.Active &&
+                x.IsActive);
+
+        if (stockItem == null)
+            return false;
+
+        // Stok ürünü aktif bir paylaşım ilanında kullanılıyorsa silinmez.
+        // Böylece devam eden paylaşım/talep/teslimat akışı bozulmaz.
+        var hasActiveShareListing = await _context.ShareListings
+            .AnyAsync(x =>
+                x.StockItemId == id &&
+                x.DonorUserId == userId &&
+                x.IsActive &&
+                x.Status != ShareListingStatus.Cancelled &&
+                x.Status != ShareListingStatus.Expired &&
+                x.Status != ShareListingStatus.Delivered);
+
+        if (hasActiveShareListing)
+            return false;
+
+        // Fiziksel silmek yerine durum Deleted yapılır.
+        // Böylece raporlama ve geçmiş veri için kayıt korunur.
+        stockItem.Status = StockItemStatus.Deleted;
+        stockItem.IsActive = false;
+        stockItem.UpdatedAt = DateTime.Now;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
     private async Task<Product> GetOrCreateProductAsync(string userId, int? productId, string? productName)
     {
         var normalizedProductName = productName?.Trim();
 
         // Ürün adı varsa önce ada göre arama yapılır.
-        // Böylece kullanıcı düzenleme ekranında ürün adını değiştirirse yeni ad dikkate alınır.
+        // Böylece kullanıcı yeni ürün yazarsa bu ad dikkate alınır.
         if (!string.IsNullOrWhiteSpace(normalizedProductName))
         {
             var existingProductByName = await _context.Products
@@ -247,9 +234,12 @@ public class StockService : IStockService
                 OpenedShelfLifeDays = null,
                 CarbonFactor = 1,
                 IsSensitiveFood = false,
+
+                // Admin paneli gelene kadar kullanıcı ürünleri otomatik onaylı kabul edilir.
                 IsSystemDefined = false,
                 IsApproved = true,
                 CreatedByUserId = userId,
+
                 CreatedAt = DateTime.Now,
                 IsActive = true
             };
@@ -275,35 +265,51 @@ public class StockService : IStockService
 
         throw new InvalidOperationException("Ürün adı boş olamaz.");
     }
-    public async Task<bool> DeleteAsync(int id, string userId)
+
+    private async Task<Category> GetOrCreateOtherCategoryAsync()
     {
-        // Silinecek stok kaydı kullanıcıya ait mi kontrol edilir.
-        var stockItem = await _context.StockItems
-            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+        // Yeni kullanıcı ürünleri için varsayılan kategori olarak Diğer kullanılır.
+        var otherCategory = await _context.Categories
+            .FirstOrDefaultAsync(x => x.Name == "Diğer" && x.IsActive);
 
-        if (stockItem == null)
-            return false;
+        if (otherCategory != null)
+            return otherCategory;
 
-        // Stok ürünü aktif bir paylaşım ilanında kullanılıyorsa silinmez.
-        // Böylece devam eden paylaşım/talep/teslimat akışı bozulmaz.
-        var hasActiveShareListing = await _context.ShareListings
-            .AnyAsync(x =>
-                x.StockItemId == id &&
-                x.Status != ShareListingStatus.Cancelled &&
-                x.Status != ShareListingStatus.Delivered);
+        var category = new Category
+        {
+            Name = "Diğer",
+            Description = "Kullanıcı tarafından eklenen ve belirli kategoriye atanamayan ürünler için varsayılan kategori.",
+            CreatedAt = DateTime.Now,
+            IsActive = true
+        };
 
-        if (hasActiveShareListing)
-            return false;
-
-        // Fiziksel silmek yerine durum Deleted yapılır.
-        // Böylece raporlama ve geçmiş veri için kayıt korunur.
-        stockItem.Status = StockItemStatus.Deleted;
-        stockItem.IsActive = false;
-        stockItem.UpdatedAt = DateTime.Now;
-
+        await _context.Categories.AddAsync(category);
         await _context.SaveChangesAsync();
 
-        return true;
+        return category;
+    }
+
+    private async Task<Dictionary<int, int>> GetActiveShareListingMapAsync(string userId, List<int> stockItemIds)
+    {
+        if (stockItemIds == null || !stockItemIds.Any())
+            return new Dictionary<int, int>();
+
+        // Aktif paylaşım ilanları bulunur.
+        // İptal edilmiş, süresi dolmuş veya teslim edilmiş ilanlar aktif kabul edilmez.
+        var activeListings = await _context.ShareListings
+            .Where(x =>
+                stockItemIds.Contains(x.StockItemId) &&
+                x.DonorUserId == userId &&
+                x.IsActive &&
+                x.Status != ShareListingStatus.Cancelled &&
+                x.Status != ShareListingStatus.Expired &&
+                x.Status != ShareListingStatus.Delivered)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        return activeListings
+            .GroupBy(x => x.StockItemId)
+            .ToDictionary(x => x.Key, x => x.First().Id);
     }
 
     private async Task CreateRiskPredictionAsync(int stockItemId)
@@ -399,12 +405,22 @@ public class StockService : IStockService
         };
     }
 
-    private StockItemDto MapToDto(StockItem stockItem)
+    private StockItemDto MapToDto(
+        StockItem stockItem,
+        Dictionary<int, int>? activeShareListingMap = null)
     {
         // En güncel risk tahmini kullanıcıya gösterilir.
         var latestRisk = stockItem.WasteRiskPredictions
             .OrderByDescending(x => x.CalculatedAt)
             .FirstOrDefault();
+
+        var hasActiveShareListing = activeShareListingMap != null &&
+                                    activeShareListingMap.ContainsKey(stockItem.Id);
+
+        var activeShareListingId = activeShareListingMap != null &&
+                                   activeShareListingMap.TryGetValue(stockItem.Id, out var listingId)
+            ? listingId
+            : (int?)null;
 
         return new StockItemDto
         {
@@ -421,7 +437,10 @@ public class StockService : IStockService
             RiskScore = latestRisk?.RiskScore,
             RiskLevel = latestRisk?.RiskLevel.ToString(),
             RecommendationText = latestRisk?.RecommendationText,
-            Note = stockItem.Note
+            Note = stockItem.Note,
+
+            HasActiveShareListing = hasActiveShareListing,
+            ActiveShareListingId = activeShareListingId
         };
     }
 }
