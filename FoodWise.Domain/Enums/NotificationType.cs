@@ -13,5 +13,11 @@ public enum NotificationType
     ShareRequest = 3,
     RequestApproved = 4,
     DeliveryCompleted = 5,
-    Report = 6
+    Report = 6,
+
+    RequestRejected = 7,
+    DeliveryCreated = 8,
+    System = 9,
+    DeliveryDroppedOff = 10
+
 }

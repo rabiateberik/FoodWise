@@ -17,4 +17,5 @@ public class CreateNotificationDto
     public string Message { get; set; } = null!;
 
     public NotificationType Type { get; set; }
+    public string? TargetUrl { get; set; }
 }

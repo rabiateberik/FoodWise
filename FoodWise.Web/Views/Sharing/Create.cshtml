@@ -4,121 +4,226 @@
     Layout = "_FoodWiseLayout";
 
     ViewData["Title"] = "Paylaşıma Aç";
-    ViewData["PageDescription"] = "Riskli ürününü güvenli teslim noktası üzerinden başka kullanıcılarla paylaşabilirsin.";
+    ViewData["PageDescription"] = "Stokundaki ürünü güvenli teslim noktası üzerinden başka kullanıcılarla paylaşabilirsin.";
 }
 
 @*
     Paylaşıma Aç sayfası ortak FoodWise layout yapısını kullanır.
     Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-    Bu dosyada sadece paylaşım ilanı oluşturma formu ve sayfaya özel form stilleri bulunur.
+
+    Bu sayfada:
+    - Seçilen stok ürünü için paylaşım ilanı oluşturulur.
+    - Teslim noktası ve teslim zaman aralığı belirlenir.
+    - Paylaşılacak miktar ve açıklama bilgileri alınır.
+    - Form gönderildiğinde Sharing API üzerinden paylaşım ilanı oluşturulur.
 *@
 
 @section TopbarActions {
-    <a asp-controller="Stock" asp-action="Risky" class="btn-secondary">
-        Riskli Ürünlere Dön
+    <a asp-controller="Stock" asp-action="Index" class="btn-secondary">
+        Stoklara Dön
+    </a>
+
+    <a asp-controller="Sharing" asp-action="MyListings" class="btn-secondary">
+        İlanlarım
     </a>
 }
 
-<section class="form-card">
-    <div class="product-info">
-        @if (!string.IsNullOrWhiteSpace(Model.ProductName))
-        {
-            <p>
-                <strong>@Model.ProductName</strong> ürününü güvenli teslim noktası üzerinden paylaşabilirsin.
-            </p>
-        }
-        else
-        {
-            <p>
-                Stok ürününü güvenli teslim noktası üzerinden paylaşabilirsin.
-            </p>
-        }
+<section class="share-create-layout">
+    <div class="form-card">
+        <div class="form-header">
+            <span class="form-icon">🤝</span>
+
+            <div>
+                <h3>Paylaşım İlanı Oluştur</h3>
+
+                @if (!string.IsNullOrWhiteSpace(Model.ProductName))
+                {
+                    <p>
+                        <strong>@Model.ProductName</strong> ürününü güvenli teslim noktası üzerinden paylaşabilirsin.
+                    </p>
+                }
+                else
+                {
+                    <p>
+                        Seçtiğin stok ürününü güvenli teslim noktası üzerinden paylaşabilirsin.
+                    </p>
+                }
+            </div>
+        </div>
+
+        <form asp-controller="Sharing" asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+
+            @* Paylaşıma açılacak stok ürünü bilgisi form içinde gizli olarak gönderilir. *@
+            <input asp-for="StockItemId" type="hidden" />
+            <input asp-for="ProductName" type="hidden" />
+
+            @* Model seviyesindeki doğrulama hataları burada gösterilir. *@
+            <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+            <div class="form-grid">
+                <div class="form-group title-group">
+                    <label asp-for="Title"></label>
+
+                    <input asp-for="Title"
+                           placeholder="Örn: Bugün alınabilecek yoğurt paylaşımı" />
+
+                    <span asp-validation-for="Title"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="DeliveryPointId"></label>
+
+                    <select asp-for="DeliveryPointId" asp-items="Model.DeliveryPoints">
+                        <option value="">Teslim noktası seçiniz</option>
+                    </select>
+
+                    <small class="field-hint">
+                        Teslim işlemi seçilen güvenli teslim noktası üzerinden yapılır.
+                    </small>
+
+                    <span asp-validation-for="DeliveryPointId"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="Quantity"></label>
+
+                    <input asp-for="Quantity"
+                           type="number"
+                           step="0.01"
+                           placeholder="Örn: 1" />
+
+                    <small class="field-hint">
+                        Stoktaki miktardan fazla paylaşım yapılamaz.
+                    </small>
+
+                    <span asp-validation-for="Quantity"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="PickupStartTime"></label>
+
+                    <input asp-for="PickupStartTime"
+                           type="datetime-local"
+                           asp-format="{0:yyyy-MM-ddTHH:mm}" />
+
+                    <span asp-validation-for="PickupStartTime"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="PickupEndTime"></label>
+
+                    <input asp-for="PickupEndTime"
+                           type="datetime-local"
+                           asp-format="{0:yyyy-MM-ddTHH:mm}" />
+
+                    <small class="field-hint">
+                        Bitiş zamanı başlangıç zamanından sonra olmalıdır.
+                    </small>
+
+                    <span asp-validation-for="PickupEndTime"></span>
+                </div>
+            </div>
+
+            <div class="form-group full">
+                <label asp-for="Description"></label>
+
+                <textarea asp-for="Description"
+                          rows="4"
+                          placeholder="Ürün durumu, teslim notu veya ek açıklama yazabilirsin."></textarea>
+
+                <span asp-validation-for="Description"></span>
+            </div>
+
+            <div class="form-actions">
+                <a asp-controller="Stock" asp-action="Index" class="btn-cancel">
+                    Vazgeç
+                </a>
+
+                <button type="submit" class="btn-save">
+                    Paylaşım İlanı Oluştur
+                </button>
+            </div>
+        </form>
     </div>
 
-    <form asp-controller="Sharing" asp-action="Create" method="post">
-        @Html.AntiForgeryToken()
+    <aside class="helper-card">
+        <h3>Paylaşım Bilgisi</h3>
 
-        @* Paylaşıma açılacak stok ürünü bilgisi form içinde gizli olarak gönderilir. *@
-        <input asp-for="StockItemId" type="hidden" />
-        <input asp-for="ProductName" type="hidden" />
-
-        @* Model seviyesindeki doğrulama hataları burada gösterilir. *@
-        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
-
-        <div class="form-grid">
-            <div class="form-group">
-                <label asp-for="Title"></label>
-                <input asp-for="Title" placeholder="Örn: Bugün alınabilecek yoğurt paylaşımı" />
-                <span asp-validation-for="Title"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="DeliveryPointId"></label>
-                <select asp-for="DeliveryPointId" asp-items="Model.DeliveryPoints">
-                    <option value="">Teslim noktası seçiniz</option>
-                </select>
-                <span asp-validation-for="DeliveryPointId"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Quantity"></label>
-                <input asp-for="Quantity" type="number" step="0.01" />
-                <span asp-validation-for="Quantity"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="PickupStartTime"></label>
-                <input asp-for="PickupStartTime" type="datetime-local" />
-                <span asp-validation-for="PickupStartTime"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="PickupEndTime"></label>
-                <input asp-for="PickupEndTime" type="datetime-local" />
-                <span asp-validation-for="PickupEndTime"></span>
-            </div>
+        <div class="helper-item">
+            <strong>Güvenli teslim</strong>
+            <p>Paylaşım, seçtiğin teslim noktası üzerinden takip edilir.</p>
         </div>
 
-        <div class="form-group full">
-            <label asp-for="Description"></label>
-            <textarea asp-for="Description"
-                      rows="4"
-                      placeholder="Ürün durumu, teslim notu veya ek açıklama yazabilirsin."></textarea>
-            <span asp-validation-for="Description"></span>
+        <div class="helper-item">
+            <strong>Talep süreci</strong>
+            <p>Diğer kullanıcılar ilana talep gönderir. Talebi sen onaylarsın.</p>
         </div>
 
-        <button type="submit" class="btn-primary">
-            Paylaşım İlanı Oluştur
-        </button>
-    </form>
+        <div class="helper-item">
+            <strong>İptal edilebilir</strong>
+            <p>Teslimat sürecine geçmemiş ilanları daha sonra iptal edebilirsin.</p>
+        </div>
+    </aside>
 </section>
 
 @section Styles {
     <style>
-        .form-card {
+        .share-create-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 340px;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .form-card,
+        .helper-card {
             background: white;
-            border-radius: 20px;
-            padding: 32px;
+            border-radius: 22px;
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
         }
 
-        .product-info {
-            background: #f3f8f4;
-            border-left: 5px solid #238636;
-            border-radius: 14px;
-            padding: 16px 18px;
-            margin-bottom: 24px;
+        .form-card {
+            padding: 32px;
         }
 
-            .product-info p {
-                margin: 0;
-                color: #405a68;
-                line-height: 1.5;
-            }
+        .form-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: #f0f8f2;
+            border-radius: 18px;
+            padding: 18px 20px;
+            margin-bottom: 28px;
+        }
 
-            .product-info strong {
-                color: #145c24;
-            }
+        .form-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+
+        .form-header h3 {
+            margin: 0 0 6px;
+            color: #145c24;
+            font-size: 24px;
+        }
+
+        .form-header p {
+            margin: 0;
+            color: #526b7a;
+            line-height: 1.5;
+        }
+
+        .form-header strong {
+            color: #145c24;
+        }
 
         .form-grid {
             display: grid;
@@ -137,28 +242,48 @@
                 margin-top: 4px;
             }
 
+        .title-group {
+            grid-column: 1 / -1;
+        }
+
         label {
-            font-weight: 700;
+            font-weight: 800;
             color: #1f2937;
+            font-size: 14px;
         }
 
         input,
         select,
         textarea {
             border: 1px solid #d1d5db;
-            border-radius: 10px;
-            padding: 13px 14px;
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 14px 15px;
             font-size: 15px;
             outline: none;
             box-sizing: border-box;
             width: 100%;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
 
             input:focus,
             select:focus,
             textarea:focus {
                 border-color: #238636;
+                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
+                background: #fbfffc;
             }
+
+        textarea {
+            resize: vertical;
+            min-height: 110px;
+        }
+
+        .field-hint {
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.4;
+        }
 
         .form-group span {
             color: #dc2626;
@@ -169,17 +294,123 @@
             background: #fee2e2;
             color: #991b1b;
             padding: 14px 18px;
-            border-radius: 12px;
-            margin-bottom: 20px;
+            border-radius: 14px;
+            margin-bottom: 22px;
+            border-left: 5px solid #dc2626;
         }
 
             .validation-summary:empty {
                 display: none;
             }
 
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .btn-save,
+        .btn-cancel {
+            border: none;
+            border-radius: 12px;
+            padding: 13px 20px;
+            font-weight: 800;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 160px;
+            box-sizing: border-box;
+        }
+
+        .btn-save {
+            background: #238636;
+            color: white;
+        }
+
+            .btn-save:hover {
+                background: #1f7a30;
+            }
+
+        .btn-cancel {
+            background: #eef2f4;
+            color: #405a68;
+        }
+
+            .btn-cancel:hover {
+                background: #e2e8ec;
+            }
+
+        .helper-card {
+            padding: 26px;
+            position: sticky;
+            top: 24px;
+        }
+
+            .helper-card h3 {
+                color: #145c24;
+                font-size: 22px;
+                margin: 0 0 18px;
+            }
+
+        .helper-item {
+            background: #f8faf8;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+            .helper-item strong {
+                display: block;
+                color: #1f2937;
+                margin-bottom: 6px;
+            }
+
+            .helper-item p {
+                color: #526b7a;
+                line-height: 1.5;
+                margin: 0;
+                font-size: 14px;
+            }
+
+        @@media (max-width: 1100px) {
+            .share-create-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .helper-card {
+                position: static;
+            }
+        }
+
         @@media (max-width: 800px) {
+            .form-card {
+                padding: 22px;
+            }
+
+            .form-header {
+                align-items: flex-start;
+            }
+
             .form-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .title-group {
+                grid-column: auto;
+            }
+
+            .form-actions {
+                flex-direction: column-reverse;
+                align-items: stretch;
+            }
+
+            .btn-save,
+            .btn-cancel {
+                width: 100%;
             }
         }
     </style>

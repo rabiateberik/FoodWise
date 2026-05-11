@@ -29,15 +29,19 @@ public static class DisplayTextHelper
         };
     }
 
+    // Paylaşım ilanı durumlarını kullanıcıya Türkçe göstermek için kullanılır.
     public static string GetShareListingStatusText(string? status)
     {
         return status switch
         {
             "Available" => "Yayında",
-            "Reserved" => "Rezerve Edildi",
+            "Requested" => "Talep Var",
+            "Approved" => "Onaylandı",
+            "QrGenerated" => "Teslimat Oluşturuldu",
             "Delivered" => "Teslim Edildi",
             "Cancelled" => "İptal Edildi",
             "Expired" => "Süresi Doldu",
+            "Reserved" => "Rezerve Edildi",
             _ => status ?? "-"
         };
     }
@@ -78,6 +82,7 @@ public static class DisplayTextHelper
             "RequestApproved" => "Talep Onaylandı",
             "RequestRejected" => "Talep Reddedildi",
             "DeliveryCreated" => "Teslimat Oluşturuldu",
+            "DeliveryDroppedOff" => "Ürün Kutuya Bırakıldı",
             "DeliveryCompleted" => "Teslimat Tamamlandı",
             "Report" => "Rapor",
             "System" => "Sistem",

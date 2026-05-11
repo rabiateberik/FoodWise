@@ -13,6 +13,6 @@ public class NotificationViewModel
     public string Type { get; set; } = string.Empty;
 
     public bool IsRead { get; set; }
-
+    public string? TargetUrl { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -2,11 +2,19 @@
 
 @*
     Bu ViewComponent görünümü, sağ üstteki bildirim zilini ve son bildirim dropdown listesini gösterir.
-    Zile tıklanınca bildirimler açılır, bildirime veya Tümünü Gör bağlantısına tıklanınca Bildirimler sayfasına gidilir.
+
+    Mantık:
+    - Zile tıklanınca okunmamış bildirimler okundu yapılır.
+    - Okunmamış bildirim sayacı gizlenir.
+    - Bildirime tıklanınca TargetUrl varsa ilgili sayfaya gidilir.
+    - TargetUrl yoksa Bildirimler sayfasına yönlendirilir.
 *@
 
 <div class="notification-wrapper">
-    <button type="button" class="notification-bell" id="notificationBell">
+    <button type="button"
+            class="notification-bell"
+            id="notificationBell"
+            onclick="markNotificationsAsRead()">
         <span>🔔</span>
 
         @if (Model.UnreadCount > 0)
@@ -18,7 +26,10 @@
     <div class="notification-dropdown" id="notificationDropdown">
         <div class="notification-dropdown-header">
             <strong>Bildirimler</strong>
-            <a asp-controller="Notification" asp-action="Index">Tümünü Gör</a>
+
+            <a asp-controller="Notification" asp-action="Index">
+                Tümünü Gör
+            </a>
         </div>
 
         @if (Model.RecentNotifications == null || !Model.RecentNotifications.Any())
@@ -33,12 +44,18 @@
             {
                 var readClass = notification.IsRead ? "read" : "unread";
 
-                <a asp-controller="Notification"
-                   asp-action="Index"
+                // Bildirime özel hedef sayfa varsa oraya, yoksa Bildirimler sayfasına gidilir.
+                var targetUrl = string.IsNullOrWhiteSpace(notification.TargetUrl)
+                ? Url.Action("Index", "Notification")
+                : notification.TargetUrl;
+
+                <a href="@targetUrl"
                    class="notification-item @readClass">
                     <div>
                         <strong>@notification.Title</strong>
+
                         <p>@notification.Message</p>
+
                         <span>@notification.CreatedAt.ToString("dd.MM.yyyy HH:mm")</span>
                     </div>
                 </a>
@@ -46,3 +63,61 @@
         }
     </div>
 </div>
+
+@* Zile tıklanınca tüm okunmamış bildirimleri okundu yapmak için gizli form kullanılır. *@
+<form id="markAllNotificationsReadForm"
+      asp-controller="Notification"
+      asp-action="MarkAllAsRead"
+      method="post"
+      style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+<script>
+    let notificationsMarkedAsRead = false;
+
+    function markNotificationsAsRead() {
+        // Aynı sayfada zile tekrar tekrar basıldığında gereksiz POST isteği atılmasını engeller.
+        if (notificationsMarkedAsRead) {
+            return;
+        }
+
+        const form = document.getElementById('markAllNotificationsReadForm');
+
+        if (!form) {
+            return;
+        }
+
+        const tokenInput = form.querySelector('input[name="__RequestVerificationToken"]');
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'RequestVerificationToken': tokenInput ? tokenInput.value : ''
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return;
+            }
+
+            notificationsMarkedAsRead = true;
+
+            // Okunmamış bildirim sayacı gizlenir.
+            const badge = document.querySelector('.notification-count');
+
+            if (badge) {
+                badge.style.display = 'none';
+            }
+
+            // Dropdown içindeki okunmamış bildirimler görsel olarak okundu durumuna geçirilir.
+            document.querySelectorAll('.notification-item.unread').forEach(item => {
+                item.classList.remove('unread');
+                item.classList.add('read');
+            });
+        })
+        .catch(() => {
+            console.log('Bildirimler okundu yapılamadı.');
+        });
+    }
+</script>

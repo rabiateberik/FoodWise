@@ -17,6 +17,6 @@ public class NotificationDto
     public string Type { get; set; } = null!;
 
     public bool IsRead { get; set; }
-
+    public string? TargetUrl { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -11,7 +11,14 @@
 @*
     Mevcut Paylaşım İlanları sayfası ortak FoodWise layout yapısını kullanır.
     Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-    Bu dosyada sadece mevcut ilan kartları, talep gönderme formu ve sayfaya özel stiller bulunur.
+
+    Bu sayfada:
+    - Diğer kullanıcıların aktif paylaşım ilanları listelenir.
+    - Kullanıcı kendi ilanlarını burada görmez.
+    - Süresi geçmiş ilanlar backend tarafında listelenmez.
+    - Kullanıcı seçtiği ilana talep gönderebilir.
+    - Bekleyen talebini iptal edebilir.
+    - Talebi onaylandıysa teslimat oluşturulmasını beklediği bilgisi gösterilir.
 *@
 
 @section TopbarActions {
@@ -20,169 +27,431 @@
     </a>
 }
 
-<section class="listing-grid">
+<section class="available-page">
     @if (Model == null || !Model.Any())
     {
         <div class="empty-state">
+            <div class="empty-icon">📦</div>
+
             <h3>Şu anda mevcut ilan yok.</h3>
             <p>Diğer kullanıcılar ürün paylaşıma açtığında burada görünecek.</p>
+
+            <a asp-controller="Stock" asp-action="Index" class="btn-primary">
+                Stoklarıma Git
+            </a>
         </div>
     }
     else
     {
-        @foreach (var listing in Model)
-        {
-            <article class="listing-card">
-                <div class="listing-header">
-                    <div>
-                        <h3>@listing.Title</h3>
-                        <p>
-                            @listing.ProductName -
-                            @listing.Quantity @DisplayTextHelper.GetUnitText(listing.UnitName)
-                        </p>
-                    </div>
+        <div class="available-summary">
+            <div>
+                <span>Mevcut İlan</span>
+                <strong>@Model.Count</strong>
+            </div>
 
-                    <span class="status-badge">
-                        @DisplayTextHelper.GetShareListingStatusText(listing.Status)
-                    </span>
-                </div>
+            <div>
+                <span>Talep Gönderdiğim</span>
+                <strong>@(Model.Count(x => x.HasCurrentUserRequest))</strong>
+            </div>
 
-                @if (!string.IsNullOrWhiteSpace(listing.Description))
+            <div>
+                <span>Onaylanan Talep</span>
+                <strong>@(Model.Count(x => x.CurrentUserRequestStatus == "Approved"))</strong>
+            </div>
+        </div>
+
+        <div class="listing-grid">
+            @foreach (var listing in Model)
+            {
+                var statusClass = listing.Status switch
                 {
-                    <p class="description">@listing.Description</p>
-                }
+                    "Available" => "status-available",
+                    "Requested" => "status-requested",
+                    "Approved" => "status-approved",
+                    "QrGenerated" => "status-qr",
+                    "Delivered" => "status-delivered",
+                    "Cancelled" => "status-cancelled",
+                    "Expired" => "status-expired",
+                    _ => "status-default"
+                };
 
-                <div class="listing-info">
-                    <div>
-                        <span>Teslim Noktası</span>
-                        <strong>@listing.DeliveryPointName</strong>
+                <article class="listing-card">
+                    <div class="listing-header">
+                        <div>
+                            <h3>@listing.Title</h3>
+
+                            <p>
+                                @listing.ProductName -
+                                @listing.Quantity @DisplayTextHelper.GetUnitText(listing.UnitName)
+                            </p>
+                        </div>
+
+                        @* İlanın mevcut durum bilgisi renkli rozet olarak gösterilir. *@
+                        <span class="status-badge @statusClass">
+                            @DisplayTextHelper.GetShareListingStatusText(listing.Status)
+                        </span>
                     </div>
 
-                    <div>
-                        <span>Teslim Aralığı</span>
-                        <strong>
-                            @listing.PickupStartTime.ToString("dd.MM.yyyy HH:mm")
-                            -
-                            @listing.PickupEndTime.ToString("dd.MM.yyyy HH:mm")
-                        </strong>
+                    @if (!string.IsNullOrWhiteSpace(listing.Description))
+                    {
+                        <p class="description">
+                            @listing.Description
+                        </p>
+                    }
+
+                    <div class="listing-info">
+                        <div>
+                            <span>Teslim Noktası</span>
+                            <strong>@listing.DeliveryPointName</strong>
+                        </div>
+
+                        <div>
+                            <span>Talep Sayısı</span>
+                            <strong>@listing.RequestCount</strong>
+                        </div>
+
+                        <div>
+                            <span>Teslim Başlangıcı</span>
+                            <strong>@listing.PickupStartTime.ToString("dd.MM.yyyy HH:mm")</strong>
+                        </div>
+
+                        <div>
+                            <span>Teslim Bitişi</span>
+                            <strong>@listing.PickupEndTime.ToString("dd.MM.yyyy HH:mm")</strong>
+                        </div>
                     </div>
-                </div>
 
-                @* Kullanıcı bu form ile seçtiği paylaşım ilanına talep gönderir. *@
-                <form asp-controller="Sharing" asp-action="CreateRequest" method="post" class="request-form">
-                    @Html.AntiForgeryToken()
+                    <div class="listing-action-area">
+                        @if (listing.HasCurrentUserRequest && listing.CurrentUserRequestStatus == "Pending")
+                        {
+                            @* Kullanıcı bu ilana bekleyen talep gönderdiyse tekrar talep gönderemez; sadece talebini iptal edebilir. *@
+                            <form asp-controller="Sharing"
+                                  asp-action="CancelRequest"
+                                  method="post"
+                                  class="request-cancel-form"
+                                  onsubmit="return confirm('Bu talebi iptal etmek istediğine emin misin?');">
+                                @Html.AntiForgeryToken()
 
-                    <input type="hidden" name="listingId" value="@listing.Id" />
+                                <input type="hidden" name="requestId" value="@listing.CurrentUserRequestId" />
 
-                    <button type="submit" class="btn-primary">
-                        Talep Gönder
-                    </button>
-                </form>
-            </article>
-        }
+                                <button type="submit" class="cancel-request-btn">
+                                    Talebi İptal Et
+                                </button>
+                            </form>
+                        }
+                        else if (listing.HasCurrentUserRequest && listing.CurrentUserRequestStatus == "Approved")
+                        {
+                            @* Talep onaylandı fakat bağışçı henüz teslimat oluşturmadıysa kullanıcıya bekleme durumu gösterilir. *@
+                            <div class="approved-request-box">
+                                <strong>Talebin Onaylandı</strong>
+                                <span>Teslimat oluşturulması bekleniyor.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            @* Kullanıcı bu form ile seçtiği paylaşım ilanına talep gönderir. *@
+                            <form asp-controller="Sharing"
+                                  asp-action="CreateRequest"
+                                  method="post"
+                                  class="request-form"
+                                  onsubmit="return confirm('Bu paylaşım ilanına talep göndermek istediğine emin misin?');">
+                                @Html.AntiForgeryToken()
+
+                                <input type="hidden" name="listingId" value="@listing.Id" />
+
+                                <button type="submit" class="request-btn">
+                                    Talep Gönder
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
     }
 </section>
 
 @section Styles {
     <style>
+        .available-page {
+            display: grid;
+            gap: 20px;
+        }
+
+        .available-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+            .available-summary div {
+                background: white;
+                border-radius: 16px;
+                padding: 18px 20px;
+                box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
+            }
+
+            .available-summary span {
+                display: block;
+                color: #607d8b;
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+
+            .available-summary strong {
+                color: #145c24;
+                font-size: 28px;
+                font-weight: 900;
+            }
+
         .listing-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            gap: 22px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
+            gap: 18px;
+            align-items: stretch;
+            justify-content: start;
         }
 
         .listing-card {
             background: white;
-            border-radius: 20px;
-            padding: 24px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
+            border-top: 4px solid #dcfce7;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            min-height: 100%;
+            max-width: 360px;
+            width: 100%;
+            box-sizing: border-box;
         }
+
+            .listing-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 14px 30px rgba(0, 0, 0, 0.07);
+            }
 
         .listing-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 16px;
-            margin-bottom: 16px;
+            gap: 12px;
+            margin-bottom: 14px;
         }
 
             .listing-header h3 {
                 color: #145c24;
-                margin: 0 0 6px;
-                font-size: 22px;
+                margin: 0 0 5px;
+                font-size: 20px;
+                line-height: 1.25;
             }
 
-            .listing-header p,
-            .description {
+            .listing-header p {
                 color: #526b7a;
                 margin: 0;
-                line-height: 1.5;
+                line-height: 1.4;
+                font-size: 14px;
+                font-weight: 700;
             }
 
+        .description {
+            background: #f8faf8;
+            color: #526b7a;
+            border-radius: 12px;
+            padding: 11px 13px;
+            margin: 0 0 14px;
+            line-height: 1.45;
+            font-size: 14px;
+        }
+
         .status-badge {
+            border-radius: 999px;
+            padding: 7px 10px;
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .status-available {
             background: #dcfce7;
             color: #166534;
-            border-radius: 999px;
-            padding: 8px 12px;
-            font-size: 13px;
-            font-weight: 700;
-            white-space: nowrap;
+        }
+
+        .status-requested {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .status-approved,
+        .status-qr {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .status-delivered {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .status-cancelled,
+        .status-expired {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-default {
+            background: #e5e7eb;
+            color: #374151;
         }
 
         .listing-info {
             display: grid;
-            gap: 12px;
-            margin: 18px 0;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin: 14px 0 16px;
         }
 
             .listing-info div {
                 background: #f8faf8;
-                border-radius: 14px;
-                padding: 14px;
+                border-radius: 13px;
+                padding: 12px;
+                min-width: 0;
             }
 
             .listing-info span {
                 display: block;
                 color: #6b7280;
-                font-size: 13px;
-                margin-bottom: 6px;
+                font-size: 12px;
+                margin-bottom: 5px;
             }
 
             .listing-info strong {
                 color: #1f2937;
-                line-height: 1.5;
+                line-height: 1.4;
+                font-size: 14px;
+                word-break: break-word;
             }
 
-        .request-form {
+        .listing-action-area {
+            margin-top: auto;
+        }
+
+        .request-form,
+        .request-cancel-form {
             margin: 0;
         }
 
-        .empty-state {
-            grid-column: 1 / -1;
-            background: white;
-            border-radius: 20px;
-            padding: 50px 24px;
-            text-align: center;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        .request-btn,
+        .cancel-request-btn {
+            width: 100%;
+            min-height: 40px;
+            border: none;
+            border-radius: 11px;
+            padding: 10px 14px;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
         }
 
-            .empty-state h3 {
-                color: #145c24;
-                font-size: 26px;
-                margin-bottom: 10px;
+        .request-btn {
+            background: #238636;
+            color: white;
+        }
+
+            .request-btn:hover {
+                background: #1f7a30;
             }
 
-            .empty-state p {
-                color: #526b7a;
-                margin-bottom: 0;
+        .cancel-request-btn {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+            .cancel-request-btn:hover {
+                background: #fecaca;
             }
 
-        @@media (max-width: 900px) {
+        .approved-request-box {
+            width: 100%;
+            min-height: 48px;
+            border-radius: 11px;
+            padding: 10px 14px;
+            background: #dcfce7;
+            color: #166534;
+            text-align: center;
+            box-sizing: border-box;
+            border: 1px solid #bbf7d0;
+        }
+
+            .approved-request-box strong {
+                display: block;
+                font-size: 14px;
+                font-weight: 900;
+                margin-bottom: 3px;
+            }
+
+            .approved-request-box span {
+                display: block;
+                font-size: 12px;
+                font-weight: 700;
+                color: #166534;
+                line-height: 1.35;
+            }
+
+        .empty-state {
+            background: white;
+            border-radius: 20px;
+            padding: 48px 24px;
+            text-align: center;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
+        }
+
+        .empty-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 20px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 0 auto 16px;
+        }
+
+        .empty-state h3 {
+            color: #145c24;
+            font-size: 25px;
+            margin: 0 0 10px;
+        }
+
+        .empty-state p {
+            color: #526b7a;
+            margin-bottom: 22px;
+            line-height: 1.5;
+        }
+
+        @@media (max-width: 1000px) {
+            .available-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @@media (max-width: 760px) {
+            .listing-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .listing-card {
+                max-width: none;
+            }
+
             .listing-header {
                 flex-direction: column;
             }
 
-            .listing-grid {
+            .listing-info {
                 grid-template-columns: 1fr;
             }
         }

@@ -23,4 +23,5 @@ public interface ISharingWebService
 
     // Kullanıcının kendi paylaşım ilanını iptal etmesi için kullanılır.
     Task<bool> CancelListingAsync(int listingId, string token);
+    Task<bool> CancelRequestAsync(int requestId, string token);
 }

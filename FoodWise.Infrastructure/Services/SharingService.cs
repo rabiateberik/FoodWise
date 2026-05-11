@@ -12,16 +12,20 @@ using FoodWise.Domain.Entities;
 using FoodWise.Domain.Enums;
 using FoodWise.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-
+using FoodWise.Application.DTOs.Notification;
 namespace FoodWise.Infrastructure.Services;
 
 public class SharingService : ISharingService
 {
     private readonly FoodWiseDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public SharingService(FoodWiseDbContext context)
+    public SharingService(
+        FoodWiseDbContext context,
+        INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<ShareListingDto?> CreateListingAsync(string userId, CreateShareListingDto model)
@@ -100,7 +104,13 @@ public class SharingService : ISharingService
 
     public async Task<List<ShareListingDto>> GetAvailableListingsAsync(string userId)
     {
-        // Kullanıcı kendi açtığı ilanları alıcı listesinde görmesin diye DonorUserId filtrelenir.
+        var now = DateTime.Now;
+
+        // Mevcut ilanlar sayfasında:
+        // - Kullanıcının kendi ilanları gösterilmez.
+        // - İptal edilen, süresi dolan, teslimata geçen veya teslim edilen ilanlar gösterilmez.
+        // - Available / Requested ilanlar listelenir.
+        // - Kullanıcının onaylanmış ama henüz teslimata geçmemiş talebi varsa ilan "Teslimat bekleniyor" olarak gösterilir.
         var listings = await _context.ShareListings
             .Include(x => x.StockItem)
                 .ThenInclude(x => x.Product)
@@ -110,18 +120,62 @@ public class SharingService : ISharingService
             .Include(x => x.ShareRequests)
             .Where(x =>
                 x.IsActive &&
-                x.Status == ShareListingStatus.Available &&
                 x.DonorUserId != userId &&
-                x.PickupEndTime > DateTime.Now)
+                x.PickupEndTime > now &&
+
+                // Teslimata geçmiş veya bitmiş ilanlar artık Mevcut İlanlar sayfasında görünmez.
+                x.Status != ShareListingStatus.QrGenerated &&
+                x.Status != ShareListingStatus.Delivered &&
+                x.Status != ShareListingStatus.Cancelled &&
+                x.Status != ShareListingStatus.Expired &&
+
+                (
+                    // Herkesin görebileceği aktif ilanlar.
+                    x.Status == ShareListingStatus.Available ||
+                    x.Status == ShareListingStatus.Requested ||
+
+                    // Sadece bu kullanıcının onaylanmış talebi varsa,
+                    // teslimat oluşturulana kadar durum bilgisini göstermek için listede tutulur.
+                    (
+                        x.Status == ShareListingStatus.Approved &&
+                        x.ShareRequests.Any(r =>
+                            r.RequesterUserId == userId &&
+                            r.Status == ShareRequestStatus.Approved)
+                    )
+                ))
             .OrderBy(x => x.PickupEndTime)
             .ToListAsync();
 
-        return listings.Select(MapToListingDto).ToList();
+        var result = new List<ShareListingDto>();
+
+        foreach (var listing in listings)
+        {
+            var dto = MapToListingDto(listing);
+
+            // Kullanıcının bu ilandaki aktif talebi bulunur.
+            // Cancelled ve Rejected talepler aktif sayılmaz.
+            var currentUserRequest = listing.ShareRequests
+                .OrderByDescending(x => x.RequestedAt)
+                .FirstOrDefault(x =>
+                    x.RequesterUserId == userId &&
+                    (x.Status == ShareRequestStatus.Pending ||
+                     x.Status == ShareRequestStatus.Approved));
+
+            dto.HasCurrentUserRequest = currentUserRequest != null;
+            dto.CurrentUserRequestId = currentUserRequest?.Id;
+            dto.CurrentUserRequestStatus = currentUserRequest?.Status.ToString();
+
+            result.Add(dto);
+        }
+
+        return result;
     }
 
     public async Task<List<ShareListingDto>> GetMyListingsAsync(string userId)
     {
-        // Giriş yapan kullanıcının oluşturduğu tüm aktif paylaşım ilanları listelenir.
+        // Giriş yapan kullanıcının iptal edilmemiş ve süresi dolmamış paylaşım ilanları listelenir.
+        // İptal edilen veya süresi geçmiş aktif ilanlar bu sayfada gösterilmez.
+        // Kullanıcı ürünü tekrar paylaşmak isterse Stoklarım sayfasından yeniden paylaşıma açabilir.
         var listings = await _context.ShareListings
             .Include(x => x.StockItem)
                 .ThenInclude(x => x.Product)
@@ -129,13 +183,18 @@ public class SharingService : ISharingService
                 .ThenInclude(x => x.Unit)
             .Include(x => x.DeliveryPoint)
             .Include(x => x.ShareRequests)
-            .Where(x => x.DonorUserId == userId)
+            .Where(x =>
+    x.DonorUserId == userId &&
+    x.Status != ShareListingStatus.Cancelled &&
+    x.Status != ShareListingStatus.Expired &&
+    x.Status != ShareListingStatus.Delivered &&
+    x.Status != ShareListingStatus.QrGenerated &&
+    !(x.Status == ShareListingStatus.Available && x.PickupEndTime <= DateTime.Now))
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
         return listings.Select(MapToListingDto).ToList();
     }
-
     public async Task<ShareListingDto?> GetListingByIdAsync(int listingId)
     {
         var listing = await GetListingEntityByIdAsync(listingId);
@@ -162,16 +221,17 @@ public class SharingService : ISharingService
         if (listing.DonorUserId == requesterUserId)
             return null;
 
-        // Aynı kullanıcı aynı ilana ikinci kez aktif talep göndermesin.
-        var alreadyRequested = await _context.ShareRequests.AnyAsync(x =>
-            x.ShareListingId == shareListingId &&
-            x.RequesterUserId == requesterUserId &&
-            x.Status != ShareRequestStatus.Cancelled &&
-            x.Status != ShareRequestStatus.Rejected);
+        // Kullanıcı aynı ilana bekleyen veya onaylanmış aktif talebi varken tekrar talep gönderemez.
+        // İptal edilen veya reddedilen talepten sonra yeniden talep gönderebilir.
+        var alreadyRequested = await _context.ShareRequests
+            .AnyAsync(x =>
+                x.ShareListingId == shareListingId &&
+                x.RequesterUserId == requesterUserId &&
+                (x.Status == ShareRequestStatus.Pending ||
+                 x.Status == ShareRequestStatus.Approved));
 
         if (alreadyRequested)
             return null;
-
         var request = new ShareRequest
         {
             ShareListingId = shareListingId,
@@ -184,6 +244,13 @@ public class SharingService : ISharingService
 
         await _context.ShareRequests.AddAsync(request);
         await _context.SaveChangesAsync();
+        await _notificationService.CreateAsync(listing.DonorUserId, new CreateNotificationDto
+        {
+            Title = "Yeni paylaşım talebi",
+            Message = $"{listing.StockItem.Product.Name} paylaşım ilanın için yeni bir talep geldi.",
+            Type = NotificationType.ShareRequest,
+            TargetUrl = $"/Sharing/MyListings?highlightListingId={listing.Id}"
+        });
 
         var createdRequest = await GetRequestEntityByIdAsync(request.Id);
 
@@ -192,18 +259,28 @@ public class SharingService : ISharingService
 
     public async Task<List<ShareRequestDto>> GetRequestsForMyListingAsync(string userId, int shareListingId)
     {
-        // Sadece ilan sahibi kendi ilanına gelen talepleri görebilir.
-        var listingBelongsToUser = await _context.ShareListings
-            .AnyAsync(x => x.Id == shareListingId && x.DonorUserId == userId);
+        // İlanın giriş yapan kullanıcıya ait olup olmadığı kontrol edilir.
+        // Kullanıcı sadece kendi paylaşım ilanına gelen talepleri görebilir.
+        var listingExists = await _context.ShareListings
+            .AnyAsync(x =>
+                x.Id == shareListingId &&
+                x.DonorUserId == userId &&
+                x.IsActive);
 
-        if (!listingBelongsToUser)
+        if (!listingExists)
             return new List<ShareRequestDto>();
 
+        // İlan talepleri sayfasında sadece aktif talepler gösterilir.
+        // İptal edilen veya reddedilen talepler geçmiş kayıt olarak veritabanında kalır,
+        // fakat kullanıcı arayüzünde kalabalık oluşturmaması için listelenmez.
         var requests = await _context.ShareRequests
             .Include(x => x.ShareListing)
                 .ThenInclude(x => x.StockItem)
                     .ThenInclude(x => x.Product)
-            .Where(x => x.ShareListingId == shareListingId)
+            .Where(x =>
+                x.ShareListingId == shareListingId &&
+                (x.Status == ShareRequestStatus.Pending ||
+                 x.Status == ShareRequestStatus.Approved))
             .OrderByDescending(x => x.RequestedAt)
             .ToListAsync();
 
@@ -241,15 +318,38 @@ public class SharingService : ISharingService
                 x.Status == ShareRequestStatus.Pending)
             .ToListAsync();
 
+        var rejectedRequesterIds = new List<string>();
+
         foreach (var otherRequest in otherRequests)
         {
             otherRequest.Status = ShareRequestStatus.Rejected;
             otherRequest.RespondedAt = DateTime.Now;
             otherRequest.UpdatedAt = DateTime.Now;
+
+            rejectedRequesterIds.Add(otherRequest.RequesterUserId);
         }
 
         await _context.SaveChangesAsync();
 
+        await _notificationService.CreateAsync(request.RequesterUserId, new CreateNotificationDto
+        {
+            Title = "Talebin onaylandı",
+            Message = $"{request.ShareListing.StockItem.Product.Name} için gönderdiğin talep onaylandı. Teslimat oluşturulması bekleniyor.",
+            Type = NotificationType.RequestApproved,
+            TargetUrl = "/Sharing/Available"
+        });
+
+        // Aynı ilana gelen diğer bekleyen talepler otomatik reddedildiği için ilgili kullanıcılara bilgi verilir.
+        foreach (var rejectedRequesterId in rejectedRequesterIds)
+        {
+            await _notificationService.CreateAsync(rejectedRequesterId, new CreateNotificationDto
+            {
+                Title = "Talebin reddedildi",
+                Message = $"{request.ShareListing.StockItem.Product.Name} için gönderdiğin talep, başka bir talep onaylandığı için reddedildi.",
+                Type = NotificationType.RequestRejected,
+                TargetUrl = "/Sharing/Available"
+            });
+        }
         var approvedRequest = await GetRequestEntityByIdAsync(request.Id);
 
         return approvedRequest == null ? null : MapToRequestDto(approvedRequest);
@@ -275,7 +375,13 @@ public class SharingService : ISharingService
         request.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
-
+        await _notificationService.CreateAsync(request.RequesterUserId, new CreateNotificationDto
+        {
+            Title = "Talebin reddedildi",
+            Message = $"{request.ShareListing.StockItem.Product.Name} için gönderdiğin talep reddedildi.",
+            Type = NotificationType.RequestRejected,
+            TargetUrl = "/Sharing/Available"
+        });
         var rejectedRequest = await GetRequestEntityByIdAsync(request.Id);
 
         return rejectedRequest == null ? null : MapToRequestDto(rejectedRequest);
@@ -285,11 +391,13 @@ public class SharingService : ISharingService
     {
         // Sadece ilan sahibi kendi paylaşım ilanını iptal edebilir.
         var listing = await _context.ShareListings
-            .Include(x => x.ShareRequests)
-            .FirstOrDefaultAsync(x =>
-                x.Id == listingId &&
-                x.DonorUserId == userId &&
-                x.IsActive);
+     .Include(x => x.StockItem)
+         .ThenInclude(x => x.Product)
+     .Include(x => x.ShareRequests)
+     .FirstOrDefaultAsync(x =>
+         x.Id == listingId &&
+         x.DonorUserId == userId &&
+         x.IsActive);
 
         if (listing == null)
             return false;
@@ -307,14 +415,30 @@ public class SharingService : ISharingService
         listing.UpdatedAt = DateTime.Now;
 
         // İlan iptal edilince bekleyen talepler de iptal edilir.
+        var cancelledRequesterIds = new List<string>();
+
         foreach (var request in listing.ShareRequests.Where(x => x.Status == ShareRequestStatus.Pending))
         {
             request.Status = ShareRequestStatus.Cancelled;
             request.RespondedAt = DateTime.Now;
             request.UpdatedAt = DateTime.Now;
+
+            cancelledRequesterIds.Add(request.RequesterUserId);
         }
 
         await _context.SaveChangesAsync();
+
+        // İlan iptal edilince bekleyen talep sahiplerine bilgi verilir.
+        foreach (var requesterId in cancelledRequesterIds)
+        {
+            await _notificationService.CreateAsync(requesterId, new CreateNotificationDto
+            {
+                Title = "Paylaşım ilanı iptal edildi",
+                Message = $"{listing.StockItem.Product.Name} için talep gönderdiğin paylaşım ilanı iptal edildi.",
+                Type = NotificationType.System,
+                TargetUrl = "/Sharing/Available"
+            });
+        }
 
         return true;
     }
@@ -339,7 +463,41 @@ public class SharingService : ISharingService
                     .ThenInclude(x => x.Product)
             .FirstOrDefaultAsync(x => x.Id == requestId);
     }
+    public async Task<bool> CancelRequestAsync(string requesterUserId, int requestId)
+    {
+        // Sadece talebi oluşturan kullanıcı kendi bekleyen talebini iptal edebilir.
+        var request = await _context.ShareRequests
+            .Include(x => x.ShareListing)
+            .FirstOrDefaultAsync(x =>
+                x.Id == requestId &&
+                x.RequesterUserId == requesterUserId &&
+                x.Status == ShareRequestStatus.Pending);
 
+        if (request == null)
+            return false;
+
+        request.Status = ShareRequestStatus.Cancelled;
+        request.RespondedAt = DateTime.Now;
+        request.UpdatedAt = DateTime.Now;
+
+        // Eğer ilanda artık bekleyen veya onaylanan talep kalmadıysa ilan tekrar Available durumuna döner.
+        var hasActiveRequest = await _context.ShareRequests
+            .AnyAsync(x =>
+                x.ShareListingId == request.ShareListingId &&
+                x.Id != request.Id &&
+                (x.Status == ShareRequestStatus.Pending ||
+                 x.Status == ShareRequestStatus.Approved));
+
+        if (!hasActiveRequest && request.ShareListing.Status == ShareListingStatus.Requested)
+        {
+            request.ShareListing.Status = ShareListingStatus.Available;
+            request.ShareListing.UpdatedAt = DateTime.Now;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
     private ShareListingDto MapToListingDto(ShareListing listing)
     {
         return new ShareListingDto
@@ -357,7 +515,9 @@ public class SharingService : ISharingService
             PickupStartTime = listing.PickupStartTime,
             PickupEndTime = listing.PickupEndTime,
             Status = listing.Status.ToString(),
-            RequestCount = listing.ShareRequests.Count
+            RequestCount = listing.ShareRequests.Count(x =>
+    x.Status == ShareRequestStatus.Pending ||
+    x.Status == ShareRequestStatus.Approved)
         };
     }
 

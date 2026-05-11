@@ -24,4 +24,5 @@ public interface ISharingService
     Task<ShareRequestDto?> RejectRequestAsync(string donorUserId, int requestId);
 
     Task<bool> CancelListingAsync(string userId, int listingId);
+    Task<bool> CancelRequestAsync(string requesterUserId, int requestId);
 }

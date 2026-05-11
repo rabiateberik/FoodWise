@@ -1,5 +1,5 @@
 ﻿// NotificationBellViewComponent, layout üzerinde kullanılan bildirim zilini hazırlar.
-// Her sayfada ayrı ayrı bildirim verisi çekmek yerine, okunmamış bildirim sayısını ve son bildirimleri tek yerden alır.
+// Okunmamış bildirimleri öncelikli gösterir; okunmamış azsa son okunan bildirimlerle listeyi tamamlar.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Notification;
@@ -25,16 +25,32 @@ public class NotificationBellViewComponent : ViewComponent
             return View(new NotificationBellViewModel());
         }
 
-        var unreadCount = await _notificationWebService.GetUnreadCountAsync(token);
+        // Kullanıcının tüm aktif bildirimleri API üzerinden alınır.
         var notifications = await _notificationWebService.GetMyNotificationsAsync(token);
+
+        var unreadNotifications = notifications
+            .Where(notification => !notification.IsRead)
+            .OrderByDescending(notification => notification.CreatedAt)
+            .ToList();
+
+        // Okunmamış bildirim sayısı 5'ten azsa dropdown boş kalmasın diye son okunan bildirimlerle tamamlanır.
+        var remainingCount = Math.Max(0, 5 - unreadNotifications.Count);
+
+        var recentReadNotifications = notifications
+            .Where(notification => notification.IsRead)
+            .OrderByDescending(notification => notification.CreatedAt)
+            .Take(remainingCount)
+            .ToList();
+
+        var dropdownNotifications = unreadNotifications
+            .Concat(recentReadNotifications)
+            .OrderByDescending(notification => notification.CreatedAt)
+            .ToList();
 
         var model = new NotificationBellViewModel
         {
-            UnreadCount = unreadCount,
-            RecentNotifications = notifications
-                .OrderByDescending(notification => notification.CreatedAt)
-                .Take(5)
-                .ToList()
+            UnreadCount = unreadNotifications.Count,
+            RecentNotifications = dropdownNotifications
         };
 
         return View(model);

@@ -13,7 +13,12 @@
 @*
     İlan Talepleri sayfası ortak FoodWise layout yapısını kullanır.
     Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-    Bu dosyada sadece paylaşım talepleri, onay/red işlemleri ve sayfaya özel stiller bulunur.
+
+    Bu sayfada:
+    - Bir paylaşım ilanına gelen talepler listelenir.
+    - Talep durumları renkli rozetlerle gösterilir.
+    - Bekleyen talepler onaylanabilir veya reddedilebilir.
+    - Onaylanan talep için teslimat oluşturma işlemi başlatılabilir.
 *@
 
 @section TopbarActions {
@@ -22,117 +27,200 @@
     </a>
 }
 
-<section class="request-list">
+<section class="requests-page">
     @if (Model == null || !Model.Any())
     {
         <div class="empty-state">
+            <div class="empty-icon">📭</div>
+
             <h3>Bu ilan için henüz talep yok.</h3>
             <p>Başka kullanıcılar talep gönderdiğinde burada listelenecek.</p>
+
+            <a asp-controller="Sharing" asp-action="MyListings" class="btn-primary">
+                İlanlarıma Dön
+            </a>
         </div>
     }
     else
     {
-        @foreach (var request in Model)
-        {
-            var statusClass = request.Status switch
+        <div class="requests-summary">
+            <div>
+                <span>Toplam Talep</span>
+                <strong>@Model.Count</strong>
+            </div>
+
+            <div>
+                <span>Bekleyen</span>
+                <strong>@(Model.Count(x => x.Status == "Pending"))</strong>
+            </div>
+
+            <div>
+                <span>Onaylanan</span>
+                <strong>@(Model.Count(x => x.Status == "Approved"))</strong>
+            </div>
+        </div>
+
+        <div class="request-grid">
+            @foreach (var request in Model)
             {
-                "Pending" => "status-pending",
-                "Approved" => "status-approved",
-                "Rejected" => "status-rejected",
-                "Cancelled" => "status-cancelled",
-                _ => "status-default"
-            };
+                var statusClass = request.Status switch
+                {
+                    "Pending" => "status-pending",
+                    "Approved" => "status-approved",
+                    "Rejected" => "status-rejected",
+                    "Cancelled" => "status-cancelled",
+                    _ => "status-default"
+                };
 
-            <article class="request-card">
-                <div class="request-header">
-                    <div>
-                        <h3>@request.ProductName</h3>
-                        <p>@request.ShareListingTitle</p>
+                <article class="request-card">
+                    <div class="request-header">
+                        <div>
+                            <h3>@request.ProductName</h3>
+                            <p>@request.ShareListingTitle</p>
+                        </div>
+
+                        @* Talep durumu kullanıcıya renkli rozet olarak gösterilir. *@
+                        <span class="status-badge @statusClass">
+                            @DisplayTextHelper.GetShareRequestStatusText(request.Status)
+                        </span>
                     </div>
 
-                    <span class="status-badge @statusClass">
-                        @DisplayTextHelper.GetShareRequestStatusText(request.Status)
-                    </span>
-                </div>
+                    <div class="request-info">
+                        <div>
+                            <span>Talep Tarihi</span>
+                            <strong>@request.RequestedAt.ToString("dd.MM.yyyy HH:mm")</strong>
+                        </div>
 
-                <div class="request-info">
-                    <div>
-                        <span>Talep Tarihi</span>
-                        <strong>@request.RequestedAt.ToString("dd.MM.yyyy HH:mm")</strong>
+                        <div>
+                            <span>Eşleşme Skoru</span>
+                            <strong>@(request.MatchScore?.ToString("0.##") ?? "-")</strong>
+                        </div>
+
+                        <div>
+                            <span>Cevap Tarihi</span>
+                            <strong>@(request.RespondedAt?.ToString("dd.MM.yyyy HH:mm") ?? "-")</strong>
+                        </div>
                     </div>
 
-                    <div>
-                        <span>Eşleşme Skoru</span>
-                        <strong>@(request.MatchScore?.ToString("0.##") ?? "-")</strong>
+                    <div class="card-actions">
+                        @if (request.Status == "Pending")
+                        {
+                            @* Bekleyen talepler bağış yapan kullanıcı tarafından onaylanabilir. *@
+                            <form asp-controller="Sharing"
+                                  asp-action="ApproveRequest"
+                                  method="post"
+                                  class="action-form"
+                                  onsubmit="return confirm('Bu talebi onaylamak istediğine emin misin?');">
+                                @Html.AntiForgeryToken()
+
+                                <input type="hidden" name="requestId" value="@request.Id" />
+                                <input type="hidden" name="listingId" value="@listingId" />
+
+                                <button type="submit" class="action-btn approve-btn">
+                                    Onayla
+                                </button>
+                            </form>
+
+                            @* Bekleyen talepler bağış yapan kullanıcı tarafından reddedilebilir. *@
+                            <form asp-controller="Sharing"
+                                  asp-action="RejectRequest"
+                                  method="post"
+                                  class="action-form"
+                                  onsubmit="return confirm('Bu talebi reddetmek istediğine emin misin?');">
+                                @Html.AntiForgeryToken()
+
+                                <input type="hidden" name="requestId" value="@request.Id" />
+                                <input type="hidden" name="listingId" value="@listingId" />
+
+                                <button type="submit" class="action-btn reject-btn">
+                                    Reddet
+                                </button>
+                            </form>
+                        }
+
+                        @if (request.Status == "Approved")
+                        {
+                            @* Onaylanan talep için teslimat kaydı oluşturulur. *@
+                            <form asp-controller="Delivery"
+                                  asp-action="CreateFromRequest"
+                                  method="post"
+                                  class="action-form full-action">
+                                @Html.AntiForgeryToken()
+
+                                <input type="hidden" name="shareRequestId" value="@request.Id" />
+
+                                <button type="submit" class="action-btn delivery-btn">
+                                    Teslimat Oluştur
+                                </button>
+                            </form>
+                        }
+
+                        @if (request.Status == "Rejected" || request.Status == "Cancelled")
+                        {
+                            @* Reddedilen veya iptal edilen taleplerde işlem yapılmaz, sadece bilgilendirme gösterilir. *@
+                            <div class="passive-info">
+                                Bu talep için aktif işlem bulunmuyor.
+                            </div>
+                        }
                     </div>
-
-                    <div>
-                        <span>Cevap Tarihi</span>
-                        <strong>@(request.RespondedAt?.ToString("dd.MM.yyyy HH:mm") ?? "-")</strong>
-                    </div>
-                </div>
-
-                <div class="card-actions">
-                    @* Bekleyen talepler bağış yapan kullanıcı tarafından onaylanabilir veya reddedilebilir. *@
-                    @if (request.Status == "Pending")
-                    {
-                        <form asp-controller="Sharing" asp-action="ApproveRequest" method="post" class="action-form">
-                            @Html.AntiForgeryToken()
-
-                            <input type="hidden" name="requestId" value="@request.Id" />
-                            <input type="hidden" name="listingId" value="@listingId" />
-
-                            <button type="submit" class="btn-primary">
-                                Onayla
-                            </button>
-                        </form>
-
-                        <form asp-controller="Sharing" asp-action="RejectRequest" method="post" class="action-form">
-                            @Html.AntiForgeryToken()
-
-                            <input type="hidden" name="requestId" value="@request.Id" />
-                            <input type="hidden" name="listingId" value="@listingId" />
-
-                            <button type="submit" class="btn-danger">
-                                Reddet
-                            </button>
-                        </form>
-                    }
-
-                    @* Onaylanan talep için teslimat kaydı oluşturulur. *@
-                    @if (request.Status == "Approved")
-                    {
-                        <form asp-controller="Delivery" asp-action="CreateFromRequest" method="post" class="action-form">
-                            @Html.AntiForgeryToken()
-
-                            <input type="hidden" name="shareRequestId" value="@request.Id" />
-
-                            <button type="submit" class="btn-primary">
-                                Teslimat Oluştur
-                            </button>
-                        </form>
-                    }
-                </div>
-            </article>
-        }
+                </article>
+            }
+        </div>
     }
 </section>
 
 @section Styles {
     <style>
-        .request-list {
-            display: flex;
-            flex-direction: column;
+        .requests-page {
+            display: grid;
+            gap: 22px;
+        }
+
+        .requests-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 18px;
         }
 
-        .request-card,
-        .empty-state {
-            background: white;
-            border-radius: 20px;
-            padding: 28px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            .requests-summary div {
+                background: white;
+                border-radius: 18px;
+                padding: 22px;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            }
+
+            .requests-summary span {
+                display: block;
+                color: #607d8b;
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+
+            .requests-summary strong {
+                color: #145c24;
+                font-size: 34px;
+                font-weight: 900;
+            }
+
+        .request-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 22px;
         }
+
+        .request-card {
+            background: white;
+            border-radius: 22px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            border-top: 5px solid #dcfce7;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+            .request-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+            }
 
         .request-header {
             display: flex;
@@ -145,20 +233,21 @@
             .request-header h3 {
                 color: #145c24;
                 margin: 0 0 6px;
-                font-size: 22px;
+                font-size: 23px;
             }
 
             .request-header p {
                 color: #526b7a;
                 margin: 0;
                 line-height: 1.5;
+                font-weight: 700;
             }
 
         .status-badge {
             border-radius: 999px;
             padding: 8px 12px;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: 800;
             white-space: nowrap;
         }
 
@@ -185,14 +274,14 @@
 
         .request-info {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
-            margin-bottom: 18px;
+            margin-bottom: 20px;
         }
 
             .request-info div {
                 background: #f8faf8;
-                border-radius: 14px;
+                border-radius: 15px;
                 padding: 14px;
             }
 
@@ -209,38 +298,135 @@
             }
 
         .card-actions {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            align-items: stretch;
         }
 
         .action-form {
             margin: 0;
         }
 
-        .empty-state {
+        .full-action {
+            grid-column: 1 / -1;
+        }
+
+        .action-btn {
+            width: 100%;
+            min-height: 42px;
+            border: none;
+            border-radius: 12px;
+            padding: 11px 14px;
+            font-size: 14px;
+            font-weight: 800;
+            text-decoration: none;
+            cursor: pointer;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             text-align: center;
         }
 
-            .empty-state h3 {
-                color: #145c24;
-                font-size: 26px;
-                margin-bottom: 10px;
+        .approve-btn {
+            background: #238636;
+            color: white;
+        }
+
+            .approve-btn:hover {
+                background: #1f7a30;
             }
 
-            .empty-state p {
-                color: #526b7a;
-                margin-bottom: 0;
+        .reject-btn {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+            .reject-btn:hover {
+                background: #fecaca;
             }
 
-        @@media (max-width: 900px) {
-            .request-info {
+        .delivery-btn {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+            .delivery-btn:hover {
+                background: #bfdbfe;
+                color: #1e40af;
+            }
+
+        .passive-info {
+            grid-column: 1 / -1;
+            background: #f8faf8;
+            color: #607d8b;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .empty-state {
+            background: white;
+            border-radius: 22px;
+            padding: 58px 24px;
+            text-align: center;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .empty-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 22px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            margin: 0 auto 18px;
+        }
+
+        .empty-state h3 {
+            color: #145c24;
+            font-size: 28px;
+            margin: 0 0 10px;
+        }
+
+        .empty-state p {
+            color: #526b7a;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        @@media (max-width: 1000px) {
+            .requests-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @@media (max-width: 800px) {
+            .request-grid {
                 grid-template-columns: 1fr;
             }
 
             .request-header {
                 flex-direction: column;
-                align-items: flex-start;
+            }
+
+            .request-info {
+                grid-template-columns: 1fr;
+            }
+
+            .card-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .full-action,
+            .passive-info {
+                grid-column: auto;
             }
         }
     </style>

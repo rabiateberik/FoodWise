@@ -6,256 +6,531 @@
 
     ViewData["Title"] = "Teslimatlar";
     ViewData["PageDescription"] = "Bağışladığın ve teslim alacağın ürünlerin QR destekli teslimat sürecini buradan yönetebilirsin.";
+
+    // Sayfa üstündeki özet kartlarında kullanılacak teslimat sayıları hesaplanır.
+    var donatedDeliveryCount = Model.DonatedDeliveries?.Count ?? 0;
+    var receivedDeliveryCount = Model.ReceivedDeliveries?.Count ?? 0;
+
+    // Tamamlanmamış, iptal edilmemiş ve süresi dolmamış teslimatlar aktif süreç kabul edilir.
+    var activeProcessCount =
+        (Model.DonatedDeliveries?.Count(x =>
+            x.Status != "Delivered" &&
+            x.Status != "Cancelled" &&
+            x.Status != "Expired") ?? 0)
+        +
+        (Model.ReceivedDeliveries?.Count(x =>
+            x.Status != "Delivered" &&
+            x.Status != "Cancelled" &&
+            x.Status != "Expired") ?? 0);
+
+    // Alıcının aktif teslim alma süreci var mı kontrol edilir.
+    var hasActiveReceivedDelivery =
+        Model.ReceivedDeliveries != null &&
+        Model.ReceivedDeliveries.Any(x =>
+            x.Status != "Delivered" &&
+            x.Status != "Cancelled" &&
+            x.Status != "Expired");
+
+    // Bağışçının aktif teslimat süreci var mı kontrol edilir.
+    var hasActiveDonatedDelivery =
+        Model.DonatedDeliveries != null &&
+        Model.DonatedDeliveries.Any(x =>
+            x.Status != "Delivered" &&
+            x.Status != "Cancelled" &&
+            x.Status != "Expired");
+
+    // Aktif süreç kartına basıldığında önce alıcının aktif teslimatı varsa ona, yoksa bağışladıklarına yönlenir.
+    var activeTabTarget = hasActiveReceivedDelivery
+        ? "received"
+        : hasActiveDonatedDelivery
+            ? "donated"
+            : "received";
+
+    // QR doğrulama alanı sadece alıcının kutuya bırakılmış teslimatı varsa gösterilir.
+    var hasReadyToReceiveDelivery =
+        Model.ReceivedDeliveries != null &&
+        Model.ReceivedDeliveries.Any(x => x.Status == "DroppedOff");
 }
 
 @*
     Teslimatlar sayfası ortak FoodWise layout yapısını kullanır.
-    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-    Bu dosyada sadece QR doğrulama alanı, teslimat kartları ve sayfaya özel stiller bulunur.
+    Bu sayfada teslim alma ve bağış teslim süreçleri sekmeli yapı ile ayrılmıştır.
+
+    Sayfa ilk açıldığında:
+    - Teslim Alacaklarım sekmesi aktif gelir.
+    - Bağışladıklarım sekmesine kullanıcı isterse geçebilir.
+
+    Bu sayfada:
+    - Alıcı, teslim alacağı ürünleri takip eder.
+    - Bağışçı, bağışladığı ürünlerin kutuya bırakma sürecini takip eder.
+    - QR doğrulama alanı sadece Teslim Alacaklarım sekmesinde ve ürün kutuya bırakılmışsa gösterilir.
+    - Teslimat durumları renkli rozetlerle gösterilir.
 *@
 
-<section class="scan-card">
-    <div>
-        <h3>QR Kod Okut / Gir</h3>
-        <p>Alıcı olarak teslim kutusundaki QR kod değerini girerek aktif teslimatını doğrulayabilirsin.</p>
-    </div>
-
-    <form asp-controller="Delivery" asp-action="ScanBox" method="post" class="scan-form">
-        @Html.AntiForgeryToken()
-
-        @* Kullanıcı teslimat kutusundaki QR kod değerini buradan girer. *@
-        <input asp-for="ScanModel.QrCodeValue" name="QrCodeValue" placeholder="Örn: FW-DP-LIB-B01" />
-
-        <button type="submit" class="btn-primary">
-            QR Doğrula
+<section class="delivery-page">
+    <section class="delivery-summary">
+        @* Bu kart, bağış yapan kullanıcının teslimatlarını gösteren sekmeye geçiş yapar. *@
+        <button type="button"
+                class="summary-card"
+                onclick="showDeliveryTab('donated', true)">
+            <span>Bağışladığım</span>
+            <strong>@donatedDeliveryCount</strong>
         </button>
-    </form>
-</section>
 
-<section class="delivery-section">
-    <h3>Bağışladığım Teslimatlar</h3>
+        @* Bu kart, alıcı kullanıcının teslim alacağı ürünleri gösteren sekmeye geçiş yapar. *@
+        <button type="button"
+                class="summary-card"
+                onclick="showDeliveryTab('received', true)">
+            <span>Teslim Alacaklarım</span>
+            <strong>@receivedDeliveryCount</strong>
+        </button>
 
-    @if (Model.DonatedDeliveries == null || !Model.DonatedDeliveries.Any())
-    {
-        <div class="empty-state">
-            <h4>Henüz bağışladığın teslimat yok.</h4>
-            <p>Paylaşım talebi onaylandıktan sonra teslimat kayıtları burada görünür.</p>
+        @* Aktif süreç kartı, aktif kayıt hangi taraftaysa o sekmeye yönlendirir. *@
+        <button type="button"
+                class="summary-card"
+                onclick="showDeliveryTab('@activeTabTarget', true)">
+            <span>Aktif Süreç</span>
+            <strong>@activeProcessCount</strong>
+        </button>
+    </section>
+
+    @* Sekmeli yapı: Sayfa ilk açıldığında Teslim Alacaklarım sekmesi aktif gösterilir. *@
+    <nav class="delivery-tabs">
+        <button type="button"
+                class="delivery-tab active"
+                data-tab="received"
+                onclick="showDeliveryTab('received')">
+            Teslim Alacaklarım
+        </button>
+
+        <button type="button"
+                class="delivery-tab"
+                data-tab="donated"
+                onclick="showDeliveryTab('donated')">
+            Bağışladıklarım
+        </button>
+    </nav>
+
+    @* Teslim Alacaklarım sekmesi varsayılan olarak aktif gelir. *@
+    <section id="received-panel" class="delivery-section delivery-panel active">
+        <div class="section-header">
+            <div>
+                <h3>Teslim Alacaklarım</h3>
+                <p>Onaylanan taleplerin için teslim alma sürecini buradan takip edebilirsin.</p>
+            </div>
         </div>
-    }
-    else
-    {
-        <div class="delivery-grid">
-            @foreach (var delivery in Model.DonatedDeliveries)
-            {
-                var statusClass = delivery.Status switch
+
+        @if (hasReadyToReceiveDelivery)
+        {
+            <div class="scan-card inline-scan-card">
+                <div class="scan-info">
+                    <span class="scan-icon">📷</span>
+
+                    <div>
+                        <h3>QR Kod Doğrula</h3>
+                        <p>Teslim kutusunda yer alan QR kod değerini girerek teslim alacağın ürünü doğrulayabilirsin.</p>
+                    </div>
+                </div>
+
+                <form asp-controller="Delivery" asp-action="ScanBox" method="post" class="scan-form">
+                    @Html.AntiForgeryToken()
+
+                    @* Alıcı, teslim kutusundaki QR kod değerini buradan manuel olarak doğrular. *@
+                    <input asp-for="ScanModel.QrCodeValue"
+                           name="QrCodeValue"
+                           placeholder="Örn: FW-DP-LIB-B01" />
+
+                    <button type="submit" class="scan-btn">
+                        QR Doğrula
+                    </button>
+                </form>
+            </div>
+        }
+
+        @if (Model.ReceivedDeliveries == null || !Model.ReceivedDeliveries.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">🛍️</div>
+
+                <h4>Henüz teslim alacağın ürün yok.</h4>
+                <p>Onaylanan taleplerin teslimat süreci burada görünür.</p>
+            </div>
+        }
+        else
+        {
+            <div class="delivery-grid">
+                @foreach (var delivery in Model.ReceivedDeliveries)
                 {
-                    "Pending" => "status-pending",
-                    "QrGenerated" => "status-qr",
-                    "DroppedOff" => "status-dropped",
-                    "Delivered" => "status-delivered",
-                    "Expired" => "status-expired",
-                    "Cancelled" => "status-cancelled",
-                    _ => "status-default"
-                };
-
-                <article class="delivery-card">
-                    <div class="delivery-header">
-                        <div>
-                            <h4>@delivery.ProductName</h4>
-                            <p>@delivery.Quantity @DisplayTextHelper.GetUnitText(delivery.UnitName)</p>
-                        </div>
-
-                        <span class="status-badge @statusClass">
-                            @DisplayTextHelper.GetDeliveryStatusText(delivery.Status)
-                        </span>
-                    </div>
-
-                    <div class="delivery-info">
-                        <div>
-                            <span>Teslim Noktası</span>
-                            <strong>@delivery.DeliveryPointName</strong>
-                        </div>
-
-                        <div>
-                            <span>Kutu</span>
-                            <strong>@(delivery.BoxCode ?? "-")</strong>
-                        </div>
-
-                        <div>
-                            <span>Kutu QR</span>
-                            <strong>@(delivery.BoxQrCodeValue ?? "-")</strong>
-                        </div>
-
-                        <div>
-                            <span>Son Geçerlilik</span>
-                            <strong>@delivery.ExpiresAt.ToString("dd.MM.yyyy HH:mm")</strong>
-                        </div>
-                    </div>
-
-                    @* Bağış yapan kullanıcı ürün kutuya bırakılmadan önce bu işlemi tamamlar. *@
-                    @if (delivery.Status == "QrGenerated" || delivery.Status == "Pending")
+                    var statusClass = delivery.Status switch
                     {
-                        <form asp-controller="Delivery" asp-action="DropOff" method="post" class="action-form">
-                            @Html.AntiForgeryToken()
+                        "Pending" => "status-pending",
+                        "QrGenerated" => "status-qr",
+                        "DroppedOff" => "status-dropped",
+                        "Delivered" => "status-delivered",
+                        "Expired" => "status-expired",
+                        "Cancelled" => "status-cancelled",
+                        _ => "status-default"
+                    };
 
-                            <input type="hidden" name="DeliveryId" value="@delivery.Id" />
-                            <input type="text" name="DropOffImageUrl" placeholder="Fotoğraf URL opsiyonel" />
+                    <article class="delivery-card">
+                        <div class="delivery-header">
+                            <div>
+                                <h4>@delivery.ProductName</h4>
+                                <p>@delivery.Quantity @DisplayTextHelper.GetUnitText(delivery.UnitName)</p>
+                            </div>
 
-                            <button type="submit" class="btn-primary">
-                                Kutuya Bıraktım
-                            </button>
-                        </form>
-                    }
-                </article>
-            }
+                            @* Teslimat durumu kullanıcıya renkli rozet olarak gösterilir. *@
+                            <span class="status-badge @statusClass">
+                                @DisplayTextHelper.GetDeliveryStatusText(delivery.Status)
+                            </span>
+                        </div>
+
+                        <div class="delivery-info">
+                            <div>
+                                <span>Teslim Noktası</span>
+                                <strong>@delivery.DeliveryPointName</strong>
+                            </div>
+
+                            <div>
+                                <span>Kutu</span>
+                                <strong>@(delivery.BoxCode ?? "-")</strong>
+                            </div>
+
+                            <div>
+                                <span>Kutu QR</span>
+                                <strong>@(delivery.BoxQrCodeValue ?? "-")</strong>
+                            </div>
+
+                            <div>
+                                <span>Son Geçerlilik</span>
+                                <strong>@delivery.ExpiresAt.ToString("dd.MM.yyyy HH:mm")</strong>
+                            </div>
+                        </div>
+
+                        @if (delivery.Status == "DroppedOff")
+                        {
+                            @* Alıcı kullanıcı ürünü teslim aldığında bu işlem yapılır. *@
+                            <form asp-controller="Delivery"
+                                  asp-action="Complete"
+                                  method="post"
+                                  class="action-form"
+                                  onsubmit="return confirm('Bu ürünü teslim aldığını onaylıyor musun?');">
+                                @Html.AntiForgeryToken()
+
+                                <input type="hidden" name="deliveryId" value="@delivery.Id" />
+
+                                <button type="submit" class="action-btn complete-btn">
+                                    Teslim Aldım
+                                </button>
+                            </form>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    @* Bağışladıklarım sekmesi kullanıcı tıklayınca görünür. *@
+    <section id="donated-panel" class="delivery-section delivery-panel">
+        <div class="section-header">
+            <div>
+                <h3>Bağışladığım Teslimatlar</h3>
+                <p>Paylaştığın ürünlerin teslimat ve kutuya bırakma sürecini buradan takip edebilirsin.</p>
+            </div>
         </div>
-    }
-</section>
 
-<section class="delivery-section">
-    <h3>Teslim Alacaklarım</h3>
+        @if (Model.DonatedDeliveries == null || !Model.DonatedDeliveries.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📦</div>
 
-    @if (Model.ReceivedDeliveries == null || !Model.ReceivedDeliveries.Any())
-    {
-        <div class="empty-state">
-            <h4>Henüz teslim alacağın ürün yok.</h4>
-            <p>Onaylanan taleplerin teslimat süreci burada görünür.</p>
-        </div>
-    }
-    else
-    {
-        <div class="delivery-grid">
-            @foreach (var delivery in Model.ReceivedDeliveries)
-            {
-                var statusClass = delivery.Status switch
+                <h4>Henüz bağışladığın teslimat yok.</h4>
+                <p>Paylaşım talebi onaylandıktan sonra teslimat kayıtları burada görünür.</p>
+            </div>
+        }
+        else
+        {
+            <div class="delivery-grid">
+                @foreach (var delivery in Model.DonatedDeliveries)
                 {
-                    "Pending" => "status-pending",
-                    "QrGenerated" => "status-qr",
-                    "DroppedOff" => "status-dropped",
-                    "Delivered" => "status-delivered",
-                    "Expired" => "status-expired",
-                    "Cancelled" => "status-cancelled",
-                    _ => "status-default"
-                };
-
-                <article class="delivery-card">
-                    <div class="delivery-header">
-                        <div>
-                            <h4>@delivery.ProductName</h4>
-                            <p>@delivery.Quantity @DisplayTextHelper.GetUnitText(delivery.UnitName)</p>
-                        </div>
-
-                        <span class="status-badge @statusClass">
-                            @DisplayTextHelper.GetDeliveryStatusText(delivery.Status)
-                        </span>
-                    </div>
-
-                    <div class="delivery-info">
-                        <div>
-                            <span>Teslim Noktası</span>
-                            <strong>@delivery.DeliveryPointName</strong>
-                        </div>
-
-                        <div>
-                            <span>Kutu</span>
-                            <strong>@(delivery.BoxCode ?? "-")</strong>
-                        </div>
-
-                        <div>
-                            <span>Kutu QR</span>
-                            <strong>@(delivery.BoxQrCodeValue ?? "-")</strong>
-                        </div>
-
-                        <div>
-                            <span>Son Geçerlilik</span>
-                            <strong>@delivery.ExpiresAt.ToString("dd.MM.yyyy HH:mm")</strong>
-                        </div>
-                    </div>
-
-                    @* Alıcı, ürün kutuya bırakıldıktan sonra teslim aldım işlemini tamamlar. *@
-                    @if (delivery.Status == "DroppedOff")
+                    var statusClass = delivery.Status switch
                     {
-                        <form asp-controller="Delivery" asp-action="Complete" method="post" class="action-form">
-                            @Html.AntiForgeryToken()
+                        "Pending" => "status-pending",
+                        "QrGenerated" => "status-qr",
+                        "DroppedOff" => "status-dropped",
+                        "Delivered" => "status-delivered",
+                        "Expired" => "status-expired",
+                        "Cancelled" => "status-cancelled",
+                        _ => "status-default"
+                    };
 
-                            <input type="hidden" name="deliveryId" value="@delivery.Id" />
+                    <article class="delivery-card">
+                        <div class="delivery-header">
+                            <div>
+                                <h4>@delivery.ProductName</h4>
+                                <p>@delivery.Quantity @DisplayTextHelper.GetUnitText(delivery.UnitName)</p>
+                            </div>
 
-                            <button type="submit" class="btn-primary">
-                                Teslim Aldım
-                            </button>
-                        </form>
-                    }
-                </article>
-            }
-        </div>
-    }
+                            @* Teslimat durumu kullanıcıya renkli rozet olarak gösterilir. *@
+                            <span class="status-badge @statusClass">
+                                @DisplayTextHelper.GetDeliveryStatusText(delivery.Status)
+                            </span>
+                        </div>
+
+                        <div class="delivery-info">
+                            <div>
+                                <span>Teslim Noktası</span>
+                                <strong>@delivery.DeliveryPointName</strong>
+                            </div>
+
+                            <div>
+                                <span>Kutu</span>
+                                <strong>@(delivery.BoxCode ?? "-")</strong>
+                            </div>
+
+                            <div>
+                                <span>Kutu QR</span>
+                                <strong>@(delivery.BoxQrCodeValue ?? "-")</strong>
+                            </div>
+
+                            <div>
+                                <span>Son Geçerlilik</span>
+                                <strong>@delivery.ExpiresAt.ToString("dd.MM.yyyy HH:mm")</strong>
+                            </div>
+                        </div>
+
+                        @if (delivery.Status == "QrGenerated" || delivery.Status == "Pending")
+                        {
+                            @* Bağış yapan kullanıcı ürünü kutuya bıraktığında bu işlem yapılır. *@
+                            <form asp-controller="Delivery"
+                                  asp-action="DropOff"
+                                  method="post"
+                                  class="action-form"
+                                  onsubmit="return confirm('Bu ürünü kutuya bıraktığını onaylıyor musun?');">
+                                @Html.AntiForgeryToken()
+
+                                <input type="hidden" name="DeliveryId" value="@delivery.Id" />
+
+                                <input type="text"
+                                       name="DropOffImageUrl"
+                                       placeholder="Fotoğraf URL opsiyonel" />
+
+                                <button type="submit" class="action-btn dropoff-btn">
+                                    Kutuya Bıraktım
+                                </button>
+                            </form>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
 </section>
 
 @section Styles {
     <style>
-        .scan-card,
+        .delivery-page {
+            display: grid;
+            gap: 24px;
+        }
+
+        .delivery-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+        }
+
+        .summary-card {
+            background: white;
+            border: none;
+            border-radius: 18px;
+            padding: 22px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            text-align: left;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+            .summary-card:hover {
+                transform: translateY(-2px);
+                background: #f8faf8;
+                box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+            }
+
+            .summary-card span {
+                display: block;
+                color: #607d8b;
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+
+            .summary-card strong {
+                color: #145c24;
+                font-size: 34px;
+                font-weight: 900;
+            }
+
+        .delivery-tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            border: 1px solid #dbe8dd;
+            border-radius: 999px;
+            padding: 6px;
+            width: fit-content;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+        }
+
+        .delivery-tab {
+            background: transparent;
+            color: #526b7a;
+            border: none;
+            border-radius: 999px;
+            padding: 11px 18px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+            .delivery-tab:hover {
+                background: #f0f8f2;
+                color: #145c24;
+            }
+
+            .delivery-tab.active {
+                background: #238636;
+                color: white;
+            }
+        .delivery-panel {
+            display: none;
+        }
+
+            .delivery-panel.active {
+                display: block;
+            }
+
         .delivery-section {
             background: white;
-            border-radius: 20px;
+            border-radius: 22px;
             padding: 28px;
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
-            margin-bottom: 24px;
         }
-
-            .scan-card h3,
-            .delivery-section h3 {
-                color: #145c24;
-                margin: 0 0 8px;
-            }
-
-            .scan-card p {
-                margin: 0;
-                color: #526b7a;
-                line-height: 1.5;
-            }
 
         .scan-card {
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 18px;
+            padding: 20px;
+            margin-bottom: 22px;
             display: flex;
             justify-content: space-between;
-            align-items: flex-end;
-            gap: 20px;
+            align-items: center;
+            gap: 24px;
         }
 
-        .scan-form,
-        .action-form {
+        .scan-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .scan-icon {
+            width: 58px;
+            height: 58px;
+            border-radius: 18px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            flex-shrink: 0;
+        }
+
+        .scan-card h3,
+        .delivery-section h3 {
+            color: #145c24;
+            margin: 0 0 8px;
+            font-size: 24px;
+        }
+
+        .scan-card p,
+        .section-header p {
+            margin: 0;
+            color: #526b7a;
+            line-height: 1.5;
+        }
+
+        .scan-form {
             margin: 0;
             display: flex;
             gap: 10px;
-            flex-wrap: wrap;
             align-items: center;
+            min-width: 420px;
         }
 
         input {
             border: 1px solid #d1d5db;
-            border-radius: 10px;
-            padding: 12px 14px;
+            border-radius: 12px;
+            padding: 13px 14px;
             font-size: 15px;
             outline: none;
             box-sizing: border-box;
+            width: 100%;
         }
 
             input:focus {
                 border-color: #238636;
+                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
             }
+
+        .scan-btn,
+        .action-btn {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .scan-btn {
+            background: #238636;
+            color: white;
+            min-height: 44px;
+        }
+
+            .scan-btn:hover {
+                background: #1f7a30;
+            }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
 
         .delivery-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
-            margin-top: 18px;
         }
 
         .delivery-card {
             background: #f8faf8;
-            border-radius: 18px;
+            border-radius: 20px;
             padding: 22px;
             border: 1px solid #e5eee7;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            min-width: 0;
         }
+
+            .delivery-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 14px 32px rgba(0, 0, 0, 0.07);
+            }
 
         .delivery-header {
             display: flex;
@@ -274,14 +549,14 @@
             .delivery-header p {
                 color: #526b7a;
                 margin: 0;
-                font-weight: 600;
+                font-weight: 700;
             }
 
         .status-badge {
             border-radius: 999px;
             padding: 8px 12px;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: 800;
             white-space: nowrap;
         }
 
@@ -302,7 +577,11 @@
         }
 
         .status-expired,
-        .status-cancelled,
+        .status-cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
         .status-default {
             background: #e5e7eb;
             color: #374151;
@@ -310,13 +589,14 @@
 
         .delivery-info {
             display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
             margin-bottom: 18px;
         }
 
             .delivery-info div {
                 background: white;
-                border-radius: 14px;
+                border-radius: 15px;
                 padding: 14px;
             }
 
@@ -333,26 +613,85 @@
                 word-break: break-word;
             }
 
+        .action-form {
+            margin: 0;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .dropoff-btn,
+        .complete-btn {
+            color: white;
+            min-height: 44px;
+        }
+
+        .dropoff-btn {
+            background: #238636;
+        }
+
+            .dropoff-btn:hover {
+                background: #1f7a30;
+            }
+
+        .complete-btn {
+            background: #1d4ed8;
+        }
+
+            .complete-btn:hover {
+                background: #1e40af;
+            }
+
         .empty-state {
             background: #f8faf8;
-            border-radius: 16px;
-            padding: 30px 20px;
+            border-radius: 18px;
+            padding: 34px 22px;
             margin-top: 18px;
             text-align: center;
         }
 
-            .empty-state h4 {
-                color: #145c24;
-                margin: 0 0 8px;
+        .empty-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 20px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin: 0 auto 16px;
+        }
+
+        .empty-state h4 {
+            color: #145c24;
+            font-size: 23px;
+            margin: 0 0 8px;
+        }
+
+        .empty-state p {
+            color: #526b7a;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        @@media (max-width: 1050px) {
+            .delivery-summary {
+                grid-template-columns: 1fr;
             }
 
-            .empty-state p {
-                color: #526b7a;
-                margin: 0;
+            .scan-card {
+                flex-direction: column;
+                align-items: stretch;
             }
 
-        @@media (max-width: 900px) {
-            .scan-card,
+            .scan-form {
+                min-width: 0;
+            }
+        }
+
+        @@media (max-width: 800px) {
+            .scan-info,
             .delivery-header {
                 flex-direction: column;
                 align-items: flex-start;
@@ -362,14 +701,54 @@
                 grid-template-columns: 1fr;
             }
 
+            .delivery-info {
+                grid-template-columns: 1fr;
+            }
+
             .scan-form,
             .action-form {
+                grid-template-columns: 1fr;
                 width: 100%;
             }
 
-            input {
+            .scan-btn,
+            .action-btn {
                 width: 100%;
             }
         }
     </style>
+}
+
+@section Scripts {
+    <script>
+        function showDeliveryTab(tabName, shouldScroll = false) {
+            const receivedPanel = document.getElementById('received-panel');
+            const donatedPanel = document.getElementById('donated-panel');
+            const tabButtons = document.querySelectorAll('.delivery-tab');
+
+            receivedPanel.classList.remove('active');
+            donatedPanel.classList.remove('active');
+
+            tabButtons.forEach(button => button.classList.remove('active'));
+
+            let activePanel;
+
+            if (tabName === 'donated') {
+                donatedPanel.classList.add('active');
+                document.querySelector('[data-tab="donated"]').classList.add('active');
+                activePanel = donatedPanel;
+            } else {
+                receivedPanel.classList.add('active');
+                document.querySelector('[data-tab="received"]').classList.add('active');
+                activePanel = receivedPanel;
+            }
+
+            if (shouldScroll && activePanel) {
+                activePanel.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        }
+    </script>
 }

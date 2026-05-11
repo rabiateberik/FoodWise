@@ -1,7 +1,7 @@
 ﻿@*
     Bu sayfa, FoodWise.Web kullanıcı kayıt ekranıdır.
     Kullanıcıdan temel kayıt bilgileri alınır ve AuthController üzerinden FoodWise.API register endpointine gönderilir.
-    Kayıt başarılı olursa API'den gelen JWT token Session içine kaydedilir ve kullanıcı ana panele yönlendirilir.
+    Kayıt başarılı olursa API'den gelen JWT token Session içine kaydedilir ve kullanıcı Dashboard ekranına yönlendirilir.
 *@
 
 @model FoodWise.Web.ViewModels.Auth.RegisterViewModel
@@ -19,179 +19,315 @@
     <title>@ViewData["Title"]</title>
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             font-family: Arial, Helvetica, sans-serif;
-            background: linear-gradient(135deg, #e8f5e9, #ffffff);
             min-height: 100vh;
+            background: radial-gradient(circle at top left, rgba(35, 134, 54, 0.14), transparent 34%), radial-gradient(circle at bottom right, rgba(20, 92, 36, 0.10), transparent 32%), linear-gradient(135deg, #edf7ef 0%, #f8faf8 45%, #ffffff 100%);
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 24px;
+            color: #1f2937;
         }
 
         .auth-container {
             width: 100%;
-            max-width: 460px;
+            max-width: 560px;
             background: #ffffff;
-            padding: 34px;
-            border-radius: 18px;
-            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
+            border-radius: 28px;
+            padding: 42px 38px;
+            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.10);
+            border: 1px solid #dcfce7;
         }
 
         .brand {
             text-align: center;
-            margin-bottom: 24px;
+            margin-bottom: 30px;
         }
 
-            .brand h1 {
-                margin: 0;
-                color: #2e7d32;
-                font-size: 34px;
-                font-weight: 700;
+        .brand-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 22px;
+            background: #dcfce7;
+            color: #238636;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin: 0 auto 16px;
+        }
+
+        .brand h1 {
+            margin: 0;
+            color: #145c24;
+            font-size: 38px;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+        }
+
+        .brand p {
+            margin: 10px 0 0;
+            color: #607d8b;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .form-title {
+            margin-bottom: 22px;
+        }
+
+            .form-title span {
+                display: block;
+                color: #238636;
+                font-weight: 900;
+                font-size: 14px;
+                margin-bottom: 8px;
             }
 
-            .brand p {
-                margin-top: 8px;
-                color: #666;
-                font-size: 15px;
+            .form-title h2 {
+                color: #145c24;
+                margin: 0 0 8px;
+                font-size: 28px;
+                font-weight: 900;
             }
+
+            .form-title p {
+                color: #607d8b;
+                margin: 0;
+                line-height: 1.5;
+                font-size: 14px;
+            }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 16px;
         }
+
+            .form-group.full {
+                grid-column: 1 / -1;
+            }
 
         label {
             display: block;
-            margin-bottom: 7px;
-            color: #333;
-            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1f2937;
+            font-weight: 800;
             font-size: 14px;
         }
 
         input {
             width: 100%;
-            padding: 12px 14px;
-            border: 1px solid #d6d6d6;
-            border-radius: 10px;
+            padding: 14px 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 14px;
             font-size: 15px;
-            box-sizing: border-box;
+            outline: none;
+            background: #f8fbff;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
         }
 
             input:focus {
-                outline: none;
-                border-color: #43a047;
-                box-shadow: 0 0 0 3px rgba(67, 160, 71, 0.14);
+                border-color: #238636;
+                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.10);
+                background: #ffffff;
             }
 
         .btn-primary {
             width: 100%;
             border: none;
-            padding: 13px;
-            border-radius: 10px;
-            background: #2e7d32;
+            padding: 14px;
+            border-radius: 14px;
+            background: #238636;
             color: #ffffff;
             font-size: 16px;
-            font-weight: 700;
+            font-weight: 900;
             cursor: pointer;
-            transition: 0.2s;
-            margin-top: 6px;
+            transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+            margin-top: 4px;
+            box-shadow: 0 10px 24px rgba(35, 134, 54, 0.20);
         }
 
             .btn-primary:hover {
-                background: #1b5e20;
+                background: #1f7a30;
+                transform: translateY(-1px);
+                box-shadow: 0 14px 30px rgba(35, 134, 54, 0.24);
             }
 
         .bottom-link {
             text-align: center;
-            margin-top: 20px;
-            color: #666;
+            margin-top: 24px;
+            color: #607d8b;
             font-size: 14px;
         }
 
             .bottom-link a {
-                color: #2e7d32;
-                font-weight: 700;
+                color: #238636;
+                font-weight: 900;
                 text-decoration: none;
             }
 
+                .bottom-link a:hover {
+                    text-decoration: underline;
+                }
+
         .validation-summary {
-            background: #ffebee;
-            color: #c62828;
-            padding: 12px;
-            border-radius: 10px;
+            background: #fef2f2;
+            color: #991b1b;
+            padding: 12px 14px;
+            border-radius: 14px;
             margin-bottom: 18px;
             font-size: 14px;
+            border: 1px solid #fecaca;
         }
+
+            .validation-summary:empty {
+                display: none;
+            }
 
         .field-validation-error {
             display: block;
             margin-top: 6px;
-            color: #c62828;
+            color: #dc2626;
             font-size: 13px;
+        }
+
+        .helper-text {
+            margin-top: 18px;
+            background: #f8faf8;
+            border-radius: 16px;
+            padding: 14px;
+            color: #526b7a;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid #e5eee7;
+        }
+
+        @@media (max-width: 620px) {
+            body {
+                padding: 14px;
+            }
+
+            .auth-container {
+                padding: 34px 22px;
+                border-radius: 24px;
+            }
+
+            .brand h1 {
+                font-size: 34px;
+            }
+
+            .form-title h2 {
+                font-size: 25px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            .form-group.full {
+                grid-column: auto;
+            }
         }
     </style>
 </head>
+
 <body>
-    <div class="auth-container">
+    <main class="auth-container">
         <div class="brand">
+            <div class="brand-icon">🌱</div>
             <h1>FoodWise</h1>
-            <p>Hanehalkı gıda israfını azaltmak için akıllı çözüm</p>
+            <p>Gıda israfını azaltan akıllı stok ve paylaşım sistemi</p>
         </div>
 
-        @* Form veya API kaynaklı genel hata mesajları burada gösterilir. *@
+        <div class="form-title">
+            <span>Yeni hesap oluştur</span>
+            <h2>Kayıt Ol</h2>
+            <p>FoodWise panelini kullanmaya başlamak için temel bilgilerini gir.</p>
+        </div>
+
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="validation-summary">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
         <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
 
         <form asp-controller="Auth" asp-action="Register" method="post">
             @Html.AntiForgeryToken()
 
-            <div class="form-group">
+            <div class="form-group full">
                 <label asp-for="FullName">Ad Soyad</label>
-                <input asp-for="FullName" placeholder="Adınızı ve soyadınızı giriniz" />
+                <input asp-for="FullName" placeholder="Adını ve soyadını gir" autocomplete="name" />
                 <span asp-validation-for="FullName"></span>
             </div>
 
-            <div class="form-group">
-                <label asp-for="Email">Email</label>
-                <input asp-for="Email" placeholder="ornek@mail.com" />
+            <div class="form-group full">
+                <label asp-for="Email">E-posta</label>
+                <input asp-for="Email" placeholder="ornek@mail.com" autocomplete="email" />
                 <span asp-validation-for="Email"></span>
             </div>
 
-            <div class="form-group">
-                <label asp-for="City">Şehir</label>
-                <input asp-for="City" placeholder="Örn: İstanbul" />
-                <span asp-validation-for="City"></span>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label asp-for="City">Şehir</label>
+                    <input asp-for="City" placeholder="Örn: Ankara" />
+                    <span asp-validation-for="City"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="District">İlçe</label>
+                    <input asp-for="District" placeholder="Örn: Çankaya" />
+                    <span asp-validation-for="District"></span>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label asp-for="District">İlçe</label>
-                <input asp-for="District" placeholder="Örn: Kadıköy" />
-                <span asp-validation-for="District"></span>
-            </div>
-
-            <div class="form-group">
+            <div class="form-group full">
                 <label asp-for="Neighborhood">Mahalle</label>
-                <input asp-for="Neighborhood" placeholder="Örn: Eğitim Mahallesi" />
+                <input asp-for="Neighborhood" placeholder="Örn: Kızılay Mahallesi" />
                 <span asp-validation-for="Neighborhood"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="Password">Şifre</label>
-                <input asp-for="Password" placeholder="En az 6 karakter" />
-                <span asp-validation-for="Password"></span>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label asp-for="Password">Şifre</label>
+                    <input asp-for="Password" type="password" placeholder="En az 6 karakter" autocomplete="new-password" />
+                    <span asp-validation-for="Password"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="ConfirmPassword">Şifre Tekrar</label>
+                    <input asp-for="ConfirmPassword" type="password" placeholder="Şifreni tekrar gir" autocomplete="new-password" />
+                    <span asp-validation-for="ConfirmPassword"></span>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label asp-for="ConfirmPassword">Şifre Tekrar</label>
-                <input asp-for="ConfirmPassword" placeholder="Şifrenizi tekrar giriniz" />
-                <span asp-validation-for="ConfirmPassword"></span>
-            </div>
-
-            <button type="submit" class="btn-primary">Kayıt Ol</button>
+            <button type="submit" class="btn-primary">
+                Kayıt Ol
+            </button>
         </form>
 
         <div class="bottom-link">
             Zaten hesabın var mı?
             <a asp-controller="Auth" asp-action="Login">Giriş Yap</a>
         </div>
-    </div>
+
+        <div class="helper-text">
+            Açık adres bilgisi alınmaz. Paylaşım sürecinde kullanıcılar sistemde tanımlı güvenli teslim noktalarını kullanır.
+        </div>
+    </main>
 </body>
 </html>

@@ -5,172 +5,282 @@
 
     ViewData["Title"] = "Karbon Raporu";
     ViewData["PageDescription"] = "Paylaşılan ürünler üzerinden kurtarılan gıda ve tahmini karbon tasarrufunu buradan takip edebilirsin.";
+
+    var latestReport = Model.Reports?
+        .OrderByDescending(x => x.Year)
+        .ThenByDescending(x => x.Month)
+        .FirstOrDefault();
 }
 
 @*
     Karbon Raporu sayfası ortak FoodWise layout yapısını kullanır.
-    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-    Bu dosyada sadece karbon raporu özeti, rapor oluşturma formu, rapor listesi ve sayfaya özel stiller bulunur.
+
+    Bu sayfada:
+    - Toplam kurtarılan gıda miktarı gösterilir.
+    - Tahmini karbon tasarrufu gösterilir.
+    - Aylık rapor oluşturma işlemi yapılır.
+    - Oluşturulan rapor geçmişi kartlar halinde listelenir.
 *@
 
-<section class="summary-grid">
-    <div class="summary-card">
-        <div class="label">Kurtarılan Gıda</div>
-        <div class="value">@Model.Summary.TotalSavedFoodKg.ToString("0.##") kg</div>
-        <div class="hint">Teslimatı tamamlanan paylaşımlardan hesaplanır.</div>
-    </div>
+<section class="carbon-page">
+    <section class="carbon-hero-card">
+        <div class="carbon-hero-content">
+            <div class="carbon-icon">🌍</div>
 
-    <div class="summary-card">
-        <div class="label">Karbon Tasarrufu</div>
-        <div class="value">@Model.Summary.TotalEstimatedCarbonSaved.ToString("0.##") kg</div>
-        <div class="hint">Ürünlerin karbon faktörüne göre yaklaşık hesaplanır.</div>
-    </div>
-
-    <div class="summary-card">
-        <div class="label">Paylaşılan Ürün</div>
-        <div class="value">@Model.Summary.TotalSharedProductCount</div>
-        <div class="hint">Teslimatı tamamlanan paylaşım sayısı.</div>
-    </div>
-
-    <div class="summary-card">
-        <div class="label">Rapor Sayısı</div>
-        <div class="value">@Model.Summary.ReportCount</div>
-        <div class="hint">Oluşturulan aylık rapor sayısı.</div>
-    </div>
-</section>
-
-<section class="generate-card">
-    <div>
-        <h3>Aylık Rapor Oluştur</h3>
-        <p>Seçtiğin ay ve yıl için karbon raporunu oluşturabilir veya mevcut raporu güncelleyebilirsin.</p>
-    </div>
-
-    <form asp-controller="CarbonReport" asp-action="Generate" method="post" class="generate-form">
-        @Html.AntiForgeryToken()
-
-        @* Kullanıcı ay ve yıl seçerek ilgili dönem için rapor oluşturur. *@
-        <div class="form-group">
-            <label asp-for="Month">Ay</label>
-            <input asp-for="Month" type="number" min="1" max="12" />
-            <span asp-validation-for="Month"></span>
+            <div>
+                <span>Sürdürülebilirlik Etkisi</span>
+                <h2>@Model.Summary.TotalEstimatedCarbonSaved.ToString("0.##") kg CO₂</h2>
+                <p>
+                    FoodWise ile tamamlanan paylaşımlar sayesinde yaklaşık karbon tasarrufu sağladın.
+                    Bu değer, kurtarılan gıda miktarı ve ürünlerin karbon etkisine göre hesaplanır.
+                </p>
+            </div>
         </div>
 
-        <div class="form-group">
-            <label asp-for="Year">Yıl</label>
-            <input asp-for="Year" type="number" min="2024" max="2030" />
-            <span asp-validation-for="Year"></span>
+        <div class="carbon-hero-badge">
+            @Model.Summary.TotalSavedFoodKg.ToString("0.##") kg gıda kurtarıldı
+        </div>
+    </section>
+
+    <section class="summary-grid">
+        <div class="summary-card">
+            <div class="card-icon">🥗</div>
+            <span>Kurtarılan Gıda</span>
+            <strong>@Model.Summary.TotalSavedFoodKg.ToString("0.##") kg</strong>
+            <p>Teslimatı tamamlanan paylaşımlardan hesaplanır.</p>
         </div>
 
-        <button type="submit" class="btn-primary">
-            Rapor Oluştur
-        </button>
-    </form>
-</section>
-
-<section class="report-list">
-    <h3>Aylık Raporlarım</h3>
-
-    @if (Model.Reports == null || !Model.Reports.Any())
-    {
-        <div class="empty-state">
-            <h3>Henüz rapor yok.</h3>
-            <p>İlk aylık karbon raporunu oluşturmak için yukarıdaki formu kullanabilirsin.</p>
+        <div class="summary-card">
+            <div class="card-icon">🌱</div>
+            <span>Karbon Tasarrufu</span>
+            <strong>@Model.Summary.TotalEstimatedCarbonSaved.ToString("0.##") kg</strong>
+            <p>Ürünlerin karbon faktörüne göre yaklaşık hesaplanır.</p>
         </div>
-    }
-    else
-    {
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Dönem</th>
-                        <th>Kurtarılan Gıda</th>
-                        <th>Karbon Tasarrufu</th>
-                        <th>Paylaşılan Ürün</th>
-                        <th>İsraf/Geçmiş Ürün</th>
-                        <th>Oluşturulma</th>
-                    </tr>
-                </thead>
 
-                <tbody>
-                    @foreach (var report in Model.Reports)
-                    {
-                        <tr>
-                            <td>
-                                <strong>@report.Month/@report.Year</strong>
-                            </td>
-
-                            <td>
-                                @report.SavedFoodKg.ToString("0.##") kg
-                            </td>
-
-                            <td>
-                                @report.EstimatedCarbonSaved.ToString("0.##") kg
-                            </td>
-
-                            <td>
-                                @report.SharedProductCount
-                            </td>
-
-                            <td>
-                                @report.WastedProductCount
-                            </td>
-
-                            <td>
-                                @report.CreatedAt.ToString("dd.MM.yyyy HH:mm")
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        <div class="summary-card">
+            <div class="card-icon">🤝</div>
+            <span>Paylaşılan Ürün</span>
+            <strong>@Model.Summary.TotalSharedProductCount</strong>
+            <p>Teslimatı tamamlanan paylaşım sayısıdır.</p>
         </div>
-    }
+
+        <div class="summary-card">
+            <div class="card-icon">📊</div>
+            <span>Rapor Sayısı</span>
+            <strong>@Model.Summary.ReportCount</strong>
+            <p>Bugüne kadar oluşturulan aylık rapor sayısıdır.</p>
+        </div>
+    </section>
+
+    <section class="generate-card">
+        <div class="generate-info">
+            <h3>Aylık Rapor Oluştur</h3>
+            <p>
+                Seçtiğin ay ve yıl için karbon raporunu oluşturabilir veya mevcut raporu güncelleyebilirsin.
+            </p>
+
+            @if (latestReport != null)
+            {
+                <div class="latest-report-note">
+                    Son rapor: <strong>@latestReport.Month/@latestReport.Year</strong>
+                </div>
+            }
+        </div>
+
+        <form asp-controller="CarbonReport" asp-action="Generate" method="post" class="generate-form">
+            @Html.AntiForgeryToken()
+
+            @* Kullanıcı ay ve yıl seçerek ilgili dönem için rapor oluşturur. *@
+            <div class="form-group">
+                <label asp-for="Month">Ay</label>
+                <input asp-for="Month" type="number" min="1" max="12" />
+                <span asp-validation-for="Month"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Year">Yıl</label>
+                <input asp-for="Year" type="number" min="2024" max="2030" />
+                <span asp-validation-for="Year"></span>
+            </div>
+
+            <button type="submit" class="generate-btn">
+                Rapor Oluştur
+            </button>
+        </form>
+    </section>
+
+    <section class="report-list-card">
+        <div class="section-header">
+            <div>
+                <h3>Aylık Raporlarım</h3>
+                <p>Geçmiş dönemlerde oluşturulan karbon raporlarını buradan inceleyebilirsin.</p>
+            </div>
+        </div>
+
+        @if (Model.Reports == null || !Model.Reports.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📄</div>
+
+                <h3>Henüz rapor yok.</h3>
+                <p>İlk aylık karbon raporunu oluşturmak için yukarıdaki formu kullanabilirsin.</p>
+            </div>
+        }
+        else
+        {
+            <div class="report-grid">
+                @foreach (var report in Model.Reports.OrderByDescending(x => x.Year).ThenByDescending(x => x.Month))
+                {
+                    <article class="report-card">
+                        <div class="report-header">
+                            <div>
+                                <span>Dönem</span>
+                                <h4>@report.Month/@report.Year</h4>
+                            </div>
+
+                            <div class="report-badge">
+                                @report.EstimatedCarbonSaved.ToString("0.##") kg CO₂
+                            </div>
+                        </div>
+
+                        <div class="report-info">
+                            <div>
+                                <span>Kurtarılan Gıda</span>
+                                <strong>@report.SavedFoodKg.ToString("0.##") kg</strong>
+                            </div>
+
+                            <div>
+                                <span>Paylaşılan Ürün</span>
+                                <strong>@report.SharedProductCount</strong>
+                            </div>
+
+                            <div>
+                                <span>İsraf / Geçmiş Ürün</span>
+                                <strong>@report.WastedProductCount</strong>
+                            </div>
+
+                            <div>
+                                <span>Oluşturulma</span>
+                                <strong>@report.CreatedAt.ToString("dd.MM.yyyy HH:mm")</strong>
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
 </section>
 
 @section Styles {
     <style>
+        .carbon-page {
+            display: grid;
+            gap: 22px;
+        }
+
+        .carbon-hero-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+            border: 1px solid #dcfce7;
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .carbon-hero-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .carbon-icon,
+        .card-icon,
+        .empty-icon {
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .carbon-icon {
+            width: 76px;
+            height: 76px;
+            border-radius: 24px;
+            font-size: 38px;
+        }
+
+        .carbon-hero-card span,
+        .summary-card span,
+        .report-header span,
+        .report-info span {
+            display: block;
+            color: #607d8b;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .carbon-hero-card h2 {
+            color: #145c24;
+            font-size: 44px;
+            font-weight: 900;
+            margin: 0 0 8px;
+        }
+
+        .carbon-hero-card p,
+        .summary-card p,
+        .generate-card p,
+        .section-header p,
+        .empty-state p {
+            color: #526b7a;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .carbon-hero-badge {
+            background: #238636;
+            color: white;
+            border-radius: 999px;
+            padding: 12px 18px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
         .summary-grid {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 18px;
-            margin-bottom: 24px;
         }
 
         .summary-card,
         .generate-card,
-        .report-list {
+        .report-list-card {
             background: white;
-            border-radius: 20px;
-            padding: 28px;
+            border-radius: 22px;
+            padding: 26px;
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
         }
 
         .summary-card {
-            padding: 22px;
+            display: grid;
+            gap: 8px;
         }
 
-        .generate-card,
-        .report-list {
-            margin-bottom: 24px;
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 16px;
+            font-size: 25px;
+            margin-bottom: 4px;
         }
 
-        .label {
-            color: #607d8b;
-            font-size: 14px;
-            margin-bottom: 12px;
-        }
-
-        .value {
+        .summary-card strong {
             color: #145c24;
-            font-size: 30px;
-            font-weight: 800;
-        }
-
-        .hint {
-            margin-top: 10px;
-            color: #78909c;
-            font-size: 13px;
-            line-height: 1.4;
+            font-size: 29px;
+            font-weight: 900;
         }
 
         .generate-card {
@@ -180,17 +290,24 @@
             gap: 24px;
         }
 
-            .generate-card h3,
-            .report-list h3 {
-                color: #145c24;
-                margin: 0 0 8px;
-            }
+        .generate-info h3,
+        .section-header h3 {
+            color: #145c24;
+            font-size: 25px;
+            margin: 0 0 8px;
+        }
 
-            .generate-card p {
-                margin: 0;
-                color: #526b7a;
-                line-height: 1.5;
-            }
+        .latest-report-note {
+            display: inline-block;
+            margin-top: 14px;
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 800;
+        }
 
         .generate-form {
             display: flex;
@@ -207,13 +324,13 @@
         }
 
         label {
-            font-weight: 700;
+            font-weight: 800;
             color: #1f2937;
         }
 
         input {
             border: 1px solid #d1d5db;
-            border-radius: 10px;
+            border-radius: 12px;
             padding: 12px 14px;
             font-size: 15px;
             width: 110px;
@@ -223,6 +340,7 @@
 
             input:focus {
                 border-color: #238636;
+                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
             }
 
         .generate-form span {
@@ -230,74 +348,137 @@
             font-size: 13px;
         }
 
-        .table-wrapper {
-            width: 100%;
-            overflow-x: auto;
+        .generate-btn {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            background: #238636;
+            color: white;
+            font-weight: 900;
+            cursor: pointer;
+            min-height: 44px;
         }
 
-        table {
-            width: 100%;
-            min-width: 760px;
-            border-collapse: collapse;
-            margin-top: 16px;
+            .generate-btn:hover {
+                background: #1f7a30;
+            }
+
+        .section-header {
+            margin-bottom: 20px;
         }
 
-        th {
-            text-align: left;
-            color: #486273;
-            padding: 14px;
-            border-bottom: 1px solid #e5e7eb;
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 18px;
+        }
+
+        .report-card {
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 18px;
+            padding: 20px;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+            .report-header h4 {
+                color: #145c24;
+                font-size: 24px;
+                margin: 0;
+            }
+
+        .report-badge {
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 900;
             white-space: nowrap;
         }
 
-        td {
-            padding: 16px 14px;
-            border-bottom: 1px solid #eef2f4;
-            vertical-align: top;
-            color: #1f2937;
+        .report-info {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
         }
+
+            .report-info div {
+                background: white;
+                border-radius: 14px;
+                padding: 13px;
+            }
+
+            .report-info strong {
+                color: #1f2937;
+                line-height: 1.45;
+                word-break: break-word;
+            }
 
         .empty-state {
             background: #f8faf8;
-            border-radius: 16px;
-            padding: 38px 20px;
+            border-radius: 18px;
+            padding: 44px 20px;
             text-align: center;
-            margin-top: 16px;
         }
 
-            .empty-state h3 {
-                color: #145c24;
-                margin-bottom: 10px;
-            }
+        .empty-icon {
+            width: 68px;
+            height: 68px;
+            border-radius: 22px;
+            font-size: 34px;
+            margin: 0 auto 16px;
+        }
 
-            .empty-state p {
-                color: #526b7a;
-                margin-bottom: 0;
-            }
+        .empty-state h3 {
+            color: #145c24;
+            margin: 0 0 10px;
+            font-size: 24px;
+        }
 
         @@media (max-width: 1100px) {
             .summary-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
-            .generate-card {
+            .generate-card,
+            .carbon-hero-card {
                 flex-direction: column;
                 align-items: flex-start;
             }
         }
 
-        @@media (max-width: 700px) {
-            .summary-grid {
+        @@media (max-width: 760px) {
+            .summary-grid,
+            .report-info {
                 grid-template-columns: 1fr;
             }
 
-            .generate-form {
+            .carbon-hero-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .carbon-hero-card h2 {
+                font-size: 36px;
+            }
+
+            .generate-form,
+            .form-group,
+            input,
+            .generate-btn {
                 width: 100%;
             }
 
-            .form-group,
-            input {
-                width: 100%;
+            .report-header {
+                flex-direction: column;
             }
         }
     </style>

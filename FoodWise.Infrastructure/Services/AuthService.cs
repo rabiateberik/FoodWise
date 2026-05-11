@@ -136,7 +136,6 @@ public class AuthService : IAuthService
             Token = token
         };
     }
-
     private string GenerateJwtToken(ApplicationUser user)
     {
         // appsettings.json içindeki JWT ayarları okunur.

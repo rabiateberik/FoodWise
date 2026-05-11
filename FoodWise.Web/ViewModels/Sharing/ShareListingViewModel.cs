@@ -31,4 +31,12 @@ public class ShareListingViewModel
     public string Status { get; set; } = string.Empty;
 
     public int RequestCount { get; set; }
+    // Kullanıcı bu ilana daha önce aktif talep gönderdiyse true olur.
+    public bool HasCurrentUserRequest { get; set; }
+
+    // Kullanıcının aktif talep Id bilgisidir.
+    public int? CurrentUserRequestId { get; set; }
+
+    // Kullanıcının aktif talep durumudur.
+    public string? CurrentUserRequestStatus { get; set; }
 }

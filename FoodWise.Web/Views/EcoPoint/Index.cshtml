@@ -9,160 +9,251 @@
 
 @*
     Eco Puan sayfası ortak FoodWise layout yapısını kullanır.
-    Bu sayfada kullanıcının toplam eco puanı, seviye bilgisi ve puan geçmişi gösterilir.
+
+    Bu sayfada:
+    - Kullanıcının toplam Eco Puan değeri gösterilir.
+    - Kullanıcının seviye bilgisi gösterilir.
+    - Eco Puan hareket geçmişi listelenir.
+    - Teslimat sürecinden kazanılan puanlar şeffaf şekilde takip edilir.
 *@
 
-<section class="eco-summary-grid">
-    <div class="eco-summary-card main">
-        <span>Toplam Eco Puan</span>
-        <strong>@Model.Summary.TotalPoint</strong>
-        <p>@Model.Summary.LevelName seviyesindesin.</p>
-    </div>
+<section class="eco-page">
+    <section class="eco-hero-card">
+        <div class="eco-hero-content">
+            <div class="eco-icon">🌱</div>
 
-    <div class="eco-summary-card">
-        <span>Seviye</span>
-        <strong>@Model.Summary.LevelName</strong>
-        <p>Paylaşım ve teslimat süreçlerine katıldıkça seviyen yükselir.</p>
-    </div>
-
-    <div class="eco-summary-card">
-        <span>Puan Hareketi</span>
-        <strong>@Model.Summary.HistoryCount</strong>
-        <p>Bugüne kadar kazandığın eco puan işlem sayısı.</p>
-    </div>
-</section>
-
-<section class="eco-history-card">
-    <div class="section-header">
-        <div>
-            <h3>Eco Puan Geçmişi</h3>
-            <p>Hangi işlemden kaç puan kazandığını buradan görebilirsin.</p>
+            <div>
+                <span>Toplam Eco Puan</span>
+                <h2>@Model.Summary.TotalPoint</h2>
+                <p>
+                    Şu anda <strong>@Model.Summary.LevelName</strong> seviyesindesin.
+                    Paylaşım ve teslimat süreçlerine katıldıkça Eco Puan kazanmaya devam edersin.
+                </p>
+            </div>
         </div>
-    </div>
 
-    @if (Model.History == null || !Model.History.Any())
-    {
-        <div class="empty-state">
-            <h3>Henüz eco puan geçmişi yok.</h3>
-            <p>Teslimat tamamladığında kazandığın puanlar burada listelenecek.</p>
+        <div class="eco-hero-badge">
+            @Model.Summary.LevelName
         </div>
-    }
-    else
-    {
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>İşlem</th>
-                        <th>Açıklama</th>
-                        <th>Puan</th>
-                        <th>Tarih</th>
-                    </tr>
-                </thead>
+    </section>
 
-                <tbody>
-                    @foreach (var item in Model.History)
-                    {
-                        <tr>
-                            <td>
-                                <strong>@item.ActionTypeText</strong>
-                            </td>
-
-                            <td>
-                                @item.Description
-                            </td>
-
-                            <td>
-                                <span class="point-badge">+@item.Point</span>
-                            </td>
-
-                            <td>
-                                @item.CreatedAt.ToString("dd.MM.yyyy HH:mm")
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+    <section class="eco-summary-grid">
+        <div class="eco-summary-card">
+            <span>Seviye</span>
+            <strong>@Model.Summary.LevelName</strong>
+            <p>Sürdürülebilir katkılarına göre seviyen belirlenir.</p>
         </div>
-    }
+
+        <div class="eco-summary-card">
+            <span>Puan Hareketi</span>
+            <strong>@Model.Summary.HistoryCount</strong>
+            <p>Bugüne kadar kayıt altına alınan Eco Puan işlemlerin.</p>
+        </div>
+
+        <div class="eco-summary-card">
+            <span>Kazanım Mantığı</span>
+            <strong>+10 / +3</strong>
+            <p>Bağışçı teslimat tamamlayınca +10, alıcı teslim alınca +3 puan kazanır.</p>
+        </div>
+    </section>
+
+    <section class="eco-history-card">
+        <div class="section-header">
+            <div>
+                <h3>Eco Puan Geçmişi</h3>
+                <p>Hangi işlemden kaç puan kazandığını buradan takip edebilirsin.</p>
+            </div>
+        </div>
+
+        @if (Model.History == null || !Model.History.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">🌿</div>
+
+                <h3>Henüz Eco Puan geçmişi yok.</h3>
+                <p>Teslimat tamamladığında kazandığın puanlar burada listelenecek.</p>
+            </div>
+        }
+        else
+        {
+            <div class="history-list">
+                @foreach (var item in Model.History)
+                {
+                    <article class="history-card">
+                        <div class="history-left">
+                            <div class="history-icon">+@item.Point</div>
+
+                            <div>
+                                <h4>@item.ActionTypeText</h4>
+                                <p>@item.Description</p>
+                            </div>
+                        </div>
+
+                        <div class="history-right">
+                            <span class="point-badge">+@item.Point Puan</span>
+                            <small>@item.CreatedAt.ToString("dd.MM.yyyy HH:mm")</small>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
 </section>
 
 @section Styles {
     <style>
+        .eco-page {
+            display: grid;
+            gap: 22px;
+        }
+
+        .eco-hero-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 24px;
+            border: 1px solid #dcfce7;
+        }
+
+        .eco-hero-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .eco-icon {
+            width: 76px;
+            height: 76px;
+            border-radius: 24px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 38px;
+            flex-shrink: 0;
+        }
+
+        .eco-hero-card span,
+        .eco-summary-card span {
+            display: block;
+            color: #607d8b;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .eco-hero-card h2 {
+            color: #145c24;
+            font-size: 48px;
+            font-weight: 900;
+            margin: 0 0 8px;
+        }
+
+        .eco-hero-card p,
+        .eco-summary-card p,
+        .section-header p,
+        .history-card p,
+        .empty-state p {
+            color: #526b7a;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+            .eco-hero-card p strong {
+                color: #145c24;
+            }
+
+        .eco-hero-badge {
+            background: #238636;
+            color: white;
+            border-radius: 999px;
+            padding: 12px 18px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
         .eco-summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 18px;
-            margin-bottom: 24px;
         }
 
         .eco-summary-card,
         .eco-history-card {
             background: white;
-            border-radius: 20px;
-            padding: 28px;
+            border-radius: 22px;
+            padding: 26px;
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
         }
-
-            .eco-summary-card.main {
-                border-left: 6px solid #238636;
-            }
-
-            .eco-summary-card span {
-                display: block;
-                color: #607d8b;
-                font-size: 14px;
-                margin-bottom: 12px;
-            }
 
             .eco-summary-card strong {
                 display: block;
                 color: #145c24;
                 font-size: 30px;
-                margin-bottom: 10px;
-            }
-
-            .eco-summary-card p,
-            .section-header p {
-                margin: 0;
-                color: #526b7a;
-                line-height: 1.5;
+                font-weight: 900;
+                margin-bottom: 8px;
             }
 
         .section-header {
-            margin-bottom: 18px;
+            margin-bottom: 20px;
         }
 
             .section-header h3 {
                 color: #145c24;
-                font-size: 24px;
+                font-size: 25px;
                 margin: 0 0 8px;
             }
 
-        .table-wrapper {
-            width: 100%;
-            overflow-x: auto;
+        .history-list {
+            display: grid;
+            gap: 14px;
         }
 
-        table {
-            width: 100%;
-            min-width: 760px;
-            border-collapse: collapse;
+        .history-card {
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 18px;
+            padding: 18px;
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: center;
         }
 
-        th {
-            text-align: left;
-            color: #486273;
-            padding: 14px;
-            border-bottom: 1px solid #e5e7eb;
+        .history-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .history-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 18px;
+            background: #dcfce7;
+            color: #166534;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            flex-shrink: 0;
+        }
+
+        .history-card h4 {
+            color: #145c24;
+            font-size: 18px;
+            margin: 0 0 6px;
+        }
+
+        .history-right {
+            display: grid;
+            justify-items: end;
+            gap: 8px;
             white-space: nowrap;
-        }
-
-        td {
-            padding: 16px 14px;
-            border-bottom: 1px solid #eef2f4;
-            vertical-align: top;
-            color: #1f2937;
         }
 
         .point-badge {
@@ -170,26 +261,71 @@
             background: #dcfce7;
             color: #166534;
             border-radius: 999px;
-            padding: 7px 12px;
-            font-weight: 800;
-            white-space: nowrap;
+            padding: 8px 12px;
+            font-weight: 900;
+            font-size: 13px;
+        }
+
+        .history-right small {
+            color: #6b7280;
+            font-size: 12px;
         }
 
         .empty-state {
             background: #f8faf8;
-            border-radius: 16px;
-            padding: 40px 20px;
+            border-radius: 18px;
+            padding: 44px 20px;
             text-align: center;
         }
 
-            .empty-state h3 {
-                color: #145c24;
-                margin-bottom: 10px;
+        .empty-icon {
+            width: 68px;
+            height: 68px;
+            border-radius: 22px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            margin: 0 auto 16px;
+        }
+
+        .empty-state h3 {
+            color: #145c24;
+            margin: 0 0 10px;
+            font-size: 24px;
+        }
+
+        @@media (max-width: 1000px) {
+            .eco-summary-grid {
+                grid-template-columns: 1fr;
             }
 
-            .empty-state p {
-                color: #526b7a;
-                margin: 0;
+            .eco-hero-card {
+                align-items: flex-start;
+                flex-direction: column;
             }
+        }
+
+        @@media (max-width: 760px) {
+            .eco-hero-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .eco-hero-card h2 {
+                font-size: 40px;
+            }
+
+            .history-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .history-right {
+                justify-items: start;
+                white-space: normal;
+            }
+        }
     </style>
 }

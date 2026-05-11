@@ -62,6 +62,7 @@ public class NotificationService : INotificationService
             Title = model.Title,
             Message = model.Message,
             Type = model.Type,
+            TargetUrl = model.TargetUrl,
             IsRead = false,
             IsActive = true,
             CreatedAt = DateTime.Now
@@ -145,7 +146,8 @@ public class NotificationService : INotificationService
             Message = notification.Message,
             Type = notification.Type.ToString(),
             IsRead = notification.IsRead,
-            CreatedAt = notification.CreatedAt
+            CreatedAt = notification.CreatedAt,
+            TargetUrl = notification.TargetUrl
         };
     }
 }

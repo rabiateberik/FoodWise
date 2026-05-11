@@ -19,7 +19,7 @@ public class SharingController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> MyListings()
+    public async Task<IActionResult> MyListings(int? highlightListingId)
     {
         var token = HttpContext.Session.GetString("JWToken");
 
@@ -27,6 +27,8 @@ public class SharingController : Controller
             return RedirectToAction("Login", "Auth");
 
         var listings = await _sharingWebService.GetMyListingsAsync(token);
+
+        ViewBag.HighlightListingId = highlightListingId;
 
         return View(listings);
     }
@@ -207,7 +209,26 @@ public class SharingController : Controller
 
         return RedirectToAction(nameof(MyListings));
     }
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelRequest(int requestId)
+    {
+        var token = HttpContext.Session.GetString("JWToken");
 
+        if (string.IsNullOrWhiteSpace(token))
+            return RedirectToAction("Login", "Auth");
+
+        var result = await _sharingWebService.CancelRequestAsync(requestId, token);
+
+        if (!result)
+        {
+            TempData["ErrorMessage"] = "Talep iptal edilemedi.";
+            return RedirectToAction("Available");
+        }
+
+        TempData["SuccessMessage"] = "Talep başarıyla iptal edildi.";
+        return RedirectToAction("Available");
+    }
     private static void FillDeliveryPoints(CreateShareListingViewModel model)
     {
         // Teslim noktaları şu an seed data ile sabit tutulur.

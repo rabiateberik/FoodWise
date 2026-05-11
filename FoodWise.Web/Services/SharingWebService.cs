@@ -132,7 +132,14 @@ public class SharingWebService : ISharingWebService
 
         return true;
     }
+    public async Task<bool> CancelRequestAsync(int requestId, string token)
+    {
+        SetBearerToken(token);
 
+        var response = await _httpClient.PostAsync($"api/sharing/requests/{requestId}/cancel", null);
+
+        return response.IsSuccessStatusCode;
+    }
     private void SetBearerToken(string token)
     {
         _httpClient.DefaultRequestHeaders.Authorization =

@@ -133,7 +133,19 @@ public class SharingController : ControllerBase
 
         return Ok("Paylaşım ilanı başarıyla iptal edildi.");
     }
+    [HttpPost("requests/{requestId}/cancel")]
+    public async Task<IActionResult> CancelRequest(int requestId)
+    {
+        // Talebi oluşturan kullanıcı kendi bekleyen talebini iptal eder.
+        var userId = GetUserId();
 
+        var result = await _sharingService.CancelRequestAsync(userId, requestId);
+
+        if (!result)
+            return BadRequest("Talep iptal edilemedi. Sadece bekleyen talepler iptal edilebilir.");
+
+        return Ok("Talep başarıyla iptal edildi.");
+    }
     private string GetUserId()
     {
         // JWT token içindeki NameIdentifier claim'i Identity kullanıcı Id bilgisini taşır.

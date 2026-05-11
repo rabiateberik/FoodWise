@@ -1,17 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-// DeliveryService, QR destekli teslim kutusu akışını yönetir.
+﻿// DeliveryService, QR destekli teslim kutusu akışını yönetir.
 // Onaylanan talepten teslimat oluşturur, boş kutu atar, bırakma ve teslim alma işlemlerini kontrol eder.
 using FoodWise.Application.DTOs.Delivery;
+using FoodWise.Application.DTOs.Notification;
 using FoodWise.Application.Interfaces;
 using FoodWise.Domain.Entities;
 using FoodWise.Domain.Enums;
 using FoodWise.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace FoodWise.Infrastructure.Services;
 
@@ -19,12 +19,15 @@ public class DeliveryService : IDeliveryService
 {
     private readonly FoodWiseDbContext _context;
     private readonly IEcoPointService _ecoPointService;
+    private readonly INotificationService _notificationService;
     public DeliveryService(
       FoodWiseDbContext context,
-      IEcoPointService ecoPointService)
+      IEcoPointService ecoPointService,
+      INotificationService notificationService)
     {
         _context = context;
         _ecoPointService = ecoPointService;
+        _notificationService = notificationService;
     }
 
     public async Task<DeliveryDto?> CreateDeliveryAsync(string donorUserId, int shareRequestId)
@@ -95,7 +98,13 @@ public class DeliveryService : IDeliveryService
 
         await _context.Deliveries.AddAsync(delivery);
         await _context.SaveChangesAsync();
-
+        await _notificationService.CreateAsync(request.RequesterUserId, new CreateNotificationDto
+        {
+            Title = "Teslimat oluşturuldu",
+            Message = $"{request.ShareListing.StockItem.Product.Name} için teslimat oluşturuldu. Teslimatlar sayfasından takip edebilirsin.",
+            Type = NotificationType.DeliveryCreated,
+            TargetUrl = "/Delivery/Index"
+        });
         var createdDelivery = await GetDeliveryEntityByIdAsync(delivery.Id);
 
         return createdDelivery == null ? null : MapToDto(createdDelivery);
@@ -137,7 +146,13 @@ public class DeliveryService : IDeliveryService
         delivery.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
-
+        await _notificationService.CreateAsync(delivery.ReceiverUserId, new CreateNotificationDto
+        {
+            Title = "Ürün kutuya bırakıldı",
+            Message = $"{delivery.ShareListing.StockItem.Product.Name} teslim noktasına bırakıldı. QR doğrulama ile teslim alabilirsin.",
+            Type = NotificationType.DeliveryDroppedOff,
+            TargetUrl = "/Delivery/Index"
+        });
         var updatedDelivery = await GetDeliveryEntityByIdAsync(delivery.Id);
 
         return updatedDelivery == null ? null : MapToDto(updatedDelivery);
@@ -242,23 +257,31 @@ public class DeliveryService : IDeliveryService
 
         await _context.SaveChangesAsync();
 
-        // Teslimat başarıyla tamamlandığında bağış yapan kullanıcı eco puan kazanır.
+        // Teslimat başarıyla tamamlandığında bağış yapan kullanıcı Eco Puan kazanır.
         // Aynı teslimat için tekrar puan yazılmaması EcoPointService içinde kontrol edilir.
         await _ecoPointService.AddPointAsync(
             delivery.DonorUserId,
             10,
             EcoPointActionType.DeliveryCompletedAsDonor,
-            "Paylaştığın ürün başarıyla teslim edildi. Eco puan kazandın.",
+            "Ürününü başarıyla paylaşarak gıda israfını azaltmaya katkı sağladın.",
             delivery.Id);
 
-        // Teslim alan kullanıcı da sürdürülebilir paylaşım sürecine katıldığı için eco puan kazanır.
+        // Teslim alan kullanıcı da sürdürülebilir paylaşım sürecine katıldığı için Eco Puan kazanır.
         await _ecoPointService.AddPointAsync(
             delivery.ReceiverUserId,
             3,
             EcoPointActionType.DeliveryCompletedAsReceiver,
-            "Paylaşılan ürünü başarıyla teslim aldın. Eco puan kazandın.",
+            "Paylaşılan ürünü teslim alarak gıda israfını azaltmaya katkı sağladın.",
             delivery.Id);
 
+        // Teslimat tamamlandığında bağış yapan kullanıcıya bilgilendirme bildirimi gönderilir.
+        await _notificationService.CreateAsync(delivery.DonorUserId, new CreateNotificationDto
+        {
+            Title = "Teslimat tamamlandı",
+            Message = $"{delivery.ShareListing.StockItem.Product.Name} teslimatı tamamlandı. +10 Eco Puan kazandın.",
+            Type = NotificationType.DeliveryCompleted,
+            TargetUrl = "/Delivery/Index"
+        });
         var completedDelivery = await GetDeliveryEntityByIdAsync(delivery.Id);
 
         return completedDelivery == null ? null : MapToDto(completedDelivery);

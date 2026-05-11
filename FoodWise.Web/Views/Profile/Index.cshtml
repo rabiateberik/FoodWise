@@ -4,7 +4,7 @@
     Layout = "_FoodWiseLayout";
 
     ViewData["Title"] = "Profilim";
-    ViewData["PageDescription"] = "Kullanıcı bilgilerini, konum bilgilerini ve güvenilirlik puanını buradan görüntüleyebilirsin.";
+    ViewData["PageDescription"] = "Kullanıcı bilgilerini, konum bilgilerini ve sürdürülebilirlik katkını buradan görüntüleyebilirsin.";
 
     var fullName = string.IsNullOrWhiteSpace(Model.FullName) ? "Kullanıcı" : Model.FullName;
     var email = Model.Email ?? string.Empty;
@@ -19,8 +19,13 @@
 }
 
 @*
-    Profil sayfası artık ortak FoodWise layout yapısını kullanır.
-    Bu dosyada sadece profil kartları ve sayfaya özel CSS bulunur.
+    Profil sayfası ortak FoodWise layout yapısını kullanır.
+
+    Bu sayfada:
+    - Kullanıcı profil bilgileri görüntülenir.
+    - Eco Puan özeti gösterilir.
+    - Konum bilgileri görüntülenir.
+    - Profil, konum, şifre ve hesap silme işlemleri modal üzerinden yapılır.
 *@
 
 <section class="profile-grid">
@@ -31,6 +36,14 @@
 
         <h3>@fullName</h3>
         <p>@email</p>
+
+        <div class="profile-location">
+            <span>
+                @(string.IsNullOrWhiteSpace(Model.City)
+                                ? "Konum bilgisi eklenmemiş"
+                                : $"{Model.City} / {Model.District}")
+            </span>
+        </div>
 
         <div class="score-row">
             <div>
@@ -43,8 +56,15 @@
                 <strong>@Model.NeedScore</strong>
             </div>
         </div>
+
+        <button type="button"
+                class="card-action-btn secondary"
+                onclick="openModal('editProfileModal')">
+            Profili Düzenle
+        </button>
     </div>
-    <div class="profile-card">
+
+    <div class="profile-card eco-card">
         <h3>Eco Puan Bilgileri</h3>
 
         <div class="info-list">
@@ -62,11 +82,15 @@
                 <span>Puan Hareketi</span>
                 <strong>@Model.EcoPointHistoryCount işlem</strong>
             </div>
-            <a asp-controller="EcoPoint" asp-action="Index" class="btn-primary profile-action">
-                Puan Geçmişini Gör
-            </a>
         </div>
+
+        <a asp-controller="EcoPoint"
+           asp-action="Index"
+           class="card-action-link primary">
+            Puan Geçmişini Gör
+        </a>
     </div>
+
     <div class="profile-card">
         <h3>Konum Bilgileri</h3>
 
@@ -86,24 +110,232 @@
                 <strong>@(Model.Neighborhood ?? "-")</strong>
             </div>
         </div>
+
+        <button type="button"
+                class="card-action-btn secondary"
+                onclick="openModal('editLocationModal')">
+            Konum Düzenle
+        </button>
     </div>
 
-    <div class="profile-card">
+    <div class="profile-card account-card">
         <h3>Hesap Bilgileri</h3>
 
         <div class="info-list">
             <div>
-                <span>Kullanıcı Id</span>
-                <strong>@Model.UserId</strong>
+                <span>E-posta</span>
+                <strong>@email</strong>
             </div>
 
             <div>
                 <span>Kayıt Tarihi</span>
                 <strong>@Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</strong>
             </div>
+
+            <div>
+                <span>Hesap Güvenliği</span>
+                <strong>Şifre değiştirilebilir</strong>
+            </div>
+        </div>
+
+        <div class="account-actions">
+            <button type="button"
+                    class="card-action-btn primary"
+                    onclick="openModal('changePasswordModal')">
+                Şifre Değiştir
+            </button>
+
+            <button type="button"
+                    class="card-action-btn danger"
+                    onclick="openModal('deleteAccountModal')">
+                Hesabı Sil
+            </button>
         </div>
     </div>
 </section>
+
+<div id="editProfileModal" class="profile-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h3>Profili Düzenle</h3>
+                <p>Ad soyad bilgini buradan güncelleyebilirsin.</p>
+            </div>
+
+            <button type="button" class="modal-close" onclick="closeModal('editProfileModal')">
+                ×
+            </button>
+        </div>
+
+        <form asp-controller="Profile" asp-action="UpdateProfile" method="post" class="modal-form">
+            @Html.AntiForgeryToken()
+
+            <div class="form-group">
+                <label>Ad Soyad</label>
+                <input name="FullName" value="@Model.FullName" required maxlength="100" />
+            </div>
+
+            @* Konum bilgileri bu formdan gönderilmediğinde kaybolmasın diye hidden olarak korunur. *@
+            <input type="hidden" name="City" value="@Model.City" />
+            <input type="hidden" name="District" value="@Model.District" />
+            <input type="hidden" name="Neighborhood" value="@Model.Neighborhood" />
+
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeModal('editProfileModal')">
+                    Vazgeç
+                </button>
+
+                <button type="submit" class="btn-primary">
+                    Kaydet
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editLocationModal" class="profile-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h3>Konum Düzenle</h3>
+                <p>Şehir, ilçe ve mahalle bilgilerini buradan güncelleyebilirsin.</p>
+            </div>
+
+            <button type="button" class="modal-close" onclick="closeModal('editLocationModal')">
+                ×
+            </button>
+        </div>
+
+        <form asp-controller="Profile" asp-action="UpdateProfile" method="post" class="modal-form">
+            @Html.AntiForgeryToken()
+
+            @* UpdateProfileDto içinde FullName zorunlu olduğu için mevcut ad soyad hidden olarak gönderilir. *@
+            <input type="hidden" name="FullName" value="@Model.FullName" />
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Şehir</label>
+                    <input name="City" value="@Model.City" maxlength="50" placeholder="Örn: Ankara" />
+                </div>
+
+                <div class="form-group">
+                    <label>İlçe</label>
+                    <input name="District" value="@Model.District" maxlength="50" placeholder="Örn: Çankaya" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Mahalle</label>
+                <input name="Neighborhood" value="@Model.Neighborhood" maxlength="100" placeholder="Örn: Kızılay" />
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeModal('editLocationModal')">
+                    Vazgeç
+                </button>
+
+                <button type="submit" class="btn-primary">
+                    Konumu Kaydet
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="changePasswordModal" class="profile-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h3>Şifre Değiştir</h3>
+                <p>Hesap güvenliğin için mevcut şifreni doğrulayarak yeni şifre belirle.</p>
+            </div>
+
+            <button type="button" class="modal-close" onclick="closeModal('changePasswordModal')">
+                ×
+            </button>
+        </div>
+
+        <form asp-controller="Profile" asp-action="ChangePassword" method="post" class="modal-form">
+            @Html.AntiForgeryToken()
+
+            <div class="form-group">
+                <label>Mevcut Şifre</label>
+                <input name="CurrentPassword" type="password" required />
+            </div>
+
+            <div class="form-group">
+                <label>Yeni Şifre</label>
+                <input name="NewPassword" type="password" required minlength="6" />
+            </div>
+
+            <div class="form-group">
+                <label>Yeni Şifre Tekrar</label>
+                <input name="ConfirmNewPassword" type="password" required minlength="6" />
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeModal('changePasswordModal')">
+                    Vazgeç
+                </button>
+
+                <button type="submit" class="btn-primary">
+                    Şifreyi Güncelle
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="deleteAccountModal" class="profile-modal">
+    <div class="modal-content danger-modal">
+        <div class="modal-header">
+            <div>
+                <h3>Hesabı Sil</h3>
+                <p>Bu işlem geri alınamaz. Hesabın silindiğinde profil bilgilerin ve hesap erişimin pasif hale getirilir.</p>
+            </div>
+
+            <button type="button" class="modal-close" onclick="closeModal('deleteAccountModal')">
+                ×
+            </button>
+        </div>
+
+        <div class="delete-warning">
+            <strong>Dikkat</strong>
+            <p>Hesabını silmeden önce bu işlemi gerçekten yapmak istediğinden emin ol.</p>
+        </div>
+
+        <form asp-controller="Profile"
+              asp-action="DeleteAccount"
+              method="post"
+              class="modal-form"
+              onsubmit="return confirm('Hesabını silmek istediğine kesin emin misin?');">
+            @Html.AntiForgeryToken()
+
+            <div class="form-group">
+                <label>Mevcut Şifre</label>
+                <input name="CurrentPassword" type="password" required placeholder="Hesabını doğrulamak için şifreni gir" />
+            </div>
+
+            <div class="form-group">
+                <label>Onay Metni</label>
+                <input name="ConfirmText"
+                       required
+                       placeholder="HESABIMI SİL yaz" />
+                <small>Devam etmek için kutuya <strong>HESABIMI SİL</strong> yaz.</small>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeModal('deleteAccountModal')">
+                    Vazgeç
+                </button>
+
+                <button type="submit" class="danger-submit-btn">
+                    Hesabımı Sil
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 @section Styles {
     <style>
@@ -115,13 +347,17 @@
 
         .profile-card {
             background: white;
-            border-radius: 20px;
+            border-radius: 22px;
             padding: 28px;
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
         }
 
         .main-profile {
             text-align: center;
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+            border: 1px solid #dcfce7;
         }
 
         .avatar {
@@ -134,7 +370,7 @@
             align-items: center;
             justify-content: center;
             font-size: 42px;
-            font-weight: 800;
+            font-weight: 900;
             margin: 0 auto 18px;
         }
 
@@ -144,22 +380,26 @@
             font-size: 24px;
         }
 
-        .eco-point {
-            color: #238636;
-            font-size: 28px;
-        }
-
-        .profile-action {
-            margin-top: 16px;
-        }
         .main-profile h3 {
             margin-bottom: 8px;
         }
 
         .main-profile p {
             color: #526b7a;
-            margin: 0 0 22px;
+            margin: 0 0 14px;
             word-break: break-word;
+        }
+
+        .profile-location {
+            display: inline-flex;
+            justify-content: center;
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 800;
+            margin: 0 auto 20px;
         }
 
         .score-row {
@@ -199,6 +439,221 @@
                 word-break: break-word;
             }
 
+        .eco-point {
+            color: #238636 !important;
+            font-size: 30px;
+            font-weight: 900;
+        }
+
+        .card-action-btn,
+        .card-action-link {
+            width: 100%;
+            min-height: 42px;
+            border-radius: 12px;
+            padding: 11px 14px;
+            margin-top: 16px;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-action-btn {
+            border: none;
+        }
+
+            .card-action-btn.primary,
+            .card-action-link.primary {
+                background: #238636;
+                color: white;
+            }
+
+                .card-action-btn.primary:hover,
+                .card-action-link.primary:hover {
+                    background: #1f7a30;
+                }
+
+            .card-action-btn.secondary {
+                background: #ecfdf5;
+                color: #166534;
+                border: 1px solid #bbf7d0;
+            }
+
+                .card-action-btn.secondary:hover {
+                    background: #dcfce7;
+                }
+
+            .card-action-btn.danger {
+                background: #fee2e2;
+                color: #991b1b;
+                border: 1px solid #fecaca;
+            }
+
+                .card-action-btn.danger:hover {
+                    background: #fecaca;
+                }
+
+        .account-actions {
+            display: grid;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        .profile-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 9999;
+        }
+
+            .profile-modal.show {
+                display: flex;
+            }
+
+        .modal-content {
+            width: min(560px, 100%);
+            background: white;
+            border-radius: 22px;
+            padding: 26px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+        }
+
+        .danger-modal {
+            border-top: 6px solid #dc2626;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: flex-start;
+            margin-bottom: 22px;
+        }
+
+            .modal-header h3 {
+                color: #145c24;
+                margin: 0 0 8px;
+                font-size: 24px;
+            }
+
+        .danger-modal .modal-header h3 {
+            color: #991b1b;
+        }
+
+        .modal-header p {
+            color: #526b7a;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 50%;
+            background: #f3f4f6;
+            color: #374151;
+            font-size: 24px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+            .modal-close:hover {
+                background: #e5e7eb;
+            }
+
+        .modal-form {
+            display: grid;
+            gap: 14px;
+            margin: 0;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .form-group {
+            display: grid;
+            gap: 7px;
+        }
+
+            .form-group label {
+                color: #1f2937;
+                font-weight: 800;
+                font-size: 14px;
+            }
+
+            .form-group input {
+                border: 1px solid #d1d5db;
+                border-radius: 12px;
+                padding: 12px 14px;
+                font-size: 15px;
+                outline: none;
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+                .form-group input:focus {
+                    border-color: #238636;
+                    box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
+                }
+
+            .form-group small {
+                color: #6b7280;
+                line-height: 1.4;
+            }
+
+        .delete-warning {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+
+            .delete-warning strong {
+                display: block;
+                margin-bottom: 4px;
+            }
+
+            .delete-warning p {
+                margin: 0;
+                line-height: 1.5;
+            }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .danger-submit-btn {
+            border: none;
+            border-radius: 12px;
+            padding: 11px 16px;
+            background: #dc2626;
+            color: white;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+            .danger-submit-btn:hover {
+                background: #b91c1c;
+            }
+
         @@media (max-width: 1100px) {
             .profile-grid {
                 grid-template-columns: 1fr;
@@ -206,9 +661,52 @@
         }
 
         @@media (max-width: 700px) {
-            .score-row {
+            .score-row,
+            .form-row {
                 grid-template-columns: 1fr;
             }
+
+            .modal-actions {
+                flex-direction: column-reverse;
+            }
+
+                .modal-actions button {
+                    width: 100%;
+                }
         }
     </style>
+}
+
+@section Scripts {
+    <script>
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+
+            if (modal) {
+                modal.classList.add('show');
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+
+            if (modal) {
+                modal.classList.remove('show');
+            }
+        }
+
+        document.addEventListener('click', function (event) {
+            if (event.target.classList.contains('profile-modal')) {
+                event.target.classList.remove('show');
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                document.querySelectorAll('.profile-modal.show').forEach(modal => {
+                    modal.classList.remove('show');
+                });
+            }
+        });
+    </script>
 }

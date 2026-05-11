@@ -1,146 +1,557 @@
-﻿@model FoodWise.Web.ViewModels.Home.DashboardViewModel
+﻿@using FoodWise.Web.Helpers
+@model FoodWise.Web.ViewModels.Home.DashboardViewModel
 
 @{
     Layout = "_FoodWiseLayout";
 
     ViewData["Title"] = "Dashboard";
-    ViewData["PageDescription"] = "FoodWise paneline hoş geldin. Buradan stoklarını, riskli ürünlerini ve raporlarını takip edebilirsin.";
+    ViewData["PageDescription"] = "FoodWise paneline hoş geldin. Stoklarını, riskli ürünlerini, bildirimlerini ve sürdürülebilirlik katkını buradan takip edebilirsin.";
+
+    var fullName = string.IsNullOrWhiteSpace(Model.FullName) ? "Kullanıcı" : Model.FullName;
 }
 
 @*
     Dashboard sayfası ortak FoodWise layout yapısını kullanır.
-    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-    Bu dosyada sadece dashboard kartları, akış özeti ve sayfaya özel stiller bulunur.
+
+    Bu sayfada:
+    - Kullanıcıya kısa bir karşılama alanı gösterilir.
+    - Özet kartlar tıklanabilir şekilde ilgili modüllere yönlendirir.
+    - Hızlı işlem bağlantıları ile ana akışlara erişim sağlanır.
+    - Son bildirimler kısa liste halinde gösterilir.
 *@
 
-<section class="cards">
-    <div class="card">
-        <div class="label">Toplam Stok</div>
-        <div class="value">@Model.TotalStockCount</div>
-        <div class="hint">Stoklarında kayıtlı aktif ürün sayısı.</div>
-    </div>
+<section class="dashboard-page">
+    <section class="welcome-card">
+        <div>
+            <span>Merhaba, @fullName 👋</span>
+            <h2>Bugün gıda israfını azaltmak için güzel bir gün.</h2>
+            <p>
+                Stoklarını takip edebilir, riskli ürünleri değerlendirebilir,
+                paylaşım ve teslimat süreçlerini buradan hızlıca yönetebilirsin.
+            </p>
+        </div>
 
-    <div class="card">
-        <div class="label">Riskli Ürün</div>
-        <div class="value">@Model.RiskyStockCount</div>
-        <div class="hint">Yüksek riskli veya kritik seviyedeki ürün sayısı.</div>
-    </div>
+        <a asp-controller="Stock" asp-action="Create" class="welcome-btn">
+            Stok Ekle
+        </a>
+    </section>
 
-    <div class="card">
-        <div class="label">Okunmamış Bildirim</div>
-        <div class="value">@Model.UnreadNotificationCount</div>
-        <div class="hint">Henüz okunmamış bildirimlerin toplam sayısı.</div>
-    </div>
-
-    <div class="card">
-        <div class="label">Karbon Tasarrufu</div>
-        <div class="value">@Model.CarbonSavedKg.ToString("0.##") kg</div>
-        <div class="hint">Tamamlanan paylaşımlardan hesaplanan tahmini karbon tasarrufu.</div>
-    </div>
-    <div class="card">
-        <div class="label">Eco Puanım</div>
-        <div class="value">@Model.EcoPoint</div>
-        <div class="hint">@Model.EcoPointLevelName seviyesindesin.</div>
-    </div>
-</section>
-
-<section class="section">
-    <h3>FoodWise Akış Özeti</h3>
-
-    <p>
-        FoodWise ile kullanıcılar evlerindeki gıda ürünlerini stoklarına ekler, sistem son kullanma tarihi ve saklama durumuna göre
-        israf riski hesaplar. Riskli ürünler için tarif önerisi alınabilir veya ürün güvenli teslim noktaları üzerinden başka kullanıcılarla paylaşılabilir.
-    </p>
-
-    <p>
-        Sistem açık adres paylaşmaz. Kullanıcıdan şehir, ilçe ve mahalle bilgisi alınır; paylaşım sırasında sistemde tanımlı güvenli teslim noktaları kullanılır.
-        Teslimat süreci QR kod ile doğrulanır.
-    </p>
-
-    <div class="quick-actions">
-        <a asp-controller="Stock" asp-action="Index" class="btn-primary">
-            Stoklarım
+    <section class="summary-grid">
+        <a asp-controller="Stock" asp-action="Index" class="summary-card">
+            <div class="summary-icon">📦</div>
+            <span>Toplam Stok</span>
+            <strong>@Model.TotalStockCount</strong>
+            <p>Stoklarında kayıtlı aktif ürün sayısı.</p>
+            <small>Stoklarıma Git →</small>
         </a>
 
-        <a asp-controller="Stock" asp-action="Risky" class="btn-secondary">
-            Riskli Ürünleri Gör
+        <a asp-controller="Stock" asp-action="Risky" class="summary-card warning">
+            <div class="summary-icon">⚠️</div>
+            <span>Riskli Ürün</span>
+            <strong>@Model.RiskyStockCount</strong>
+            <p>Yüksek riskli veya kritik seviyedeki ürün sayısı.</p>
+            <small>Riskli Ürünleri Gör →</small>
         </a>
 
-        <a asp-controller="CarbonReport" asp-action="Index" class="btn-secondary">
-            Karbon Raporu
+        <a asp-controller="Notification" asp-action="Index" class="summary-card">
+            <div class="summary-icon">🔔</div>
+            <span>Okunmamış Bildirim</span>
+            <strong>@Model.UnreadNotificationCount</strong>
+            <p>Henüz okunmamış bildirimlerin toplam sayısı.</p>
+            <small>Bildirimlere Git →</small>
         </a>
-    </div>
+
+        <a asp-controller="EcoPoint" asp-action="Index" class="summary-card">
+            <div class="summary-icon">🌱</div>
+            <span>Eco Puanım</span>
+            <strong>@Model.EcoPoint</strong>
+            <p>@(string.IsNullOrWhiteSpace(Model.EcoPointLevelName) ? "Eco Başlangıç" : Model.EcoPointLevelName) seviyesindesin.</p>
+            <small>Eco Puanı Gör →</small>
+        </a>
+
+        <a asp-controller="CarbonReport" asp-action="Index" class="summary-card carbon">
+            <div class="summary-icon">🌍</div>
+            <span>Karbon Tasarrufu</span>
+            <strong>@Model.CarbonSavedKg.ToString("0.##") kg</strong>
+            <p>Tamamlanan paylaşımlardan hesaplanan tahmini karbon tasarrufu.</p>
+            <small>Karbon Raporuna Git →</small>
+        </a>
+    </section>
+
+    <section class="dashboard-grid">
+        <div class="panel-card">
+            <div class="section-header">
+                <div>
+                    <h3>Hızlı İşlemler</h3>
+                    <p>En sık kullanılan FoodWise işlemlerine buradan hızlıca ulaşabilirsin.</p>
+                </div>
+            </div>
+
+            <div class="quick-action-grid">
+                <a asp-controller="Stock" asp-action="Create" class="quick-action">
+                    <span>➕</span>
+                    <strong>Stok Ekle</strong>
+                    <small>Yeni ürününü stoklarına ekle.</small>
+                </a>
+
+                <a asp-controller="Stock" asp-action="Risky" class="quick-action">
+                    <span>⚠️</span>
+                    <strong>Riskli Ürünler</strong>
+                    <small>Yakında bozulabilecek ürünleri gör.</small>
+                </a>
+
+                <a asp-controller="Sharing" asp-action="MyListings" class="quick-action">
+                    <span>🤝</span>
+                    <strong>Paylaşım İlanlarım</strong>
+                    <small>Paylaşıma açtığın ürünleri takip et.</small>
+                </a>
+
+                <a asp-controller="Sharing" asp-action="Available" class="quick-action">
+                    <span>🛒</span>
+                    <strong>Mevcut İlanlar</strong>
+                    <small>Diğer kullanıcıların paylaşımlarını incele.</small>
+                </a>
+
+                <a asp-controller="Delivery" asp-action="Index" class="quick-action">
+                    <span>📍</span>
+                    <strong>Teslimatlar</strong>
+                    <small>Teslim alma ve bağışlama süreçlerini takip et.</small>
+                </a>
+
+                <a asp-controller="CarbonReport" asp-action="Index" class="quick-action">
+                    <span>📊</span>
+                    <strong>Karbon Raporu</strong>
+                    <small>Sürdürülebilirlik etkini görüntüle.</small>
+                </a>
+            </div>
+        </div>
+
+        <div class="panel-card">
+            <div class="section-header notification-header-area">
+                <div>
+                    <h3>Son Bildirimler</h3>
+                    <p>Son sistem hareketlerini ve işlem bildirimlerini buradan takip edebilirsin.</p>
+                </div>
+
+                <a asp-controller="Notification" asp-action="Index" class="mini-link">
+                    Tümünü Gör
+                </a>
+            </div>
+
+            @if (Model.RecentNotifications == null || !Model.RecentNotifications.Any())
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">🔔</div>
+                    <h4>Henüz bildirim yok.</h4>
+                    <p>İşlem yaptıkça bildirimlerin burada görünecek.</p>
+                </div>
+            }
+            else
+            {
+                <div class="notification-list">
+                    @foreach (var notification in Model.RecentNotifications)
+                    {
+                        var readClass = notification.IsRead ? "read" : "unread";
+
+                        <a asp-controller="Notification"
+                           asp-action="Index"
+                           class="notification-row @readClass">
+                            <div>
+                                <strong>@notification.Title</strong>
+                                <p>@notification.Message</p>
+                                <span>
+                                    @DisplayTextHelper.GetNotificationTypeText(notification.Type)
+                                    · @notification.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                                </span>
+                            </div>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="flow-card">
+        <div class="section-header">
+            <div>
+                <h3>FoodWise Akış Özeti</h3>
+                <p>Uygulamadaki temel süreçler stoktan teslimata kadar birbirine bağlı çalışır.</p>
+            </div>
+        </div>
+
+        <div class="flow-steps">
+            <div>
+                <span>1</span>
+                <strong>Stok Ekle</strong>
+                <p>Evindeki ürünleri sisteme kaydet.</p>
+            </div>
+
+            <div>
+                <span>2</span>
+                <strong>Risk Analizi</strong>
+                <p>Sistem son kullanma ve saklama bilgilerine göre risk hesaplar.</p>
+            </div>
+
+            <div>
+                <span>3</span>
+                <strong>Paylaş veya Değerlendir</strong>
+                <p>Riskli ürünü tarifle tüketebilir veya paylaşıma açabilirsin.</p>
+            </div>
+
+            <div>
+                <span>4</span>
+                <strong>Teslimat ve Katkı</strong>
+                <p>QR destekli teslimat tamamlanır, Eco Puan ve karbon katkısı oluşur.</p>
+            </div>
+        </div>
+    </section>
 </section>
 
 @section Styles {
     <style>
-        .cards {
+        .dashboard-page {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 18px;
-            margin-bottom: 26px;
-        }
-        .card {
-            background: white;
-            border-radius: 18px;
-            padding: 22px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+            gap: 22px;
         }
 
-            .card .label {
-                color: #607d8b;
-                font-size: 14px;
-                margin-bottom: 12px;
+        .welcome-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+            border: 1px solid #dcfce7;
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 24px;
+        }
+
+            .welcome-card span {
+                display: block;
+                color: #238636;
+                font-weight: 900;
+                margin-bottom: 8px;
             }
 
-            .card .value {
-                font-size: 32px;
-                font-weight: 800;
+            .welcome-card h2 {
                 color: #145c24;
+                font-size: 32px;
+                margin: 0 0 10px;
             }
 
-            .card .hint {
-                margin-top: 10px;
-                font-size: 13px;
-                color: #78909c;
+            .welcome-card p {
+                color: #526b7a;
+                line-height: 1.5;
+                margin: 0;
+                max-width: 720px;
+            }
+
+        .welcome-btn {
+            background: #238636;
+            color: white;
+            border-radius: 14px;
+            padding: 13px 18px;
+            text-decoration: none;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+            .welcome-btn:hover {
+                background: #1f7a30;
+            }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 18px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
+            text-decoration: none;
+            color: inherit;
+            border-top: 4px solid #dcfce7;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+            .summary-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 16px 34px rgba(0, 0, 0, 0.08);
+            }
+
+            .summary-card.warning {
+                border-top-color: #facc15;
+            }
+
+            .summary-card.carbon {
+                border-top-color: #22c55e;
+            }
+
+        .summary-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            background: #f0fdf4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 12px;
+        }
+
+        .summary-card span {
+            display: block;
+            color: #607d8b;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .summary-card strong {
+            display: block;
+            color: #145c24;
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+
+        .summary-card p {
+            color: #78909c;
+            font-size: 13px;
+            line-height: 1.4;
+            margin: 0 0 12px;
+        }
+
+        .summary-card small {
+            color: #238636;
+            font-weight: 900;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+            gap: 22px;
+            align-items: start;
+        }
+
+        .panel-card,
+        .flow-card {
+            background: white;
+            border-radius: 22px;
+            padding: 26px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .section-header {
+            margin-bottom: 20px;
+        }
+
+            .section-header h3 {
+                color: #145c24;
+                font-size: 24px;
+                margin: 0 0 8px;
+            }
+
+            .section-header p {
+                color: #526b7a;
+                line-height: 1.5;
+                margin: 0;
+            }
+
+        .notification-header-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .mini-link {
+            color: #238636;
+            font-weight: 900;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .quick-action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .quick-action {
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 18px;
+            padding: 18px;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+            .quick-action:hover {
+                background: #f0fdf4;
+                transform: translateY(-2px);
+            }
+
+            .quick-action span {
+                font-size: 26px;
+                display: block;
+                margin-bottom: 10px;
+            }
+
+            .quick-action strong {
+                display: block;
+                color: #145c24;
+                font-size: 17px;
+                margin-bottom: 6px;
+            }
+
+            .quick-action small {
+                color: #526b7a;
                 line-height: 1.4;
             }
 
-        .section {
-            background: white;
-            border-radius: 18px;
-            padding: 24px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-        }
-
-            .section h3 {
-                margin: 0 0 14px;
-                color: #145c24;
-                font-size: 22px;
-            }
-
-            .section p {
-                color: #607d8b;
-                line-height: 1.6;
-                margin: 0 0 16px;
-            }
-
-        .quick-actions {
-            display: flex;
-            flex-wrap: wrap;
+        .notification-list {
+            display: grid;
             gap: 12px;
-            margin-top: 18px;
         }
+
+        .notification-row {
+            display: block;
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 16px;
+            padding: 14px;
+            text-decoration: none;
+            color: inherit;
+        }
+
+            .notification-row.unread {
+                background: #f0fdf4;
+                border-left: 4px solid #238636;
+            }
+
+            .notification-row.read {
+                opacity: 0.82;
+            }
+
+            .notification-row strong {
+                color: #145c24;
+                display: block;
+                margin-bottom: 5px;
+            }
+
+            .notification-row p {
+                color: #526b7a;
+                line-height: 1.4;
+                margin: 0 0 7px;
+                font-size: 14px;
+            }
+
+            .notification-row span {
+                color: #6b7280;
+                font-size: 12px;
+            }
+
+        .empty-state {
+            background: #f8faf8;
+            border-radius: 18px;
+            padding: 34px 18px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            width: 58px;
+            height: 58px;
+            border-radius: 18px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin: 0 auto 14px;
+        }
+
+        .empty-state h4 {
+            color: #145c24;
+            margin: 0 0 8px;
+            font-size: 20px;
+        }
+
+        .empty-state p {
+            color: #526b7a;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .flow-steps {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+            .flow-steps div {
+                background: #f8faf8;
+                border-radius: 18px;
+                padding: 18px;
+            }
+
+            .flow-steps span {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                background: #238636;
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 900;
+                margin-bottom: 12px;
+            }
+
+            .flow-steps strong {
+                display: block;
+                color: #145c24;
+                margin-bottom: 6px;
+            }
+
+            .flow-steps p {
+                color: #526b7a;
+                line-height: 1.4;
+                margin: 0;
+                font-size: 14px;
+            }
 
         @@media (max-width: 1100px) {
-            .cards {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .flow-steps {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
 
-        @@media (max-width: 700px) {
-            .cards {
+        @@media (max-width: 760px) {
+            .welcome-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .welcome-btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .quick-action-grid,
+            .flow-steps {
                 grid-template-columns: 1fr;
+            }
+
+            .notification-header-area {
+                flex-direction: column;
             }
         }
     </style>

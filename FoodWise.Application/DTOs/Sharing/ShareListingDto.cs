@@ -36,4 +36,12 @@ public class ShareListingDto
     public string Status { get; set; } = null!;
 
     public int RequestCount { get; set; }
+    // Giriş yapan kullanıcının bu ilana aktif talebi varsa true olur.
+    public bool HasCurrentUserRequest { get; set; }
+
+    // Giriş yapan kullanıcının talep Id bilgisidir.
+    public int? CurrentUserRequestId { get; set; }
+
+    // Giriş yapan kullanıcının talep durumudur.
+    public string? CurrentUserRequestStatus { get; set; }
 }
