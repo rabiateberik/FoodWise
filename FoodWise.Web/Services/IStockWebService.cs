@@ -18,4 +18,5 @@ public interface IStockWebService
     Task<bool> UpdateAsync(int id, EditStockItemViewModel model, string token);
 
     Task<bool> DeleteAsync(int id, string token);
+    Task<List<StockItemViewModel>> GetExpiredStockAsync(string token);
 }

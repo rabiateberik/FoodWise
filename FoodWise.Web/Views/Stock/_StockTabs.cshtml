@@ -1,0 +1,23 @@
+﻿@{
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+}
+
+<div class="stock-tabs">
+    <a asp-controller="Stock"
+       asp-action="Index"
+       class="stock-tab @(currentAction == "Index" ? "active" : "")">
+        Aktif Stoklar
+    </a>
+
+    <a asp-controller="Stock"
+       asp-action="Risky"
+       class="stock-tab @(currentAction == "Risky" ? "active" : "")">
+        Riskli Ürünler
+    </a>
+
+    <a asp-controller="Stock"
+       asp-action="Expired"
+       class="stock-tab @(currentAction == "Expired" ? "active" : "")">
+        Süresi Geçen Ürünler
+    </a>
+</div>

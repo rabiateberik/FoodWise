@@ -207,6 +207,9 @@ public class DeliveryService : IDeliveryService
 
     public async Task<DeliveryDto?> CompleteDeliveryAsync(string receiverUserId, int deliveryId)
     {
+        // Tamamlama işleminden önce süresi geçmiş DroppedOff teslimatlar Expired yapılır.
+        await ExpireOverdueDroppedOffDeliveriesAsync(receiverUserId);
+
         // Alıcı QR doğrulamasından sonra ürünü teslim aldığını onaylar.
         var delivery = await GetDeliveryEntityByIdAsync(deliveryId);
 
@@ -286,9 +289,49 @@ public class DeliveryService : IDeliveryService
 
         return completedDelivery == null ? null : MapToDto(completedDelivery);
     }
+    private async Task ExpireOverdueDroppedOffDeliveriesAsync(string userId)
+    {
+        var now = DateTime.Now;
 
+        var overdueDeliveries = await _context.Deliveries
+            .Include(x => x.ShareListing)
+            .Include(x => x.DeliveryBox)
+            .Where(x =>
+                (x.DonorUserId == userId || x.ReceiverUserId == userId) &&
+                x.Status == DeliveryStatus.DroppedOff &&
+                x.ExpiresAt < now)
+            .ToListAsync();
+
+        if (!overdueDeliveries.Any())
+            return;
+
+        foreach (var delivery in overdueDeliveries)
+        {
+            delivery.Status = DeliveryStatus.Expired;
+            delivery.UpdatedAt = now;
+
+            // Teslimat süresi dolduysa paylaşım ilanı da süresi dolmuş kabul edilir.
+            if (delivery.ShareListing != null)
+            {
+                delivery.ShareListing.Status = ShareListingStatus.Expired;
+                delivery.ShareListing.UpdatedAt = now;
+            }
+
+            // Kutu tekrar kullanılabilir hale getirilir.
+            if (delivery.DeliveryBox != null)
+            {
+                delivery.DeliveryBox.IsOccupied = false;
+                delivery.DeliveryBox.UpdatedAt = now;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+    }
     public async Task<List<DeliveryDto>> GetMyDonatedDeliveriesAsync(string donorUserId)
     {
+        // Sayfa açıldığında süresi geçmiş DroppedOff teslimatlar otomatik Expired yapılır.
+        await ExpireOverdueDroppedOffDeliveriesAsync(donorUserId);
+
         // Ürün sahibinin oluşturduğu teslimatlar listelenir.
         var deliveries = await _context.Deliveries
             .Include(x => x.ShareListing)
@@ -305,9 +348,11 @@ public class DeliveryService : IDeliveryService
 
         return deliveries.Select(MapToDto).ToList();
     }
-
     public async Task<List<DeliveryDto>> GetMyReceivedDeliveriesAsync(string receiverUserId)
     {
+        // Sayfa açıldığında süresi geçmiş DroppedOff teslimatlar otomatik Expired yapılır.
+        await ExpireOverdueDroppedOffDeliveriesAsync(receiverUserId);
+
         // Alıcının teslim alacağı veya aldığı teslimatlar listelenir.
         var deliveries = await _context.Deliveries
             .Include(x => x.ShareListing)

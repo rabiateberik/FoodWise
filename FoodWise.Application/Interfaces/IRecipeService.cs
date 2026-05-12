@@ -17,4 +17,5 @@ public interface IRecipeService
     Task<List<RecipeRecommendationDto>> GetRecipesByProductAsync(int productId);
 
     Task<List<RecipeRecommendationDto>> GetAllRecipesAsync();
+    Task<List<RecipeRecommendationDto>> GetGeneralRecommendationsAsync(string userId);
 }

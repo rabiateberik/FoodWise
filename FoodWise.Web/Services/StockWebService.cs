@@ -154,7 +154,18 @@ public class StockWebService : IStockWebService
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token);
     }
+    public async Task<List<StockItemViewModel>> GetExpiredStockAsync(string token)
+    {
+        SetBearerToken(token);
 
+        var response = await _httpClient.GetAsync("api/stock/expired");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<StockItemViewModel>();
+
+        return await response.Content.ReadFromJsonAsync<List<StockItemViewModel>>(GetJsonOptions())
+               ?? new List<StockItemViewModel>();
+    }
     private static JsonSerializerOptions GetJsonOptions()
     {
         return new JsonSerializerOptions

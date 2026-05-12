@@ -20,6 +20,14 @@ public class Recipe : BaseEntity
     public int PreparationTimeMinutes { get; set; }
 
     public string? ImageUrl { get; set; }
+    // Dataset'ten gelen ham malzeme metnini saklamak için kullanılır.
+    public string? IngredientsText { get; set; }
+
+    // Tarif öneri algoritmasında kullanılacak temizlenmiş malzeme metnidir.
+    public string? NormalizedIngredientsText { get; set; }
+
+    // Tarifin veri kaynağı veya linki varsa saklamak için kullanılır.
+    public string? SourceUrl { get; set; }
 
     public RecipeSourceType SourceType { get; set; } = RecipeSourceType.Local;
 

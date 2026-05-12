@@ -91,7 +91,15 @@ public class StockController : ControllerBase
 
         return Ok("Stok ürünü başarıyla silindi.");
     }
+    [HttpGet("expired")]
+    public async Task<IActionResult> GetExpiredStockItems()
+    {
+        var userId = GetUserId();
 
+        var result = await _stockService.GetExpiredStockItemsAsync(userId);
+
+        return Ok(result);
+    }
     private string GetUserId()
     {
         // JWT token içindeki NameIdentifier claim'i Identity kullanıcı Id bilgisini taşır.

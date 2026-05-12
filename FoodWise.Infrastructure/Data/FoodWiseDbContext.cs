@@ -151,10 +151,21 @@ public class FoodWiseDbContext : IdentityDbContext<ApplicationUser>
             .HasMaxLength(500);
 
         builder.Entity<Recipe>()
-            .Property(x => x.Instructions)
-            .HasMaxLength(3000)
-            .IsRequired();
+     .Property(x => x.Instructions)
+     .HasColumnType("nvarchar(max)")
+     .IsRequired();
 
+        builder.Entity<Recipe>()
+    .Property(x => x.IngredientsText)
+    .HasColumnType("nvarchar(max)");
+
+        builder.Entity<Recipe>()
+            .Property(x => x.NormalizedIngredientsText)
+            .HasColumnType("nvarchar(max)");
+
+        builder.Entity<Recipe>()
+            .Property(x => x.SourceUrl)
+            .HasMaxLength(500);
         builder.Entity<Recipe>()
             .Property(x => x.ImageUrl)
             .HasMaxLength(500);

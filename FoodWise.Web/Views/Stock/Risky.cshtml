@@ -13,7 +13,7 @@
     Bu sayfada israf riski yüksek ürünler kart yapısıyla gösterilir.
     Kullanıcı bu ürünler için tarif önerisi alabilir veya ürünü paylaşıma açabilir.
 *@
-
+@await Html.PartialAsync("_StockTabs")
 @section TopbarActions {
     <a asp-controller="Stock" asp-action="Index" class="btn-secondary">
         Tüm Stoklara Dön

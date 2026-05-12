@@ -21,5 +21,22 @@ public class RecipeRecommendationViewModel
 
     public string RecommendationReason { get; set; } = string.Empty;
 
+    // Dataset'ten gelen tarif malzemelerini metin olarak göstermek için kullanılır.
+    public string? IngredientsText { get; set; }
+
+    // Kullanıcının stoklarıyla eşleşen malzemeler.
+    public List<string> MatchedIngredients { get; set; } = new();
+
+    // Tarifte olup kullanıcının stoklarında bulunmayan malzemeler.
+    public List<string> MissingIngredients { get; set; } = new();
+
+    // Eşleşen malzeme sayısı.
+    public int MatchedIngredientCount { get; set; }
+
+    // Tarifin toplam malzeme sayısı.
+    public int TotalIngredientCount { get; set; }
+
+    // Eski local RecipeIngredient yapısı için korunur.
+    // Dataset tariflerinde bu liste boş gelebilir.
     public List<RecipeIngredientViewModel> Ingredients { get; set; } = new();
 }

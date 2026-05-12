@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+
 // Kullanıcıya önerilecek tarif bilgilerini ve öneri sebebini taşır.
 namespace FoodWise.Application.DTOs.Recipe;
 
@@ -24,6 +25,16 @@ public class RecipeRecommendationDto
     public int MatchScore { get; set; }
 
     public string RecommendationReason { get; set; } = null!;
+
+    public string? IngredientsText { get; set; }
+
+    public List<string> MatchedIngredients { get; set; } = new();
+
+    public List<string> MissingIngredients { get; set; } = new();
+
+    public int MatchedIngredientCount { get; set; }
+
+    public int TotalIngredientCount { get; set; }
 
     public List<RecipeIngredientDto> Ingredients { get; set; } = new();
 }

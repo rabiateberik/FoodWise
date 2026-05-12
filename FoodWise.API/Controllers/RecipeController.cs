@@ -13,10 +13,13 @@ namespace FoodWise.API.Controllers;
 public class RecipeController : ControllerBase
 {
     private readonly IRecipeService _recipeService;
-
-    public RecipeController(IRecipeService recipeService)
+    private readonly IRecipeDatasetImportService _recipeDatasetImportService;
+    private readonly IWebHostEnvironment _environment;
+    public RecipeController(IRecipeService recipeService, IRecipeDatasetImportService recipeDatasetImportService, IWebHostEnvironment environment)
     {
         _recipeService = recipeService;
+        _recipeDatasetImportService = recipeDatasetImportService;
+        _environment = environment;
     }
 
     [HttpGet]
@@ -48,10 +51,39 @@ public class RecipeController : ControllerBase
 
         return Ok(result);
     }
+    [HttpGet("recommendations")]
+    public async Task<IActionResult> GetGeneralRecommendations()
+    {
+        var userId = GetUserId();
 
+        var result = await _recipeService.GetGeneralRecommendationsAsync(userId);
+
+        return Ok(result);
+    }
     private string GetUserId()
     {
         // JWT token içindeki NameIdentifier claim'i Identity kullanıcı Id bilgisini taşır.
         return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    }
+    // Tarif veri setindeki JSON verilerini veritabanına aktarmak için kullanılan endpoint.
+    [HttpPost("import-dataset")]
+    public async Task<IActionResult> ImportDataset()
+    {
+        var filePath = Path.Combine(
+            _environment.ContentRootPath,
+            "Data",
+            "Recipes",
+            "recipes_groq_cleaned.json");
+
+        if (!System.IO.File.Exists(filePath))
+            return NotFound("Tarif veri seti dosyası bulunamadı.");
+
+        var importedCount = await _recipeDatasetImportService.ImportFromJsonAsync(filePath);
+
+        return Ok(new
+        {
+            Message = $"{importedCount} tarif veritabanına aktarıldı.",
+            ImportedCount = importedCount
+        });
     }
 }

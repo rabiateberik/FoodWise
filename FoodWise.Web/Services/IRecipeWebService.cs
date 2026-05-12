@@ -10,4 +10,5 @@ public interface IRecipeWebService
     Task<List<RecipeRecommendationViewModel>> GetAllRecipesAsync(string token);
 
     Task<List<RecipeRecommendationViewModel>> GetRecommendationsByStockItemAsync(int stockItemId, string token);
+    Task<List<RecipeRecommendationViewModel>> GetGeneralRecommendationsAsync(string token);
 }

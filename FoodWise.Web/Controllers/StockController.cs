@@ -192,7 +192,18 @@ public class StockController : Controller
         model.Units = GetUnitSelectList();
         model.StorageConditions = GetStorageConditionSelectList();
     }
+    [HttpGet]
+    public async Task<IActionResult> Expired()
+    {
+        var token = HttpContext.Session.GetString("JWToken");
 
+        if (string.IsNullOrWhiteSpace(token))
+            return RedirectToAction("Login", "Auth");
+
+        var expiredItems = await _stockWebService.GetExpiredStockAsync(token);
+
+        return View(expiredItems);
+    }
     private static List<SelectListItem> GetProductSelectList()
     {
         // Bu değerler Products tablosundaki gerçek Id değerleriyle aynı olmalıdır.

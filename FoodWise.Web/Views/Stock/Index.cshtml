@@ -3,11 +3,11 @@
 
 @{
     Layout = "_FoodWiseLayout";
-
+   
     ViewData["Title"] = "Stoklarım";
     ViewData["PageDescription"] = "Evindeki gıda ürünlerini buradan takip edebilir, düzenleyebilir veya paylaşabilirsin.";
 }
-
+@await Html.PartialAsync("_StockTabs")
 @*
     Stoklarım sayfası ortak FoodWise layout yapısını kullanır.
     Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.

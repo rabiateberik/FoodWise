@@ -23,4 +23,5 @@ public interface IStockService
     Task<StockItemDto?> UpdateAsync(int id, string userId, UpdateStockItemDto model);
 
     Task<bool> DeleteAsync(int id, string userId);
+    Task<List<StockItemDto>> GetExpiredStockItemsAsync(string userId);
 }

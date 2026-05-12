@@ -1,0 +1,234 @@
+﻿@model List<FoodWise.Web.ViewModels.Stock.StockItemViewModel>
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    ViewData["Title"] = "Süresi Geçen Ürünler";
+    ViewData["PageDescription"] = "Son tüketim tarihi geçmiş ürünleri buradan görüntüleyebilir ve stoktan kaldırabilirsin.";
+}
+@await Html.PartialAsync("_StockTabs")
+@section TopbarActions {
+    <a asp-controller="Stock" asp-action="Index" class="btn-secondary">
+        Stoklarıma Dön
+    </a>
+}
+
+<section class="expired-page">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">✅</div>
+            <h3>Süresi geçen ürün yok.</h3>
+            <p>Harika! Şu anda son tüketim tarihi geçmiş aktif bir stok ürünün bulunmuyor.</p>
+
+            <a asp-controller="Stock" asp-action="Index" class="btn-primary">
+                Stoklarıma Git
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="expired-grid">
+            @foreach (var item in Model)
+            {
+                var expiredDays = (DateTime.Now.Date - item.ExpirationDate.Date).Days;
+
+                <article class="expired-card">
+                    <div class="expired-header">
+                        <div>
+                            <span>Süresi Geçti</span>
+                            <h3>@item.ProductName</h3>
+                        </div>
+
+                        <div class="expired-badge">
+                            @expiredDays gün geçti
+                        </div>
+                    </div>
+
+                    <div class="expired-info">
+                        <div>
+                            <span>Miktar</span>
+                            <strong>@item.Quantity.ToString("0.##") @item.UnitName</strong>
+                        </div>
+
+                        <div>
+                            <span>Son Tüketim Tarihi</span>
+                            <strong>@item.ExpirationDate.ToString("dd.MM.yyyy")</strong>
+                        </div>
+
+                        <div>
+                            <span>Risk Durumu</span>
+                            <strong>@(item.RiskLevel ?? "Expired")</strong>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(item.Note))
+                    {
+                        <div class="note-box">
+                            <span>Not</span>
+                            <p>@item.Note</p>
+                        </div>
+                    }
+
+                    <div class="warning-box">
+                        Bu ürünün son tüketim tarihi geçtiği için tarif önerisi veya paylaşım işlemi önerilmez.
+                    </div>
+
+                    <form asp-controller="Stock"
+                          asp-action="Delete"
+                          asp-route-id="@item.Id"
+                          method="post"
+                          onsubmit="return confirm('Bu ürünü stoktan kaldırmak istediğine emin misin?');">
+                        @Html.AntiForgeryToken()
+
+                        <button type="submit" class="delete-btn">
+                            Stoktan Kaldır
+                        </button>
+                    </form>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@section Styles {
+    <style>
+        .expired-page {
+            display: grid;
+            gap: 22px;
+        }
+
+        .expired-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+            gap: 20px;
+        }
+
+        .expired-card,
+        .empty-state {
+            background: white;
+            border-radius: 22px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .expired-card {
+            border-top: 5px solid #dc2626;
+        }
+
+        .expired-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 18px;
+        }
+
+            .expired-header span {
+                color: #dc2626;
+                font-size: 13px;
+                font-weight: 900;
+            }
+
+            .expired-header h3 {
+                color: #145c24;
+                font-size: 24px;
+                margin: 6px 0 0;
+            }
+
+        .expired-badge {
+            background: #fee2e2;
+            color: #991b1b;
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .expired-info {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+            .expired-info div,
+            .note-box {
+                background: #f8faf8;
+                border-radius: 14px;
+                padding: 13px;
+            }
+
+                .expired-info span,
+                .note-box span {
+                    display: block;
+                    color: #6b7280;
+                    font-size: 13px;
+                    margin-bottom: 6px;
+                }
+
+            .expired-info strong {
+                color: #1f2937;
+            }
+
+        .note-box p {
+            color: #526b7a;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .warning-box {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            border-radius: 14px;
+            padding: 13px;
+            line-height: 1.5;
+            font-size: 14px;
+            margin: 14px 0;
+        }
+
+        .delete-btn {
+            width: 100%;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 14px;
+            background: #dc2626;
+            color: white;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+            .delete-btn:hover {
+                background: #b91c1c;
+            }
+
+        .empty-state {
+            text-align: center;
+            padding: 54px 24px;
+        }
+
+        .empty-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 24px;
+            background: #dcfce7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            margin: 0 auto 18px;
+        }
+
+        .empty-state h3 {
+            color: #145c24;
+            font-size: 26px;
+            margin: 0 0 10px;
+        }
+
+        .empty-state p {
+            color: #526b7a;
+            margin-bottom: 24px;
+        }
+    </style>
+}

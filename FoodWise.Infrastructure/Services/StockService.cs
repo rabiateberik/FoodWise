@@ -1,5 +1,5 @@
 ﻿// StockService, kullanıcının stok ürünlerini yönetir.
-// Ürün ekleme, listeleme, güncelleme, silme ve basit risk tahmini işlemleri burada yapılır.
+// Ürün ekleme, listeleme, güncelleme, silme, süresi geçen ürünleri ayırma ve basit risk tahmini işlemleri burada yapılır.
 
 using FoodWise.Application.DTOs.Stock;
 using FoodWise.Application.Interfaces;
@@ -21,6 +21,9 @@ public class StockService : IStockService
 
     public async Task<List<StockItemDto>> GetUserStockAsync(string userId)
     {
+        // Son tüketim tarihi geçmiş aktif ürünler otomatik olarak Expired durumuna alınır.
+        await MarkExpiredStockItemsAsync(userId);
+
         // Kullanıcının aktif stok ürünleri ürün, birim ve risk bilgileriyle birlikte çekilir.
         var stockItems = await _context.StockItems
             .Include(x => x.Product)
@@ -45,7 +48,10 @@ public class StockService : IStockService
 
     public async Task<List<StockItemDto>> GetRiskyStockItemsAsync(string userId)
     {
-        // Risk seviyesi yüksek veya kritik olan stok ürünleri listelenir.
+        // Son tüketim tarihi geçmiş aktif ürünler riskli ürünler yerine Expired durumuna alınır.
+        await MarkExpiredStockItemsAsync(userId);
+
+        // Risk seviyesi yüksek veya kritik olan aktif stok ürünleri listelenir.
         var stockItems = await _context.StockItems
             .Include(x => x.Product)
             .Include(x => x.Unit)
@@ -69,8 +75,32 @@ public class StockService : IStockService
             .ToList();
     }
 
+    public async Task<List<StockItemDto>> GetExpiredStockItemsAsync(string userId)
+    {
+        // Sayfa açıldığında yeni süresi geçen ürünler varsa Expired durumuna alınır.
+        await MarkExpiredStockItemsAsync(userId);
+
+        var stockItems = await _context.StockItems
+            .Include(x => x.Product)
+            .Include(x => x.Unit)
+            .Include(x => x.WasteRiskPredictions)
+            .Where(x =>
+                x.UserId == userId &&
+                x.Status == StockItemStatus.Expired &&
+                x.IsActive)
+            .OrderByDescending(x => x.ExpirationDate)
+            .ToListAsync();
+
+        return stockItems
+            .Select(x => MapToDto(x))
+            .ToList();
+    }
+
     public async Task<StockItemDto?> GetByIdAsync(int id, string userId)
     {
+        // Süresi geçmiş ürün düzenleme ekranına düşmesin diye önce durum kontrolü yapılır.
+        await MarkExpiredStockItemsAsync(userId);
+
         // Sadece giriş yapan kullanıcının kendi aktif stok kaydı getirilebilir.
         var stockItem = await _context.StockItems
             .Include(x => x.Product)
@@ -107,7 +137,12 @@ public class StockService : IStockService
             ExpirationDate = model.ExpirationDate,
             OpenedDate = model.OpenedDate,
             StorageCondition = model.StorageCondition,
-            Status = StockItemStatus.Active,
+
+            // Geçmiş tarihli ürün eklenirse aktif listeye değil süresi geçen ürünlere düşer.
+            Status = model.ExpirationDate.Date < DateTime.Now.Date
+                ? StockItemStatus.Expired
+                : StockItemStatus.Active,
+
             ImageUrl = model.ImageUrl,
             Note = model.Note,
             CreatedAt = DateTime.Now,
@@ -153,6 +188,12 @@ public class StockService : IStockService
         stockItem.StorageCondition = model.StorageCondition;
         stockItem.ImageUrl = model.ImageUrl;
         stockItem.Note = model.Note;
+
+        // Güncelleme sonrası tarih geçmişe çekildiyse ürün Expired olur.
+        stockItem.Status = model.ExpirationDate.Date < DateTime.Now.Date
+            ? StockItemStatus.Expired
+            : StockItemStatus.Active;
+
         stockItem.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
@@ -171,13 +212,17 @@ public class StockService : IStockService
 
     public async Task<bool> DeleteAsync(int id, string userId)
     {
-        // Silinecek stok kaydı kullanıcıya ait mi kontrol edilir.
+        // Silmeden önce süresi geçen ürünler güncellenir.
+        await MarkExpiredStockItemsAsync(userId);
+
+        // Aktif veya süresi geçmiş stok kaydı kullanıcıya ait mi kontrol edilir.
         var stockItem = await _context.StockItems
             .FirstOrDefaultAsync(x =>
                 x.Id == id &&
                 x.UserId == userId &&
-                x.Status == StockItemStatus.Active &&
-                x.IsActive);
+                x.IsActive &&
+                (x.Status == StockItemStatus.Active ||
+                 x.Status == StockItemStatus.Expired));
 
         if (stockItem == null)
             return false;
@@ -205,6 +250,52 @@ public class StockService : IStockService
         await _context.SaveChangesAsync();
 
         return true;
+    }
+
+    private async Task MarkExpiredStockItemsAsync(string userId)
+    {
+        var today = DateTime.Now.Date;
+
+        var expiredStockItems = await _context.StockItems
+            .Where(x =>
+                x.UserId == userId &&
+                x.Status == StockItemStatus.Active &&
+                x.IsActive &&
+                x.ExpirationDate.Date < today)
+            .ToListAsync();
+
+        if (!expiredStockItems.Any())
+            return;
+
+        var expiredStockItemIds = expiredStockItems
+            .Select(x => x.Id)
+            .ToList();
+
+        foreach (var stockItem in expiredStockItems)
+        {
+            stockItem.Status = StockItemStatus.Expired;
+            stockItem.UpdatedAt = DateTime.Now;
+        }
+
+        // Süresi geçen ürün aktif paylaşım ilanındaysa o ilan da süresi geçmiş yapılır.
+        // Böylece süresi geçmiş ürün başkalarına gösterilmez.
+        var activeShareListings = await _context.ShareListings
+            .Where(x =>
+                expiredStockItemIds.Contains(x.StockItemId) &&
+                x.DonorUserId == userId &&
+                x.IsActive &&
+                x.Status != ShareListingStatus.Cancelled &&
+                x.Status != ShareListingStatus.Expired &&
+                x.Status != ShareListingStatus.Delivered)
+            .ToListAsync();
+
+        foreach (var listing in activeShareListings)
+        {
+            listing.Status = ShareListingStatus.Expired;
+            listing.UpdatedAt = DateTime.Now;
+        }
+
+        await _context.SaveChangesAsync();
     }
 
     private async Task<Product> GetOrCreateProductAsync(string userId, int? productId, string? productName)

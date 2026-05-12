@@ -441,10 +441,12 @@ namespace FoodWise.Infrastructure.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("IngredientsText")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Instructions")
                         .IsRequired()
-                        .HasMaxLength(3000)
-                        .HasColumnType("nvarchar(3000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -454,11 +456,18 @@ namespace FoodWise.Infrastructure.Data.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("NormalizedIngredientsText")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("PreparationTimeMinutes")
                         .HasColumnType("int");
 
                     b.Property<int>("SourceType")
                         .HasColumnType("int");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

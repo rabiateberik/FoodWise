@@ -24,19 +24,96 @@ public class DeliveryController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
-        var donatedDeliveries = await _deliveryWebService.GetMyDonatedDeliveriesAsync(token);
-        var receivedDeliveries = await _deliveryWebService.GetMyReceivedDeliveriesAsync(token);
+        var model = await CreateDeliveryPageModelAsync(token);
 
-        var model = new DeliveryPageViewModel
-        {
-            DonatedDeliveries = donatedDeliveries,
-            ReceivedDeliveries = receivedDeliveries
-        };
+        // Tüm Teslimatlar sekmesinde sadece aktif süreçler gösterilir.
+        model.DonatedDeliveries = model.DonatedDeliveries
+            .Where(IsActiveDelivery)
+            .ToList();
 
-        ViewBag.FullName = HttpContext.Session.GetString("FullName");
-        ViewBag.Email = HttpContext.Session.GetString("Email");
+        model.ReceivedDeliveries = model.ReceivedDeliveries
+            .Where(IsActiveDelivery)
+            .ToList();
+
+        ViewBag.ActiveDeliveryTab = "Index";
+        ViewBag.DeliveryTabTitle = "Tüm Teslimatlar";
+        ViewBag.DeliveryTabDescription = "Aktif teslimat süreçlerini buradan takip edebilirsin.";
 
         return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Outgoing()
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+            return RedirectToAction("Login", "Auth");
+
+        var model = await CreateDeliveryPageModelAsync(token);
+
+        // Teslim Edeceklerim sekmesinde tamamlanan/iptal/süresi dolan kayıtlar gösterilmez.
+        model.DonatedDeliveries = model.DonatedDeliveries
+            .Where(IsActiveDelivery)
+            .ToList();
+
+        model.ReceivedDeliveries = new List<DeliveryViewModel>();
+
+        ViewBag.ActiveDeliveryTab = "Outgoing";
+        ViewBag.DeliveryTabTitle = "Teslim Edeceklerim";
+        ViewBag.DeliveryTabDescription = "Bağışladığın aktif teslimatları buradan yönetebilirsin.";
+
+        return View("Index", model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Incoming()
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+            return RedirectToAction("Login", "Auth");
+
+        var model = await CreateDeliveryPageModelAsync(token);
+
+        // Teslim Alacaklarım sekmesinde tamamlanan/iptal/süresi dolan kayıtlar gösterilmez.
+        model.ReceivedDeliveries = model.ReceivedDeliveries
+            .Where(IsActiveDelivery)
+            .ToList();
+
+        model.DonatedDeliveries = new List<DeliveryViewModel>();
+
+        ViewBag.ActiveDeliveryTab = "Incoming";
+        ViewBag.DeliveryTabTitle = "Teslim Alacaklarım";
+        ViewBag.DeliveryTabDescription = "Teslim alacağın aktif ürünleri buradan takip edebilirsin.";
+
+        return View("Index", model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Completed()
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (string.IsNullOrWhiteSpace(token))
+            return RedirectToAction("Login", "Auth");
+
+        var model = await CreateDeliveryPageModelAsync(token);
+
+        // Tamamlananlar sekmesinde sadece teslimatı tamamlanan kayıtlar gösterilir.
+        model.DonatedDeliveries = model.DonatedDeliveries
+            .Where(IsCompletedDelivery)
+            .ToList();
+
+        model.ReceivedDeliveries = model.ReceivedDeliveries
+            .Where(IsCompletedDelivery)
+            .ToList();
+
+        ViewBag.ActiveDeliveryTab = "Completed";
+        ViewBag.DeliveryTabTitle = "Tamamlananlar";
+        ViewBag.DeliveryTabDescription = "Başarıyla tamamlanan teslimat geçmişini buradan görüntüleyebilirsin.";
+
+        return View("Index", model);
     }
 
     [HttpPost]
@@ -72,7 +149,7 @@ public class DeliveryController : Controller
             ? "Ürün kutuya bırakıldı olarak işaretlendi."
             : "Ürün kutuya bırakıldı olarak işaretlenemedi.";
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Outgoing));
     }
 
     [HttpPost]
@@ -86,8 +163,8 @@ public class DeliveryController : Controller
 
         if (!ModelState.IsValid)
         {
-            TempData["SuccessMessage"] = "QR kod değeri boş olamaz.";
-            return RedirectToAction(nameof(Index));
+            TempData["ErrorMessage"] = "QR kod değeri boş olamaz.";
+            return RedirectToAction(nameof(Incoming));
         }
 
         var result = await _deliveryWebService.ScanBoxQrAsync(model, token);
@@ -96,7 +173,7 @@ public class DeliveryController : Controller
             ? "QR kod doğrulandı. Teslimatı tamamlayabilirsin."
             : "Bu QR kod için sana ait aktif teslimat bulunamadı.";
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Incoming));
     }
 
     [HttpPost]
@@ -114,6 +191,38 @@ public class DeliveryController : Controller
             ? "Teslimat başarıyla tamamlandı."
             : "Teslimat tamamlanamadı. Yetki, durum veya süre bilgisini kontrol edin.";
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Incoming));
+    }
+
+    private async Task<DeliveryPageViewModel> CreateDeliveryPageModelAsync(string token)
+    {
+        var donatedDeliveries = await _deliveryWebService.GetMyDonatedDeliveriesAsync(token);
+        var receivedDeliveries = await _deliveryWebService.GetMyReceivedDeliveriesAsync(token);
+
+        return new DeliveryPageViewModel
+        {
+            DonatedDeliveries = donatedDeliveries,
+            ReceivedDeliveries = receivedDeliveries
+        };
+    }
+
+    private static bool IsActiveDelivery(DeliveryViewModel delivery)
+    {
+        if (string.IsNullOrWhiteSpace(delivery.Status))
+            return true;
+
+        return !delivery.Status.Equals("Delivered", StringComparison.OrdinalIgnoreCase) &&
+               !delivery.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase) &&
+               !delivery.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase) &&
+               !delivery.Status.Equals("Expired", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsCompletedDelivery(DeliveryViewModel delivery)
+    {
+        if (string.IsNullOrWhiteSpace(delivery.Status))
+            return false;
+
+        return delivery.Status.Equals("Delivered", StringComparison.OrdinalIgnoreCase) ||
+               delivery.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase);
     }
 }

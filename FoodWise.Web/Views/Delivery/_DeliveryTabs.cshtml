@@ -1,0 +1,29 @@
+﻿@{
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+}
+
+<div class="delivery-tabs">
+    <a asp-controller="Delivery"
+       asp-action="Index"
+       class="delivery-tab @(currentAction == "Index" ? "active" : "")">
+        Tüm Teslimatlar
+    </a>
+
+    <a asp-controller="Delivery"
+       asp-action="Outgoing"
+       class="delivery-tab @(currentAction == "Outgoing" ? "active" : "")">
+        Teslim Edeceklerim
+    </a>
+
+    <a asp-controller="Delivery"
+       asp-action="Incoming"
+       class="delivery-tab @(currentAction == "Incoming" ? "active" : "")">
+        Teslim Alacaklarım
+    </a>
+
+    <a asp-controller="Delivery"
+       asp-action="Completed"
+       class="delivery-tab @(currentAction == "Completed" ? "active" : "")">
+        Tamamlananlar
+    </a>
+</div>

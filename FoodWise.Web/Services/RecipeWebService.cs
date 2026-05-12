@@ -65,4 +65,16 @@ public class RecipeWebService : IRecipeWebService
             PropertyNameCaseInsensitive = true
         };
     }
+    public async Task<List<RecipeRecommendationViewModel>> GetGeneralRecommendationsAsync(string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync("api/recipe/recommendations");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<RecipeRecommendationViewModel>();
+
+        return await response.Content.ReadFromJsonAsync<List<RecipeRecommendationViewModel>>(GetJsonOptions())
+               ?? new List<RecipeRecommendationViewModel>();
+    }
 }

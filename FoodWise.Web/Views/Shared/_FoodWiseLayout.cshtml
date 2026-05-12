@@ -371,6 +371,75 @@
                 background: #b91c1c;
             }
 
+        .stock-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .stock-tab {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: #f8faf8;
+            color: #166534;
+            border: 1px solid #dbeee0;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 800;
+            transition: 0.15s ease;
+        }
+
+            .stock-tab:hover {
+                background: #ecfdf5;
+                transform: translateY(-1px);
+            }
+
+            .stock-tab.active {
+                background: #238636;
+                color: white;
+                border-color: #238636;
+                box-shadow: 0 8px 20px rgba(35, 134, 54, 0.18);
+            }
+
+        .delivery-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .delivery-tab {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: #f8faf8;
+            color: #166534;
+            border: 1px solid #dbeee0;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 800;
+            transition: 0.15s ease;
+        }
+
+            .delivery-tab:hover {
+                background: #ecfdf5;
+                transform: translateY(-1px);
+            }
+
+            .delivery-tab.active {
+                background: #238636;
+                color: white;
+                border-color: #238636;
+                box-shadow: 0 8px 20px rgba(35, 134, 54, 0.18);
+            }
         @@media (max-width: 900px) {
             .layout {
                 flex-direction: column;
