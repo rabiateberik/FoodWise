@@ -375,6 +375,13 @@ public class FoodWiseDbContext : IdentityDbContext<ApplicationUser>
             .WithMany(x => x.DeliveryBoxes)
             .HasForeignKey(x => x.DeliveryPointId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<DeliveryPoint>()
+    .Property(x => x.City)
+    .HasMaxLength(100);
+
+        builder.Entity<DeliveryPoint>()
+            .Property(x => x.District)
+            .HasMaxLength(100);
 
         // Delivery kaydı opsiyonel olarak bir teslim kutusuna bağlanır.
         builder.Entity<Delivery>()

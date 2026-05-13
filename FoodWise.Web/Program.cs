@@ -52,6 +52,8 @@ builder.Services.AddHttpClient<IDeliveryWebService, DeliveryWebService>();
 builder.Services.AddHttpClient<IProfileWebService, ProfileWebService>();
 // Eco puan özetini ve puan geçmiþini API'den çekmek için Web servis kaydý.
 builder.Services.AddHttpClient<IEcoPointWebService, EcoPointWebService>();
+//Admin API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr. Admin paneli iþlemleri için kullanýlýr.
+builder.Services.AddHttpClient<IAdminWebService, AdminWebService>();
 var app = builder.Build();
 
 // Production ortamýnda hata sayfasý yönetimi yapýlýr.

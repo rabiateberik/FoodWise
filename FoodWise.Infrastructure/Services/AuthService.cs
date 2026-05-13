@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 using FoodWise.Application.DTOs.Auth;
 using FoodWise.Application.Interfaces;
 using FoodWise.Infrastructure.Identity;
@@ -12,28 +8,28 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
-
-// AuthService, kullanıcı kayıt/giriş işlemlerini ve JWT token üretimini yönetir.
-// Identity UserManager ile kullanıcı oluşturur, doğrular ve başarılı girişte token döner.
-
 namespace FoodWise.Infrastructure.Services;
 
+// AuthService, kullanıcı kayıt/giriş işlemlerini ve JWT token üretimini yönetir.
+// Identity UserManager ile kullanıcı oluşturur, doğrular ve başarılı girişte rol bilgisi içeren token döner.
 public class AuthService : IAuthService
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IConfiguration _configuration;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole> roleManager,
         IConfiguration configuration)
     {
         _userManager = userManager;
+        _roleManager = roleManager;
         _configuration = configuration;
     }
 
     public async Task<AuthResponseDto> RegisterAsync(RegisterDto model)
     {
-        // Aynı email ile daha önce kullanıcı oluşturulmuş mu kontrol edilir.
         var existingUser = await _userManager.FindByEmailAsync(model.Email);
 
         if (existingUser != null)
@@ -45,15 +41,12 @@ public class AuthService : IAuthService
             };
         }
 
-        // Yeni Identity kullanıcısı oluşturulur.
-        // FoodWise sisteminde açık adres tutulmaz; kullanıcıdan yalnızca şehir, ilçe ve mahalle bilgisi alınır.
         var user = new ApplicationUser
         {
             FullName = model.FullName,
             Email = model.Email,
             UserName = model.Email,
 
-            // Kullanıcının bölgesel konum bilgileri kaydedilir.
             City = model.City,
             District = model.District,
             Neighborhood = model.Neighborhood,
@@ -61,7 +54,7 @@ public class AuthService : IAuthService
             IsActive = true,
             CreatedAt = DateTime.Now
         };
-        // Kullanıcı şifre ile birlikte Identity sistemine kaydedilir.
+
         var result = await _userManager.CreateAsync(user, model.Password);
 
         if (!result.Succeeded)
@@ -73,8 +66,11 @@ public class AuthService : IAuthService
             };
         }
 
-        // Kayıt başarılıysa kullanıcı için JWT token üretilir.
-        var token = GenerateJwtToken(user);
+        // Normal kayıt olan tüm kullanıcılar User rolüne atanır.
+        await EnsureRoleExistsAsync("User");
+        await _userManager.AddToRoleAsync(user, "User");
+
+        var token = await GenerateJwtTokenAsync(user);
 
         return new AuthResponseDto
         {
@@ -89,7 +85,6 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> LoginAsync(LoginDto model)
     {
-        // Giriş yapmak isteyen kullanıcı email üzerinden bulunur.
         var user = await _userManager.FindByEmailAsync(model.Email);
 
         if (user == null)
@@ -101,7 +96,6 @@ public class AuthService : IAuthService
             };
         }
 
-        // Kullanıcı pasifse girişe izin verilmez.
         if (!user.IsActive)
         {
             return new AuthResponseDto
@@ -111,7 +105,6 @@ public class AuthService : IAuthService
             };
         }
 
-        // Şifre doğrulaması yapılır.
         var isPasswordValid = await _userManager.CheckPasswordAsync(user, model.Password);
 
         if (!isPasswordValid)
@@ -123,8 +116,7 @@ public class AuthService : IAuthService
             };
         }
 
-        // Giriş başarılıysa JWT token üretilir.
-        var token = GenerateJwtToken(user);
+        var token = await GenerateJwtTokenAsync(user);
 
         return new AuthResponseDto
         {
@@ -136,9 +128,9 @@ public class AuthService : IAuthService
             Token = token
         };
     }
-    private string GenerateJwtToken(ApplicationUser user)
+
+    private async Task<string> GenerateJwtTokenAsync(ApplicationUser user)
     {
-        // appsettings.json içindeki JWT ayarları okunur.
         var jwtKey = _configuration["Jwt:Key"]!;
         var jwtIssuer = _configuration["Jwt:Issuer"]!;
         var jwtAudience = _configuration["Jwt:Audience"]!;
@@ -147,7 +139,8 @@ public class AuthService : IAuthService
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-        // Token içine kullanıcıya ait temel bilgiler claim olarak eklenir.
+        var userRoles = await _userManager.GetRolesAsync(user);
+
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id),
@@ -155,6 +148,11 @@ public class AuthService : IAuthService
             new(ClaimTypes.NameIdentifier, user.Id),
             new(ClaimTypes.Name, user.FullName)
         };
+
+        foreach (var role in userRoles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
 
         var token = new JwtSecurityToken(
             issuer: jwtIssuer,
@@ -165,5 +163,13 @@ public class AuthService : IAuthService
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private async Task EnsureRoleExistsAsync(string roleName)
+    {
+        if (!await _roleManager.RoleExistsAsync(roleName))
+        {
+            await _roleManager.CreateAsync(new IdentityRole(roleName));
+        }
     }
 }

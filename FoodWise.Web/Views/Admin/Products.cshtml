@@ -1,0 +1,143 @@
+﻿@model List<FoodWise.Web.ViewModels.Admin.AdminProductViewModel>
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Ürün Yönetimi";
+    ViewData["AdminPageDescription"] = "Sistem ürünlerini ve kullanıcıların eklediği ürünleri buradan yönetebilirsin.";
+}
+
+@*
+    Admin ürün listeleme sayfası.
+    Ürünler kategori, onay durumu, aktiflik ve kullanıcı/sistem kaynağı bilgileriyle gösterilir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="CreateProduct" class="primary-btn">
+        Yeni Ürün
+    </a>
+}
+
+<section class="table-card">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            Henüz ürün bulunmuyor.
+        </div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Ürün</th>
+                    <th>Kategori</th>
+                    <th>Raf Ömrü</th>
+                    <th>Karbon</th>
+                    <th>Kaynak</th>
+                    <th>Onay</th>
+                    <th>Durum</th>
+                    <th>Stok Kullanımı</th>
+                    <th>İşlemler</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var product in Model)
+                {
+                    <tr>
+                        <td>
+                            <strong>@product.Name</strong>
+                            @if (product.IsSensitiveFood)
+                            {
+                                <div class="mini-note">Hassas gıda</div>
+                            }
+                        </td>
+
+                        <td>@product.CategoryName</td>
+
+                        <td>
+                            @product.DefaultShelfLifeDays gün
+                            @if (product.OpenedShelfLifeDays.HasValue)
+                            {
+                                <div class="mini-note">Açıldıktan sonra: @product.OpenedShelfLifeDays gün</div>
+                            }
+                        </td>
+
+                        <td>@product.CarbonFactor.ToString("0.##") kg</td>
+
+                        <td>
+                            <span class="badge @(product.IsSystemDefined ? "active" : "info")">
+                                @(product.IsSystemDefined ? "Sistem" : "Kullanıcı")
+                            </span>
+                        </td>
+
+                        <td>
+                            <span class="badge @(product.IsApproved ? "active" : "passive")">
+                                @(product.IsApproved ? "Onaylı" : "Onaysız")
+                            </span>
+                        </td>
+
+                        <td>
+                            <span class="badge @(product.IsActive ? "active" : "passive")">
+                                @(product.IsActive ? "Aktif" : "Pasif")
+                            </span>
+                        </td>
+
+                        <td>@product.StockItemCount</td>
+
+                        <td>
+                            <div class="row-actions">
+                                <a asp-controller="Admin"
+                                   asp-action="EditProduct"
+                                   asp-route-id="@product.Id"
+                                   class="edit-btn">
+                                    Düzenle
+                                </a>
+
+                                <form asp-controller="Admin"
+                                      asp-action="ToggleProductApproval"
+                                      asp-route-id="@product.Id"
+                                      method="post"
+                                      onsubmit="return confirm('Ürün onay durumunu değiştirmek istediğine emin misin?');">
+                                    @Html.AntiForgeryToken()
+
+                                    <button type="submit" class="status-btn">
+                                        @(product.IsApproved ? "Onayı Kaldır" : "Onayla")
+                                    </button>
+                                </form>
+
+                                <form asp-controller="Admin"
+                                      asp-action="ToggleProductStatus"
+                                      asp-route-id="@product.Id"
+                                      method="post"
+                                      onsubmit="return confirm('Ürün aktif/pasif durumunu değiştirmek istediğine emin misin?');">
+                                    @Html.AntiForgeryToken()
+
+                                    <button type="submit" class="status-btn">
+                                        @(product.IsActive ? "Pasifleştir" : "Aktif Yap")
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@section Styles {
+    <style>
+        .mini-note {
+            color: #78909c;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .badge.info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+    </style>
+}

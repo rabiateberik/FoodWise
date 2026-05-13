@@ -1,0 +1,79 @@
+﻿@model FoodWise.Web.ViewModels.Admin.CreateAdminDeliveryBoxViewModel
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Yeni Teslim Kutusu";
+    ViewData["AdminPageDescription"] = "Teslim noktasına bağlı QR destekli yeni kutu ekleyebilirsin.";
+}
+
+@*
+    Admin panelinden yeni teslim kutusu ekleme sayfası.
+    QR değeri sistem genelinde benzersiz olmalıdır.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin"
+       asp-action="DeliveryBoxes"
+       asp-route-deliveryPointId="@Model.DeliveryPointId"
+       class="back-btn">
+        Kutulara Dön
+    </a>
+}
+
+<section class="form-card">
+    <h3>Teslim Kutusu Bilgileri</h3>
+
+    <div class="info-box">
+        Kutu kodu teslim noktası içinde anlaşılır olmalı. QR değeri ise sistem genelinde benzersiz olmalıdır.
+    </div>
+
+    <form asp-controller="Admin" asp-action="CreateDeliveryBox" method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="form-group">
+            <label asp-for="DeliveryPointId">Teslimat Noktası</label>
+            <select asp-for="DeliveryPointId">
+                <option value="">Teslimat noktası seçiniz</option>
+                @foreach (var point in Model.DeliveryPointOptions)
+                {
+                    <option value="@point.Id">
+                        @point.Name - @point.City / @point.District
+                    </option>
+                }
+            </select>
+            <span asp-validation-for="DeliveryPointId" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="BoxCode">Kutu Kodu</label>
+            <input asp-for="BoxCode" placeholder="Örn: B-01" />
+            <span asp-validation-for="BoxCode" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="QrCodeValue">QR Kod Değeri</label>
+            <input asp-for="QrCodeValue" placeholder="Örn: FW-DP-LIB-B01" />
+            <span asp-validation-for="QrCodeValue" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Description">Açıklama</label>
+            <textarea asp-for="Description" placeholder="Kutu hakkında kısa açıklama yazabilirsin."></textarea>
+            <span asp-validation-for="Description" class="validation-message"></span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="save-btn">
+                Teslim Kutusunu Kaydet
+            </button>
+
+            <a asp-controller="Admin"
+               asp-action="DeliveryBoxes"
+               asp-route-deliveryPointId="@Model.DeliveryPointId"
+               class="cancel-btn">
+                Vazgeç
+            </a>
+        </div>
+    </form>
+</section>

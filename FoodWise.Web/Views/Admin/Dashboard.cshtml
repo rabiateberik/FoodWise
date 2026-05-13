@@ -1,0 +1,88 @@
+﻿@model FoodWise.Web.ViewModels.Admin.AdminDashboardViewModel
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Admin Dashboard";
+    ViewData["AdminPageDescription"] = "FoodWise sisteminin genel durumunu buradan takip edebilirsin.";
+}
+
+@*
+    Admin dashboard sayfası sistem genelindeki özet verileri gösterir.
+    Veriler FoodWise.API üzerindeki admin dashboard endpointinden gelir.
+*@
+
+<section class="cards">
+    <div class="card">
+        <span>Toplam Kullanıcı</span>
+        <strong>@Model.TotalUserCount</strong>
+        <small>Aktif: @Model.ActiveUserCount | Pasif: @Model.PassiveUserCount</small>
+    </div>
+
+    <div class="card">
+        <span>Toplam Kategori</span>
+        <strong>@Model.TotalCategoryCount</strong>
+        <small>Sistemde aktif görünen kategori sayısı.</small>
+    </div>
+
+    <div class="card">
+        <span>Toplam Ürün</span>
+        <strong>@Model.TotalProductCount</strong>
+        <small>Kullanıcı eklediği ürün: @Model.UserCreatedProductCount</small>
+    </div>
+
+    <a asp-controller="Admin" asp-action="DeliveryPoints" class="shortcut-card">
+        <span>Teslimat Noktaları</span>
+        <p>Güvenli teslim noktalarını ve teslim kutularını yönet.</p>
+    </a>
+
+    <div class="card">
+        <span>Paylaşım İlanları</span>
+        <strong>@Model.TotalShareListingCount</strong>
+        <small>Aktif ilan: @Model.ActiveShareListingCount</small>
+    </div>
+
+    <div class="card">
+        <span>Tamamlanan Teslimat</span>
+        <strong>@Model.CompletedDeliveryCount</strong>
+        <small>Süresi dolan teslimat: @Model.ExpiredDeliveryCount</small>
+    </div>
+
+    <div class="card">
+        <span>Karbon Tasarrufu</span>
+        <strong>@Model.TotalCarbonSavedKg.ToString("0.##") kg</strong>
+        <small>Tamamlanan paylaşımlardan gelen toplam katkı.</small>
+    </div>
+
+    <div class="card">
+        <span>Toplam Eco Puan</span>
+        <strong>@Model.TotalEcoPoint</strong>
+        <small>Kullanıcıların kazandığı toplam eco puan.</small>
+    </div>
+</section>
+
+<section class="section">
+    <h3>Yönetim Modülleri</h3>
+
+    <div class="admin-shortcuts">
+        <a href="#" class="shortcut-card">
+            <span>Kullanıcı Yönetimi</span>
+            <p>Kullanıcıları listele, aktif/pasif durumlarını yönet.</p>
+        </a>
+
+        <a asp-controller="Admin" asp-action="Categories" class="shortcut-card">
+            <span>Kategori Yönetimi</span>
+            <p>Ürün kategorilerini ekle, düzenle veya pasifleştir.</p>
+        </a>
+
+        <a href="#" class="shortcut-card">
+            <span>Ürün Yönetimi</span>
+            <p>Sistem ürünlerini ve kullanıcıların eklediği ürünleri yönet.</p>
+        </a>
+
+        <a href="#" class="shortcut-card">
+            <span>Teslimat Noktaları</span>
+            <p>Güvenli teslim noktalarını ve teslim kutularını yönet.</p>
+        </a>
+    </div>
+</section>

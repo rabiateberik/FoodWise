@@ -1,0 +1,133 @@
+﻿@model FoodWise.Web.ViewModels.Admin.UpdateAdminProductViewModel
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Ürün Düzenle";
+    ViewData["AdminPageDescription"] = "Ürün adı, kategori, raf ömrü ve karbon bilgilerini güncelleyebilirsin.";
+}
+
+@*
+    Admin panelinden ürün düzenleme sayfası.
+    Id değeri hidden input ile gönderilir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="Products" class="back-btn">
+        Ürünlere Dön
+    </a>
+}
+
+<section class="form-card">
+    <h3>Ürün Bilgileri</h3>
+
+    <div class="info-box">
+        Bu değişiklik, ürünü stoklarında kullanan kullanıcıların ürün adını ve kategori bilgisini de güncel gösterebilir.
+    </div>
+
+    <form asp-controller="Admin" asp-action="EditProduct" method="post">
+        @Html.AntiForgeryToken()
+
+        <input asp-for="Id" type="hidden" />
+
+        <div class="form-group">
+            <label asp-for="CategoryId">Kategori</label>
+            <select asp-for="CategoryId">
+                <option value="">Kategori seçiniz</option>
+                @foreach (var category in Model.CategoryOptions)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            </select>
+            <span asp-validation-for="CategoryId" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Name">Ürün Adı</label>
+            <input asp-for="Name" placeholder="Örn: Meyve Suyu" />
+            <span asp-validation-for="Name" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="DefaultShelfLifeDays">Varsayılan Raf Ömrü Gün</label>
+            <input asp-for="DefaultShelfLifeDays" type="number" min="1" />
+            <span asp-validation-for="DefaultShelfLifeDays" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="OpenedShelfLifeDays">Açıldıktan Sonraki Raf Ömrü Gün</label>
+            <input asp-for="OpenedShelfLifeDays" type="number" min="1" placeholder="Opsiyonel" />
+            <span asp-validation-for="OpenedShelfLifeDays" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="CarbonFactor">Karbon Faktörü</label>
+            <input asp-for="CarbonFactor" type="number" min="0" step="0.01" />
+            <span asp-validation-for="CarbonFactor" class="validation-message"></span>
+        </div>
+
+        <div class="checkbox-group">
+            <label>
+                <input asp-for="IsSensitiveFood" />
+                Hassas gıda
+            </label>
+
+            <label>
+                <input asp-for="IsApproved" />
+                Onaylı ürün
+            </label>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="save-btn">
+                Değişiklikleri Kaydet
+            </button>
+
+            <a asp-controller="Admin" asp-action="Products" class="cancel-btn">
+                Vazgeç
+            </a>
+        </div>
+    </form>
+</section>
+
+@section Styles {
+    <style>
+        select {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 13px;
+            padding: 13px 14px;
+            font-size: 15px;
+            outline: none;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            background: white;
+        }
+
+            select:focus {
+                border-color: #238636;
+                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
+            }
+
+        .checkbox-group {
+            display: grid;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+            .checkbox-group label {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: #f8faf8;
+                border: 1px solid #e5eee7;
+                border-radius: 13px;
+                padding: 12px;
+                cursor: pointer;
+            }
+
+            .checkbox-group input {
+                width: auto;
+            }
+    </style>
+}

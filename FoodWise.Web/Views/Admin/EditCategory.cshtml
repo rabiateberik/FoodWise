@@ -1,0 +1,55 @@
+﻿@model FoodWise.Web.ViewModels.Admin.UpdateAdminCategoryViewModel
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Kategori Düzenle";
+    ViewData["AdminPageDescription"] = "Mevcut kategori adını ve açıklamasını buradan güncelleyebilirsin.";
+}
+
+@*
+    Admin panelinden kategori düzenleme sayfası.
+    Id değeri hidden input ile gönderilir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="Categories" class="back-btn">
+        Kategorilere Dön
+    </a>
+}
+
+<section class="form-card">
+    <h3>Kategori Bilgileri</h3>
+
+    <div class="info-box">
+        Bu değişiklik, kategoriye bağlı ürünlerin kategori adını da panelde güncel gösterecektir.
+    </div>
+
+    <form asp-controller="Admin" asp-action="EditCategory" method="post">
+        @Html.AntiForgeryToken()
+
+        <input asp-for="Id" type="hidden" />
+
+        <div class="form-group">
+            <label asp-for="Name">Kategori Adı</label>
+            <input asp-for="Name" placeholder="Örn: İçecekler" />
+            <span asp-validation-for="Name" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Description">Açıklama</label>
+            <textarea asp-for="Description" placeholder="Kategori hakkında kısa açıklama yazabilirsin."></textarea>
+            <span asp-validation-for="Description" class="validation-message"></span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="save-btn">
+                Değişiklikleri Kaydet
+            </button>
+
+            <a asp-controller="Admin" asp-action="Categories" class="cancel-btn">
+                Vazgeç
+            </a>
+        </div>
+    </form>
+</section>

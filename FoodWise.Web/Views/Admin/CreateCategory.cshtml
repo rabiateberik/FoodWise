@@ -1,0 +1,53 @@
+﻿@model FoodWise.Web.ViewModels.Admin.CreateAdminCategoryViewModel
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Yeni Kategori";
+    ViewData["AdminPageDescription"] = "Ürün yönetiminde kullanılacak yeni bir kategori ekleyebilirsin.";
+}
+
+@*
+    Admin panelinden yeni kategori ekleme sayfası.
+    Kategori adı zorunlu, açıklama opsiyoneldir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="Categories" class="back-btn">
+        Kategorilere Dön
+    </a>
+}
+
+<section class="form-card">
+    <h3>Kategori Bilgileri</h3>
+
+    <div class="info-box">
+        Yeni kategori, ürün ekleme ve ürün yönetimi ekranlarında kullanılacaktır.
+    </div>
+
+    <form asp-controller="Admin" asp-action="CreateCategory" method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="form-group">
+            <label asp-for="Name">Kategori Adı</label>
+            <input asp-for="Name" placeholder="Örn: İçecekler" />
+            <span asp-validation-for="Name" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Description">Açıklama</label>
+            <textarea asp-for="Description" placeholder="Kategori hakkında kısa açıklama yazabilirsin."></textarea>
+            <span asp-validation-for="Description" class="validation-message"></span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="save-btn">
+                Kategoriyi Kaydet
+            </button>
+
+            <a asp-controller="Admin" asp-action="Categories" class="cancel-btn">
+                Vazgeç
+            </a>
+        </div>
+    </form>
+</section>

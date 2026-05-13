@@ -1,0 +1,97 @@
+﻿@model FoodWise.Web.ViewModels.Admin.UpdateAdminDeliveryPointViewModel
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Teslimat Noktası Düzenle";
+    ViewData["AdminPageDescription"] = "Teslim noktasının bölgesel konum, çalışma saati ve saklama bilgilerini güncelleyebilirsin.";
+}
+
+@*
+    Admin panelinden teslimat noktası düzenleme sayfası.
+    Id değeri hidden input olarak gönderilir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="DeliveryPoints" class="back-btn">
+        Teslimat Noktalarına Dön
+    </a>
+}
+
+<section class="form-card">
+    <h3>Teslimat Noktası Bilgileri</h3>
+
+    <div class="info-box">
+        Bu bilgiler, kullanıcıya şehir/ilçe/mahalle bazlı uygun teslim noktası sunmak için kullanılacaktır.
+    </div>
+
+    <form asp-controller="Admin" asp-action="EditDeliveryPoint" method="post">
+        @Html.AntiForgeryToken()
+
+        <input asp-for="Id" type="hidden" />
+
+        <div class="form-group">
+            <label asp-for="Name">Teslimat Noktası Adı</label>
+            <input asp-for="Name" placeholder="Örn: Kampüs Kütüphane Girişi" />
+            <span asp-validation-for="Name" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="City">Şehir</label>
+            <input asp-for="City" placeholder="Örn: Kayseri" />
+            <span asp-validation-for="City" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="District">İlçe</label>
+            <input asp-for="District" placeholder="Örn: Talas" />
+            <span asp-validation-for="District" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Neighborhood">Mahalle / Bölge</label>
+            <input asp-for="Neighborhood" placeholder="Örn: Kampüs" />
+            <span asp-validation-for="Neighborhood" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Description">Açıklama</label>
+            <textarea asp-for="Description" placeholder="Teslim noktası hakkında kısa açıklama yazabilirsin."></textarea>
+            <span asp-validation-for="Description" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="WorkingHours">Çalışma Saatleri</label>
+            <input asp-for="WorkingHours" placeholder="Örn: 09:00 - 18:00" />
+            <span asp-validation-for="WorkingHours" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="StorageType">Saklama Tipi</label>
+            <input asp-for="StorageType" placeholder="Örn: Oda sıcaklığı" />
+            <span asp-validation-for="StorageType" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Latitude">Enlem</label>
+            <input asp-for="Latitude" type="number" step="0.000001" placeholder="Opsiyonel" />
+            <span asp-validation-for="Latitude" class="validation-message"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="Longitude">Boylam</label>
+            <input asp-for="Longitude" type="number" step="0.000001" placeholder="Opsiyonel" />
+            <span asp-validation-for="Longitude" class="validation-message"></span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="save-btn">
+                Değişiklikleri Kaydet
+            </button>
+
+            <a asp-controller="Admin" asp-action="DeliveryPoints" class="cancel-btn">
+                Vazgeç
+            </a>
+        </div>
+    </form>
+</section>

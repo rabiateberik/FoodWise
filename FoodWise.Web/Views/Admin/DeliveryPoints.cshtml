@@ -1,0 +1,115 @@
+﻿@model List<FoodWise.Web.ViewModels.Admin.AdminDeliveryPointViewModel>
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Teslimat Noktaları";
+    ViewData["AdminPageDescription"] = "Şehir, ilçe ve mahalle bazlı güvenli teslim noktalarını buradan yönetebilirsin.";
+}
+
+@*
+    Admin teslimat noktası listeleme sayfası.
+    Teslim noktaları açık adres yerine şehir, ilçe ve mahalle bilgileriyle gösterilir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="CreateDeliveryPoint" class="primary-btn">
+        Yeni Teslimat Noktası
+    </a>
+}
+
+<section class="table-card">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            Henüz teslimat noktası bulunmuyor.
+        </div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Nokta</th>
+                    <th>Konum</th>
+                    <th>Çalışma / Saklama</th>
+                    <th>Kutu Sayısı</th>
+                    <th>Durum</th>
+                    <th>Oluşturulma</th>
+                    <th>İşlemler</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var point in Model)
+                {
+                    <tr>
+                        <td>
+                            <strong>@point.Name</strong>
+                            <div class="mini-note">@(point.Description ?? "-")</div>
+                        </td>
+
+                        <td>
+                            @point.City / @point.District
+                            <div class="mini-note">@(point.Neighborhood ?? "Mahalle belirtilmedi")</div>
+                        </td>
+
+                        <td>
+                            @(point.WorkingHours ?? "-")
+                            <div class="mini-note">@(point.StorageType ?? "-")</div>
+                        </td>
+
+                        <td>@point.DeliveryBoxCount</td>
+
+                        <td>
+                            <span class="badge @(point.IsActive ? "active" : "passive")">
+                                @(point.IsActive ? "Aktif" : "Pasif")
+                            </span>
+                        </td>
+
+                        <td>@point.CreatedAt.ToString("dd.MM.yyyy")</td>
+
+                        <td>
+                            <div class="row-actions">
+                                <a asp-controller="Admin"
+                                   asp-action="EditDeliveryPoint"
+                                   asp-route-id="@point.Id"
+                                   class="edit-btn">
+                                    Düzenle
+                                </a>
+                                <a asp-controller="Admin"
+                                   asp-action="DeliveryBoxes"
+                                   asp-route-deliveryPointId="@point.Id"
+                                   class="edit-btn">
+                                    Kutular
+                                </a>
+                                <form asp-controller="Admin"
+                                      asp-action="ToggleDeliveryPointStatus"
+                                      asp-route-id="@point.Id"
+                                      method="post"
+                                      onsubmit="return confirm('Teslimat noktası durumunu değiştirmek istediğine emin misin?');">
+                                    @Html.AntiForgeryToken()
+
+                                    <button type="submit" class="status-btn">
+                                        @(point.IsActive ? "Pasifleştir" : "Aktif Yap")
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@section Styles {
+    <style>
+        .mini-note {
+            color: #78909c;
+            font-size: 12px;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+    </style>
+}

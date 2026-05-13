@@ -1,0 +1,135 @@
+﻿@model List<FoodWise.Web.ViewModels.Admin.AdminDeliveryBoxViewModel>
+
+@{
+    Layout = "_AdminLayout";
+
+    var selectedDeliveryPointId = ViewBag.DeliveryPointId as int?;
+
+    ViewData["AdminPageTitle"] = "Teslim Kutuları";
+    ViewData["AdminPageDescription"] = "Teslim noktalarına bağlı QR destekli teslim kutularını buradan yönetebilirsin.";
+}
+
+@*
+    Admin teslim kutusu listeleme sayfası.
+    Kutular, teslim noktasına bağlı QR doğrulama alanlarıdır.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin"
+       asp-action="CreateDeliveryBox"
+       asp-route-deliveryPointId="@selectedDeliveryPointId"
+       class="primary-btn">
+        Yeni Teslim Kutusu
+    </a>
+
+    <a asp-controller="Admin"
+       asp-action="DeliveryPoints"
+       class="back-btn">
+        Teslimat Noktalarına Dön
+    </a>
+}
+
+<section class="table-card">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            Henüz teslim kutusu bulunmuyor.
+        </div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Kutu</th>
+                    <th>Teslim Noktası</th>
+                    <th>QR Değeri</th>
+                    <th>Doluluk</th>
+                    <th>Durum</th>
+                    <th>Oluşturulma</th>
+                    <th>İşlemler</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var box in Model)
+                {
+                    <tr>
+                        <td>
+                            <strong>@box.BoxCode</strong>
+                            <div class="mini-note">@(box.Description ?? "-")</div>
+                        </td>
+
+                        <td>
+                            @box.DeliveryPointName
+                            <div class="mini-note">
+                                @box.City / @box.District / @(box.Neighborhood ?? "-")
+                            </div>
+                        </td>
+
+                        <td>
+                            <code>@box.QrCodeValue</code>
+                        </td>
+
+                        <td>
+                            <span class="badge @(box.IsOccupied ? "passive" : "active")">
+                                @(box.IsOccupied ? "Dolu" : "Boş")
+                            </span>
+                        </td>
+
+                        <td>
+                            <span class="badge @(box.IsActive ? "active" : "passive")">
+                                @(box.IsActive ? "Aktif" : "Pasif")
+                            </span>
+                        </td>
+
+                        <td>@box.CreatedAt.ToString("dd.MM.yyyy")</td>
+
+                        <td>
+                            <div class="row-actions">
+                                <a asp-controller="Admin"
+                                   asp-action="EditDeliveryBox"
+                                   asp-route-id="@box.Id"
+                                   class="edit-btn">
+                                    Düzenle
+                                </a>
+
+                                <form asp-controller="Admin"
+                                      asp-action="ToggleDeliveryBoxStatus"
+                                      asp-route-id="@box.Id"
+                                      asp-route-deliveryPointId="@selectedDeliveryPointId"
+                                      method="post"
+                                      onsubmit="return confirm('Teslim kutusu aktif/pasif durumunu değiştirmek istediğine emin misin?');">
+                                    @Html.AntiForgeryToken()
+
+                                    <button type="submit" class="status-btn">
+                                        @(box.IsActive ? "Pasifleştir" : "Aktif Yap")
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@section Styles {
+    <style>
+        .mini-note {
+            color: #78909c;
+            font-size: 12px;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        code {
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 5px 8px;
+            color: #145c24;
+            font-weight: 800;
+        }
+    </style>
+}

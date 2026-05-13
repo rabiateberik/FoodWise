@@ -1,0 +1,82 @@
+﻿@model List<FoodWise.Web.ViewModels.Admin.AdminCategoryViewModel>
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Kategori Yönetimi";
+    ViewData["AdminPageDescription"] = "Ürün kategorilerini buradan ekleyebilir, düzenleyebilir ve aktif/pasif yapabilirsin.";
+}
+
+@*
+    Admin kategori listeleme sayfası.
+    Kategoriler API üzerinden alınır ve tablo halinde gösterilir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="CreateCategory" class="primary-btn">
+        Yeni Kategori
+    </a>
+}
+
+<section class="table-card">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            Henüz kategori bulunmuyor.
+        </div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Kategori</th>
+                    <th>Açıklama</th>
+                    <th>Ürün Sayısı</th>
+                    <th>Durum</th>
+                    <th>Oluşturulma</th>
+                    <th>İşlemler</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var category in Model)
+                {
+                    <tr>
+                        <td><strong>@category.Name</strong></td>
+                        <td>@(category.Description ?? "-")</td>
+                        <td>@category.ProductCount</td>
+                        <td>
+                            <span class="badge @(category.IsActive ? "active" : "passive")">
+                                @(category.IsActive ? "Aktif" : "Pasif")
+                            </span>
+                        </td>
+                        <td>@category.CreatedAt.ToString("dd.MM.yyyy")</td>
+                        <td>
+                            <div class="row-actions">
+                                <a asp-controller="Admin"
+                                   asp-action="EditCategory"
+                                   asp-route-id="@category.Id"
+                                   class="edit-btn">
+                                    Düzenle
+                                </a>
+
+                                <form asp-controller="Admin"
+                                      asp-action="ToggleCategoryStatus"
+                                      asp-route-id="@category.Id"
+                                      method="post"
+                                      onsubmit="return confirm('Kategori durumunu değiştirmek istediğine emin misin?');">
+                                    @Html.AntiForgeryToken()
+
+                                    <button type="submit" class="status-btn">
+                                        @(category.IsActive ? "Pasifleştir" : "Aktif Yap")
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>

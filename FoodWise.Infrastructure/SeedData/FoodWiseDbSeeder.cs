@@ -1,34 +1,106 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// FoodWiseDbSeeder, uygulama ilk çalıştığında temel verileri veritabanına ekler.
+// Kategori, birim, ürün, teslim noktası, teslim kutusu, örnek tarif ve admin kullanıcı verileri burada oluşturulur.
 
 using FoodWise.Domain.Entities;
 using FoodWise.Domain.Enums;
 using FoodWise.Infrastructure.Data;
+using FoodWise.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace FoodWise.Infrastructure.SeedData;
-// FoodWiseDbSeeder sınıfı, uygulama ilk çalıştığında veritabanına başlangıç verilerini eklemek için oluşturulmuştur.
-// Bu yapı sayesinde kategori, birim, ürün, güvenli teslim noktası ve örnek tarif verileri manuel girilmeden otomatik olarak eklenir.
-// Seed işlemi, veritabanının temel verilerle hazır gelmesini sağlar ve stok, tarif önerisi, paylaşım gibi modüllerin test edilmesini kolaylaştırır.
+
 public static class FoodWiseDbSeeder
 {
-    public static async Task SeedAsync(FoodWiseDbContext context)
+    private const string AdminRoleName = "Admin";
+    private const string UserRoleName = "User";
+
+    private const string AdminEmail = "admin@foodwise.com";
+    private const string AdminPassword = "Admin123*";
+
+    public static async Task SeedAsync(
+        FoodWiseDbContext context,
+        UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole> roleManager)
     {
         await context.Database.MigrateAsync();
+
+        await SeedRolesAsync(roleManager);
+        await SeedAdminUserAsync(userManager);
 
         await SeedCategoriesAsync(context);
         await SeedUnitsAsync(context);
         await SeedProductsAsync(context);
-        // Teslim noktaları eklendikten sonra bu noktalara ait kutular eklenir.
-        // DeliveryBoxes, DeliveryPoints tablosuna bağlı olduğu için sıralama önemlidir.
         await SeedDeliveryPointsAsync(context);
         await SeedDeliveryBoxesAsync(context);
-
         await SeedRecipesAsync(context);
+    }
 
+    private static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
+    {
+        var roles = new List<string>
+        {
+            AdminRoleName,
+            UserRoleName
+        };
+
+        foreach (var role in roles)
+        {
+            if (!await roleManager.RoleExistsAsync(role))
+            {
+                await roleManager.CreateAsync(new IdentityRole(role));
+            }
+        }
+    }
+
+    private static async Task SeedAdminUserAsync(UserManager<ApplicationUser> userManager)
+    {
+        var adminUser = await userManager.FindByEmailAsync(AdminEmail);
+
+        if (adminUser == null)
+        {
+            adminUser = new ApplicationUser
+            {
+                FullName = "FoodWise Admin",
+                Email = AdminEmail,
+                UserName = AdminEmail,
+                EmailConfirmed = true,
+
+                City = "Ankara",
+                District = "Çankaya",
+                Neighborhood = "Merkez",
+
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            var createResult = await userManager.CreateAsync(adminUser, AdminPassword);
+
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join(" | ", createResult.Errors.Select(x => x.Description));
+                throw new InvalidOperationException($"Admin kullanıcı oluşturulamadı: {errors}");
+            }
+        }
+        else
+        {
+            adminUser.IsActive = true;
+            adminUser.DeletedAt = null;
+            adminUser.EmailConfirmed = true;
+            adminUser.UpdatedAt = DateTime.Now;
+
+            await userManager.UpdateAsync(adminUser);
+        }
+
+        if (!await userManager.IsInRoleAsync(adminUser, AdminRoleName))
+        {
+            await userManager.AddToRoleAsync(adminUser, AdminRoleName);
+        }
+
+        if (!await userManager.IsInRoleAsync(adminUser, UserRoleName))
+        {
+            await userManager.AddToRoleAsync(adminUser, UserRoleName);
+        }
     }
 
     private static async Task SeedCategoriesAsync(FoodWiseDbContext context)
@@ -43,7 +115,8 @@ public static class FoodWiseDbSeeder
             new() { Name = "Meyve", Description = "Taze meyve ürünleri" },
             new() { Name = "Et ve Balık", Description = "Et, tavuk ve balık ürünleri" },
             new() { Name = "Bakliyat", Description = "Kuru gıda ve bakliyat ürünleri" },
-            new() { Name = "Unlu Mamuller", Description = "Ekmek, simit, hamur işi ürünleri" }
+            new() { Name = "Unlu Mamuller", Description = "Ekmek, simit, hamur işi ürünleri" },
+            new() { Name = "Diğer", Description = "Kullanıcı tarafından eklenen ve belirli kategoriye atanamayan ürünler" }
         };
 
         await context.Categories.AddRangeAsync(categories);
@@ -89,7 +162,9 @@ public static class FoodWiseDbSeeder
                 DefaultShelfLifeDays = 7,
                 OpenedShelfLifeDays = 3,
                 CarbonFactor = 1.30m,
-                IsSensitiveFood = true
+                IsSensitiveFood = true,
+                IsSystemDefined = true,
+                IsApproved = true
             },
             new()
             {
@@ -98,7 +173,9 @@ public static class FoodWiseDbSeeder
                 DefaultShelfLifeDays = 14,
                 OpenedShelfLifeDays = 5,
                 CarbonFactor = 1.20m,
-                IsSensitiveFood = true
+                IsSensitiveFood = true,
+                IsSystemDefined = true,
+                IsApproved = true
             },
             new()
             {
@@ -107,7 +184,9 @@ public static class FoodWiseDbSeeder
                 DefaultShelfLifeDays = 30,
                 OpenedShelfLifeDays = 7,
                 CarbonFactor = 2.10m,
-                IsSensitiveFood = true
+                IsSensitiveFood = true,
+                IsSystemDefined = true,
+                IsApproved = true
             },
             new()
             {
@@ -116,7 +195,9 @@ public static class FoodWiseDbSeeder
                 DefaultShelfLifeDays = 28,
                 OpenedShelfLifeDays = null,
                 CarbonFactor = 4.80m,
-                IsSensitiveFood = true
+                IsSensitiveFood = true,
+                IsSystemDefined = true,
+                IsApproved = true
             },
             new()
             {
@@ -125,7 +206,9 @@ public static class FoodWiseDbSeeder
                 DefaultShelfLifeDays = 7,
                 OpenedShelfLifeDays = null,
                 CarbonFactor = 0.40m,
-                IsSensitiveFood = false
+                IsSensitiveFood = false,
+                IsSystemDefined = true,
+                IsApproved = true
             },
             new()
             {
@@ -134,7 +217,9 @@ public static class FoodWiseDbSeeder
                 DefaultShelfLifeDays = 5,
                 OpenedShelfLifeDays = null,
                 CarbonFactor = 0.30m,
-                IsSensitiveFood = false
+                IsSensitiveFood = false,
+                IsSystemDefined = true,
+                IsApproved = true
             },
             new()
             {
@@ -143,7 +228,9 @@ public static class FoodWiseDbSeeder
                 DefaultShelfLifeDays = 5,
                 OpenedShelfLifeDays = null,
                 CarbonFactor = 0.70m,
-                IsSensitiveFood = false
+                IsSensitiveFood = false,
+                IsSystemDefined = true,
+                IsApproved = true
             },
             new()
             {
@@ -152,7 +239,9 @@ public static class FoodWiseDbSeeder
                 DefaultShelfLifeDays = 3,
                 OpenedShelfLifeDays = null,
                 CarbonFactor = 0.60m,
-                IsSensitiveFood = false
+                IsSensitiveFood = false,
+                IsSystemDefined = true,
+                IsApproved = true
             },
             new()
             {
@@ -161,7 +250,9 @@ public static class FoodWiseDbSeeder
                 DefaultShelfLifeDays = 365,
                 OpenedShelfLifeDays = null,
                 CarbonFactor = 2.70m,
-                IsSensitiveFood = false
+                IsSensitiveFood = false,
+                IsSystemDefined = true,
+                IsApproved = true
             }
         };
 
@@ -175,47 +266,48 @@ public static class FoodWiseDbSeeder
             return;
 
         var deliveryPoints = new List<DeliveryPoint>
-        {
-            new()
-            {
-                Name = "Kampüs Kütüphane Girişi",
-                Description = "Kampüs içinde güvenli teslim noktası",
-                Neighborhood = "Kampüs",
-                WorkingHours = "09:00 - 18:00",
-                StorageType = "Oda sıcaklığı"
-            },
-            new()
-            {
-                Name = "Yurt Danışma Noktası",
-                Description = "Öğrenci yurdu danışma alanı",
-                Neighborhood = "Yurt Bölgesi",
-                WorkingHours = "08:00 - 22:00",
-                StorageType = "Oda sıcaklığı"
-            },
-            new()
-            {
-                Name = "Kafeterya Önü",
-                Description = "Kampüs kafeteryası önündeki teslim noktası",
-                Neighborhood = "Kampüs",
-                WorkingHours = "10:00 - 17:00",
-                StorageType = "Oda sıcaklığı"
-            }
-        };
+{
+    new()
+    {
+        Name = "Kampüs Kütüphane Girişi",
+        Description = "Kampüs içinde güvenli teslim noktası",
+        City = "Kayseri",
+        District = "Talas",
+        Neighborhood = "Kampüs",
+        WorkingHours = "09:00 - 18:00",
+        StorageType = "Oda sıcaklığı"
+    },
+    new()
+    {
+        Name = "Yurt Danışma Noktası",
+        Description = "Öğrenci yurdu danışma alanı",
+        City = "Kayseri",
+        District = "Talas",
+        Neighborhood = "Yurt Bölgesi",
+        WorkingHours = "08:00 - 22:00",
+        StorageType = "Oda sıcaklığı"
+    },
+    new()
+    {
+        Name = "Kafeterya Önü",
+        Description = "Kampüs kafeteryası önündeki teslim noktası",
+        City = "Kayseri",
+        District = "Talas",
+        Neighborhood = "Kampüs",
+        WorkingHours = "10:00 - 17:00",
+        StorageType = "Oda sıcaklığı"
+    }
+};
 
         await context.DeliveryPoints.AddRangeAsync(deliveryPoints);
         await context.SaveChangesAsync();
     }
-    // Kontrollü teslim noktalarına ait örnek teslim kutularını veritabanına ekler.
-    // Her kutunun sabit bir QR değeri vardır; alıcı bu QR ile teslimatı doğrulayacaktır.
+
     private static async Task SeedDeliveryBoxesAsync(FoodWiseDbContext context)
     {
-        // Debug amaçlı: API çalışınca bu metodun tetiklenip tetiklenmediğini görmek için yazıldı.
-        Console.WriteLine(">>> SeedDeliveryBoxesAsync çalıştı.");
-        // Eğer kutular daha önce eklenmişse tekrar ekleme yapılmaz.
         if (await context.DeliveryBoxes.AnyAsync())
             return;
 
-        // Kutular, daha önce seed edilen teslim noktalarına bağlanır.
         var libraryPoint = await context.DeliveryPoints
             .FirstAsync(x => x.Name == "Kampüs Kütüphane Girişi");
 
@@ -226,44 +318,45 @@ public static class FoodWiseDbSeeder
             .FirstAsync(x => x.Name == "Kafeterya Önü");
 
         var boxes = new List<DeliveryBox>
-    {
-        new()
         {
-            DeliveryPointId = libraryPoint.Id,
-            BoxCode = "B-01",
-            QrCodeValue = "FW-DP-LIB-B01",
-            Description = "Kampüs kütüphane girişindeki birinci teslim kutusu",
-            IsOccupied = false
-        },
-        new()
-        {
-            DeliveryPointId = libraryPoint.Id,
-            BoxCode = "B-02",
-            QrCodeValue = "FW-DP-LIB-B02",
-            Description = "Kampüs kütüphane girişindeki ikinci teslim kutusu",
-            IsOccupied = false
-        },
-        new()
-        {
-            DeliveryPointId = dormPoint.Id,
-            BoxCode = "Y-01",
-            QrCodeValue = "FW-DP-DORM-Y01",
-            Description = "Yurt danışma noktasındaki birinci teslim kutusu",
-            IsOccupied = false
-        },
-        new()
-        {
-            DeliveryPointId = cafeteriaPoint.Id,
-            BoxCode = "K-01",
-            QrCodeValue = "FW-DP-CAF-K01",
-            Description = "Kafeterya önündeki birinci teslim kutusu",
-            IsOccupied = false
-        }
-    };
+            new()
+            {
+                DeliveryPointId = libraryPoint.Id,
+                BoxCode = "B-01",
+                QrCodeValue = "FW-DP-LIB-B01",
+                Description = "Kampüs kütüphane girişindeki birinci teslim kutusu",
+                IsOccupied = false
+            },
+            new()
+            {
+                DeliveryPointId = libraryPoint.Id,
+                BoxCode = "B-02",
+                QrCodeValue = "FW-DP-LIB-B02",
+                Description = "Kampüs kütüphane girişindeki ikinci teslim kutusu",
+                IsOccupied = false
+            },
+            new()
+            {
+                DeliveryPointId = dormPoint.Id,
+                BoxCode = "Y-01",
+                QrCodeValue = "FW-DP-DORM-Y01",
+                Description = "Yurt danışma noktasındaki birinci teslim kutusu",
+                IsOccupied = false
+            },
+            new()
+            {
+                DeliveryPointId = cafeteriaPoint.Id,
+                BoxCode = "K-01",
+                QrCodeValue = "FW-DP-CAF-K01",
+                Description = "Kafeterya önündeki birinci teslim kutusu",
+                IsOccupied = false
+            }
+        };
 
         await context.DeliveryBoxes.AddRangeAsync(boxes);
         await context.SaveChangesAsync();
     }
+
     private static async Task SeedRecipesAsync(FoodWiseDbContext context)
     {
         if (await context.Recipes.AnyAsync())
