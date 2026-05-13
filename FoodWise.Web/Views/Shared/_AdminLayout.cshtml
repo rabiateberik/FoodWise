@@ -5,6 +5,11 @@
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
 
     var isDashboardActive = currentAction == "Dashboard";
+    var isUserActive = currentAction == "Users" ||
+                   currentAction == "UserDetails" ||
+                   currentAction == "UserStocks" ||
+                   currentAction == "UserShareListings" ||
+                   currentAction == "UserDeliveries";
     var isCategoryActive = currentAction == "Categories" ||
                            currentAction == "CreateCategory" ||
                            currentAction == "EditCategory";
@@ -431,7 +436,9 @@
                 Dashboard
             </a>
 
-            <a href="#" class="disabled">
+            <a asp-controller="Admin"
+               asp-action="Users"
+               class="@(isUserActive ? "active" : "")">
                 Kullanıcı Yönetimi
             </a>
 

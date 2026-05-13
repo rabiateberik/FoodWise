@@ -1,0 +1,75 @@
+﻿@model List<FoodWise.Web.ViewModels.Admin.AdminUserDeliveryViewModel>
+
+@{
+    Layout = "_AdminLayout";
+
+    var userId = ViewBag.UserId as string;
+
+    ViewData["AdminPageTitle"] = "Kullanıcı Teslimat Geçmişi";
+    ViewData["AdminPageDescription"] = "Seçili kullanıcının bağışladığı ve teslim aldığı ürünleri görüntüleyebilirsin.";
+}
+
+@*
+    Bu sayfa admin panelinde seçili kullanıcının teslimat geçmişini gösterir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="UserDetails" asp-route-id="@userId" class="back-btn">
+        Kullanıcı Detayına Dön
+    </a>
+}
+
+<section class="table-card">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">Bu kullanıcıya ait teslimat kaydı bulunmuyor.</div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Rol</th>
+                    <th>Ürün</th>
+                    <th>Miktar</th>
+                    <th>Teslim Noktası</th>
+                    <th>Kutu</th>
+                    <th>Durum</th>
+                    <th>Son Geçerlilik</th>
+                    <th>Oluşturulma</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var delivery in Model)
+                {
+                    <tr>
+                        <td>
+                            <span class="badge info">@delivery.Role</span>
+                        </td>
+                        <td><strong>@delivery.ProductName</strong></td>
+                        <td>@delivery.Quantity @delivery.UnitName</td>
+                        <td>@(delivery.DeliveryPointName ?? "-")</td>
+                        <td>@(delivery.BoxCode ?? "-")</td>
+                        <td>
+                            <span class="badge active">
+                                @delivery.Status
+                            </span>
+                        </td>
+                        <td>@delivery.ExpiresAt.ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>@delivery.CreatedAt.ToString("dd.MM.yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@section Styles {
+    <style>
+        .badge.info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+    </style>
+}

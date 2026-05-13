@@ -1,0 +1,58 @@
+﻿@model List<FoodWise.Web.ViewModels.Admin.AdminUserShareListingViewModel>
+
+@{
+    Layout = "_AdminLayout";
+
+    var userId = ViewBag.UserId as string;
+
+    ViewData["AdminPageTitle"] = "Kullanıcı Paylaşım İlanları";
+    ViewData["AdminPageDescription"] = "Seçili kullanıcının oluşturduğu paylaşım ilanlarını görüntüleyebilirsin.";
+}
+
+@*
+    Bu sayfa admin panelinde seçili kullanıcının paylaşım ilanlarını gösterir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="UserDetails" asp-route-id="@userId" class="back-btn">
+        Kullanıcı Detayına Dön
+    </a>
+}
+
+<section class="table-card">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">Bu kullanıcıya ait paylaşım ilanı bulunmuyor.</div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Ürün</th>
+                    <th>Miktar</th>
+                    <th>Teslim Noktası</th>
+                    <th>Durum</th>
+                    <th>Oluşturulma</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var listing in Model)
+                {
+                    <tr>
+                        <td><strong>@listing.ProductName</strong></td>
+                        <td>@listing.Quantity @listing.UnitName</td>
+                        <td>@(listing.DeliveryPointName ?? "-")</td>
+                        <td>
+                            <span class="badge active">
+                                @listing.Status
+                            </span>
+                        </td>
+                        <td>@listing.CreatedAt.ToString("dd.MM.yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>

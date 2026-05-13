@@ -650,4 +650,97 @@ public class AdminController : Controller
             .ThenBy(x => x.Name)
             .ToList();
     }
+    [HttpGet]
+    public async Task<IActionResult> Users()
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (!AdminAuthHelper.IsAdmin(token))
+            return RedirectToAction(nameof(Login));
+
+        var users = await _adminWebService.GetUsersAsync(token!);
+
+        return View(users);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> UserDetails(string id)
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (!AdminAuthHelper.IsAdmin(token))
+            return RedirectToAction(nameof(Login));
+
+        var user = await _adminWebService.GetUserByIdAsync(id, token!);
+
+        if (user == null)
+        {
+            TempData["ErrorMessage"] = "Kullanıcı bulunamadı.";
+            return RedirectToAction(nameof(Users));
+        }
+
+        return View(user);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleUserStatus(string id)
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (!AdminAuthHelper.IsAdmin(token))
+            return RedirectToAction(nameof(Login));
+
+        var result = await _adminWebService.ToggleUserStatusAsync(id, token!);
+
+        TempData[result ? "SuccessMessage" : "ErrorMessage"] = result
+            ? "Kullanıcı aktif/pasif durumu güncellendi."
+            : "Kullanıcı durumu güncellenemedi. Admin hesabı pasifleştirilemez.";
+
+        return RedirectToAction(nameof(Users));
+    }
+    [HttpGet]
+    public async Task<IActionResult> UserStocks(string id)
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (!AdminAuthHelper.IsAdmin(token))
+            return RedirectToAction(nameof(Login));
+
+        var stocks = await _adminWebService.GetUserStocksAsync(id, token!);
+
+        ViewBag.UserId = id;
+
+        return View(stocks);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> UserShareListings(string id)
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (!AdminAuthHelper.IsAdmin(token))
+            return RedirectToAction(nameof(Login));
+
+        var listings = await _adminWebService.GetUserShareListingsAsync(id, token!);
+
+        ViewBag.UserId = id;
+
+        return View(listings);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> UserDeliveries(string id)
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (!AdminAuthHelper.IsAdmin(token))
+            return RedirectToAction(nameof(Login));
+
+        var deliveries = await _adminWebService.GetUserDeliveriesAsync(id, token!);
+
+        ViewBag.UserId = id;
+
+        return View(deliveries);
+    }
 }

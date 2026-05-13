@@ -1,0 +1,60 @@
+﻿@model List<FoodWise.Web.ViewModels.Admin.AdminUserStockViewModel>
+
+@{
+    Layout = "_AdminLayout";
+
+    var userId = ViewBag.UserId as string;
+
+    ViewData["AdminPageTitle"] = "Kullanıcı Stokları";
+    ViewData["AdminPageDescription"] = "Seçili kullanıcının stok kayıtlarını görüntüleyebilirsin.";
+}
+
+@*
+    Bu sayfa admin panelinde seçili kullanıcının stok kayıtlarını gösterir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="UserDetails" asp-route-id="@userId" class="back-btn">
+        Kullanıcı Detayına Dön
+    </a>
+}
+
+<section class="table-card">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">Bu kullanıcıya ait stok kaydı bulunmuyor.</div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Ürün</th>
+                    <th>Miktar</th>
+                    <th>Son Kullanma</th>
+                    <th>Risk</th>
+                    <th>Durum</th>
+                    <th>Eklenme</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var stock in Model)
+                {
+                    <tr>
+                        <td><strong>@stock.ProductName</strong></td>
+                        <td>@stock.Quantity @stock.UnitName</td>
+                        <td>@stock.ExpirationDate.ToString("dd.MM.yyyy")</td>
+                        <td>@(stock.RiskLevel ?? "-")</td>
+                        <td>
+                            <span class="badge @(stock.IsActive ? "active" : "passive")">
+                                @(stock.IsActive? stock.Status: "Pasif")
+                            </span>
+                        </td>
+                        <td>@stock.CreatedAt.ToString("dd.MM.yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>

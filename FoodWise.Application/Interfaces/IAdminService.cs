@@ -46,4 +46,14 @@ public interface IAdminService
     Task<AdminDeliveryBoxDto?> UpdateDeliveryBoxAsync(int id, UpdateAdminDeliveryBoxDto model);
 
     Task<bool> ToggleDeliveryBoxStatusAsync(int id);
+    Task<List<AdminUserDto>> GetUsersAsync();
+
+    Task<AdminUserDto?> GetUserByIdAsync(string id);
+
+    Task<bool> ToggleUserStatusAsync(string id);
+    Task<List<AdminUserStockDto>> GetUserStocksAsync(string userId);
+
+    Task<List<AdminUserShareListingDto>> GetUserShareListingsAsync(string userId);
+
+    Task<List<AdminUserDeliveryDto>> GetUserDeliveriesAsync(string userId);
 }

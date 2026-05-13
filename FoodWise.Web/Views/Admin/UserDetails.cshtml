@@ -1,0 +1,409 @@
+﻿@model FoodWise.Web.ViewModels.Admin.AdminUserViewModel
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Kullanıcı Detayı";
+    ViewData["AdminPageDescription"] = "Kullanıcının profil, hesap durumu ve sistem hareketlerini buradan görüntüleyebilirsin.";
+
+    var isAdminUser = Model.Roles.Any(x => x == "Admin");
+
+    var nameParts = Model.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    var initials = nameParts.Length >= 2
+        ? $"{nameParts[0][0]}{nameParts[^1][0]}".ToUpper()
+        : nameParts.Length == 1
+            ? nameParts[0][0].ToString().ToUpper()
+            : "K";
+}
+
+@*
+    Admin kullanıcı detay sayfası.
+    Bu sayfada kullanıcının profil bilgileri, aktivite özeti ve detaylı hareket bağlantıları gösterilir.
+    Kullanıcı fiziksel olarak silinmez; hesap pasifleştirme yöntemiyle yönetilir.
+*@
+
+@section TopActions {
+    <a asp-controller="Admin" asp-action="Users" class="back-btn">
+        Kullanıcılara Dön
+    </a>
+}
+
+<section class="user-detail-page">
+    <section class="user-profile-card">
+        <div class="user-main-info">
+            <div class="user-avatar-large">
+                @initials
+            </div>
+
+            <div>
+                <h3>@Model.FullName</h3>
+                <p>@Model.Email</p>
+
+                <div class="badge-row">
+                    <span class="badge @(Model.IsActive ? "active" : "passive")">
+                        @(Model.IsActive ? "Aktif Kullanıcı" : "Pasif Kullanıcı")
+                    </span>
+
+                    @if (Model.Roles.Any())
+                    {
+                        foreach (var role in Model.Roles)
+                        {
+                            <span class="badge info">@role</span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="badge passive">Rol Yok</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-actions">
+            @if (!isAdminUser)
+            {
+                <form asp-controller="Admin"
+                      asp-action="ToggleUserStatus"
+                      asp-route-id="@Model.Id"
+                      method="post"
+                      onsubmit="return confirm('Kullanıcı durumunu değiştirmek istediğine emin misin?');">
+                    @Html.AntiForgeryToken()
+
+                    <button type="submit" class="status-action-btn">
+                        @(Model.IsActive ? "Kullanıcıyı Pasifleştir" : "Kullanıcıyı Aktif Yap")
+                    </button>
+                </form>
+            }
+            else
+            {
+                <div class="protected-admin-box">
+                    Admin hesabı koruma altında.
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="detail-section">
+        <div class="section-title">
+            <h3>Profil Bilgileri</h3>
+            <p>Kullanıcının temel hesap, konum ve puan bilgileri.</p>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span>E-posta</span>
+                <strong>@Model.Email</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>Konum</span>
+                <strong>@(Model.City ?? "-") / @(Model.District ?? "-") / @(Model.Neighborhood ?? "-")</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>İhtiyaç Puanı</span>
+                <strong>@Model.NeedScore</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>Güvenilirlik Puanı</span>
+                <strong>@Model.ReliabilityScore</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>Kayıt Tarihi</span>
+                <strong>@Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</strong>
+            </div>
+
+            <div class="detail-item">
+                <span>Pasifleştirilme Tarihi</span>
+                <strong>@(Model.DeletedAt.HasValue? Model.DeletedAt.Value.ToString("dd.MM.yyyy HH:mm") : "-")</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="detail-section">
+        <div class="section-title">
+            <h3>Kullanıcı Aktivite Özeti</h3>
+            <p>Kullanıcının FoodWise içindeki stok, paylaşım, teslimat ve puan hareketleri.</p>
+        </div>
+
+        <div class="summary-grid">
+            <a asp-controller="Admin"
+               asp-action="UserStocks"
+               asp-route-id="@Model.Id"
+               class="summary-card clickable-card">
+                <span>Stok Ürünü</span>
+                <strong>@Model.StockItemCount</strong>
+                <small>Kullanıcının aktif stok kayıtlarını görüntüle.</small>
+            </a>
+
+            <a asp-controller="Admin"
+               asp-action="UserShareListings"
+               asp-route-id="@Model.Id"
+               class="summary-card clickable-card">
+                <span>Paylaşım İlanı</span>
+                <strong>@Model.ShareListingCount</strong>
+                <small>Aktif ilan: @Model.ActiveShareListingCount</small>
+            </a>
+
+            <a asp-controller="Admin"
+               asp-action="UserDeliveries"
+               asp-route-id="@Model.Id"
+               class="summary-card clickable-card">
+                <span>Bağışladığı Teslimat</span>
+                <strong>@Model.DonatedDeliveryCount</strong>
+                <small>Tamamlanan: @Model.CompletedDonatedDeliveryCount</small>
+            </a>
+
+            <a asp-controller="Admin"
+               asp-action="UserDeliveries"
+               asp-route-id="@Model.Id"
+               class="summary-card clickable-card">
+                <span>Teslim Aldığı Ürün</span>
+                <strong>@Model.ReceivedDeliveryCount</strong>
+                <small>Tamamlanan: @Model.CompletedReceivedDeliveryCount</small>
+            </a>
+
+            <a asp-controller="Admin"
+               asp-action="UserDeliveries"
+               asp-route-id="@Model.Id"
+               class="summary-card clickable-card">
+                <span>Süresi Dolan Teslimat</span>
+                <strong>@Model.ExpiredDeliveryCount</strong>
+                <small>Teslim alınmayan veya süresi geçen kayıtları görüntüle.</small>
+            </a>
+
+            <div class="summary-card">
+                <span>Toplam Eco Puan</span>
+                <strong>@Model.TotalEcoPoint</strong>
+                <small>Kullanıcının kazandığı toplam puan.</small>
+            </div>
+
+            <div class="summary-card">
+                <span>Karbon Katkısı</span>
+                <strong>@Model.TotalCarbonSavedKg.ToString("0.##") kg</strong>
+                <small>Tamamlanan paylaşımlardan gelen katkı.</small>
+            </div>
+        </div>
+    </section>
+
+  
+</section>
+
+@section Styles {
+    <style>
+        .user-detail-page {
+            display: grid;
+            gap: 22px;
+        }
+
+        .user-profile-card,
+        .detail-section {
+            background: white;
+            border-radius: 22px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+        }
+
+        .user-profile-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 22px;
+        }
+
+        .user-main-info {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            min-width: 0;
+        }
+
+        .user-avatar-large {
+            width: 76px;
+            height: 76px;
+            border-radius: 22px;
+            background: #238636;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 900;
+            flex-shrink: 0;
+        }
+
+        .user-main-info h3 {
+            margin: 0 0 6px;
+            color: #145c24;
+            font-size: 26px;
+            word-break: break-word;
+        }
+
+        .user-main-info p {
+            margin: 0 0 12px;
+            color: #607d8b;
+            word-break: break-word;
+        }
+
+        .badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .badge.info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .profile-actions {
+            flex-shrink: 0;
+        }
+
+        .status-action-btn {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 16px;
+            background: #fef3c7;
+            color: #92400e;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+            .status-action-btn:hover {
+                background: #fde68a;
+            }
+
+        .protected-admin-box {
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            color: #607d8b;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-weight: 800;
+        }
+
+        .section-title {
+            margin-bottom: 18px;
+        }
+
+            .section-title h3 {
+                margin: 0 0 6px;
+                color: #145c24;
+                font-size: 22px;
+            }
+
+            .section-title p {
+                margin: 0;
+                color: #607d8b;
+                line-height: 1.5;
+            }
+
+        .detail-grid,
+        .summary-grid,
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 16px;
+        }
+
+        .detail-item,
+        .summary-card,
+        .action-card {
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 16px;
+            padding: 18px;
+        }
+
+            .detail-item span,
+            .summary-card span,
+            .action-card span {
+                display: block;
+                color: #607d8b;
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+
+            .detail-item strong {
+                color: #145c24;
+                font-size: 16px;
+                line-height: 1.5;
+                word-break: break-word;
+            }
+
+            .summary-card strong {
+                display: block;
+                color: #145c24;
+                font-size: 30px;
+                font-weight: 900;
+            }
+
+            .summary-card small {
+                display: block;
+                color: #78909c;
+                margin-top: 8px;
+                line-height: 1.4;
+            }
+
+        .action-card {
+            text-decoration: none;
+            color: inherit;
+            transition: 0.15s ease;
+        }
+
+            .action-card span {
+                color: #145c24;
+                font-weight: 900;
+                font-size: 16px;
+            }
+
+            .action-card p {
+                margin: 0;
+                color: #607d8b;
+                line-height: 1.5;
+                font-size: 14px;
+            }
+
+            .action-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 26px rgba(0, 0, 0, 0.06);
+            }
+
+        .clickable-card {
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+            transition: 0.15s ease;
+        }
+
+            .clickable-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 26px rgba(0, 0, 0, 0.07);
+                border-color: #bbf7d0;
+            }
+
+                .clickable-card:hover span {
+                    color: #145c24;
+                }
+        @@media (max-width: 800px) {
+            .user-profile-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .user-main-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .profile-actions,
+            .status-action-btn {
+                width: 100%;
+            }
+        }
+    </style>
+}

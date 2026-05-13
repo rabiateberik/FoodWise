@@ -49,4 +49,15 @@ public interface IAdminWebService
     Task<bool> UpdateDeliveryBoxAsync(UpdateAdminDeliveryBoxViewModel model, string token);
 
     Task<bool> ToggleDeliveryBoxStatusAsync(int id, string token);
+    // Kullanıcı yönetimi için gerekli metotlar
+    Task<List<AdminUserViewModel>> GetUsersAsync(string token);
+
+    Task<AdminUserViewModel?> GetUserByIdAsync(string id, string token);
+
+    Task<bool> ToggleUserStatusAsync(string id, string token);
+    Task<List<AdminUserStockViewModel>> GetUserStocksAsync(string id, string token);
+
+    Task<List<AdminUserShareListingViewModel>> GetUserShareListingsAsync(string id, string token);
+
+    Task<List<AdminUserDeliveryViewModel>> GetUserDeliveriesAsync(string id, string token);
 }

@@ -222,4 +222,59 @@ public class AdminController : ControllerBase
             message = "Teslimat noktası aktif/pasif durumu güncellendi."
         });
     }
+    [HttpGet("users")]
+    public async Task<IActionResult> GetUsers()
+    {
+        var result = await _adminService.GetUsersAsync();
+
+        return Ok(result);
+    }
+
+    [HttpGet("users/{id}")]
+    public async Task<IActionResult> GetUserById(string id)
+    {
+        var result = await _adminService.GetUserByIdAsync(id);
+
+        if (result == null)
+            return NotFound("Kullanıcı bulunamadı.");
+
+        return Ok(result);
+    }
+
+    [HttpPatch("users/{id}/toggle-status")]
+    public async Task<IActionResult> ToggleUserStatus(string id)
+    {
+        var result = await _adminService.ToggleUserStatusAsync(id);
+
+        if (!result)
+            return BadRequest("Kullanıcı durumu güncellenemedi. Admin hesabı pasifleştirilemez.");
+
+        return Ok(new
+        {
+            message = "Kullanıcı aktif/pasif durumu güncellendi."
+        });
+    }
+    [HttpGet("users/{id}/stocks")]
+    public async Task<IActionResult> GetUserStocks(string id)
+    {
+        var result = await _adminService.GetUserStocksAsync(id);
+
+        return Ok(result);
+    }
+
+    [HttpGet("users/{id}/share-listings")]
+    public async Task<IActionResult> GetUserShareListings(string id)
+    {
+        var result = await _adminService.GetUserShareListingsAsync(id);
+
+        return Ok(result);
+    }
+
+    [HttpGet("users/{id}/deliveries")]
+    public async Task<IActionResult> GetUserDeliveries(string id)
+    {
+        var result = await _adminService.GetUserDeliveriesAsync(id);
+
+        return Ok(result);
+    }
 }

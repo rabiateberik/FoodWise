@@ -287,4 +287,79 @@ public class AdminWebService : IAdminWebService
 
         return response.IsSuccessStatusCode;
     }
+    public async Task<List<AdminUserViewModel>> GetUsersAsync(string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync("api/admin/users");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<AdminUserViewModel>();
+
+        return await response.Content.ReadFromJsonAsync<List<AdminUserViewModel>>(GetJsonOptions())
+               ?? new List<AdminUserViewModel>();
+    }
+
+    public async Task<AdminUserViewModel?> GetUserByIdAsync(string id, string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync($"api/admin/users/{id}");
+
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        return await response.Content.ReadFromJsonAsync<AdminUserViewModel>(GetJsonOptions());
+    }
+
+    public async Task<bool> ToggleUserStatusAsync(string id, string token)
+    {
+        SetBearerToken(token);
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"api/admin/users/{id}/toggle-status");
+
+        var response = await _httpClient.SendAsync(request);
+
+        return response.IsSuccessStatusCode;
+    }
+    public async Task<List<AdminUserStockViewModel>> GetUserStocksAsync(string id, string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync($"api/admin/users/{id}/stocks");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<AdminUserStockViewModel>();
+
+        return await response.Content.ReadFromJsonAsync<List<AdminUserStockViewModel>>(GetJsonOptions())
+               ?? new List<AdminUserStockViewModel>();
+    }
+
+    public async Task<List<AdminUserShareListingViewModel>> GetUserShareListingsAsync(string id, string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync($"api/admin/users/{id}/share-listings");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<AdminUserShareListingViewModel>();
+
+        return await response.Content.ReadFromJsonAsync<List<AdminUserShareListingViewModel>>(GetJsonOptions())
+               ?? new List<AdminUserShareListingViewModel>();
+    }
+
+    public async Task<List<AdminUserDeliveryViewModel>> GetUserDeliveriesAsync(string id, string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync($"api/admin/users/{id}/deliveries");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<AdminUserDeliveryViewModel>();
+
+        return await response.Content.ReadFromJsonAsync<List<AdminUserDeliveryViewModel>>(GetJsonOptions())
+               ?? new List<AdminUserDeliveryViewModel>();
+    }
 }

@@ -694,4 +694,225 @@ public class AdminService : IAdminService
             CreatedAt = deliveryBox.CreatedAt
         };
     }
+
+    public async Task<List<AdminUserDto>> GetUsersAsync()
+    {
+        // Admin panelinde aktif ve pasif tüm kullanıcılar listelenir.
+        var users = await _userManager.Users
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        var result = new List<AdminUserDto>();
+
+        foreach (var user in users)
+        {
+            result.Add(await MapUserToDtoAsync(user));
+        }
+
+        return result;
+    }
+
+    public async Task<AdminUserDto?> GetUserByIdAsync(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+
+        if (user == null)
+            return null;
+
+        return await MapUserToDtoAsync(user);
+    }
+
+    public async Task<bool> ToggleUserStatusAsync(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+
+        if (user == null)
+            return false;
+
+        // Admin hesabı pasifleştirilemez.
+        // Böylece sistem yönetim erişimi yanlışlıkla kapanmaz.
+        if (await _userManager.IsInRoleAsync(user, "Admin"))
+            return false;
+
+        user.IsActive = !user.IsActive;
+        user.UpdatedAt = DateTime.Now;
+
+        user.DeletedAt = user.IsActive
+            ? null
+            : DateTime.Now;
+
+        var result = await _userManager.UpdateAsync(user);
+
+        return result.Succeeded;
+    }
+
+    private async Task<AdminUserDto> MapUserToDtoAsync(ApplicationUser user)
+    {
+        var roles = await _userManager.GetRolesAsync(user);
+
+        // Kullanıcının stok kayıtları sayılır.
+        var stockItemCount = await _context.StockItems
+            .CountAsync(x => x.UserId == user.Id && x.IsActive);
+
+        // Kullanıcının oluşturduğu paylaşım ilanları sayılır.
+        var shareListingCount = await _context.ShareListings
+            .CountAsync(x => x.DonorUserId == user.Id && x.IsActive);
+
+        // Kullanıcının halen aktif kabul edilen paylaşım ilanları sayılır.
+        var activeShareListingCount = await _context.ShareListings
+            .CountAsync(x =>
+                x.DonorUserId == user.Id &&
+                x.IsActive &&
+                x.Status != ShareListingStatus.Cancelled &&
+                x.Status != ShareListingStatus.Expired &&
+                x.Status != ShareListingStatus.Delivered);
+
+        // Kullanıcının bağışçı olduğu teslimatlar.
+        var donatedDeliveryCount = await _context.Deliveries
+            .CountAsync(x => x.DonorUserId == user.Id);
+
+        // Kullanıcının alıcı olduğu teslimatlar.
+        var receivedDeliveryCount = await _context.Deliveries
+            .CountAsync(x => x.ReceiverUserId == user.Id);
+
+        // Kullanıcının başarıyla tamamladığı bağış teslimatları.
+        var completedDonatedDeliveryCount = await _context.Deliveries
+            .CountAsync(x =>
+                x.DonorUserId == user.Id &&
+                x.Status == DeliveryStatus.Delivered);
+
+        // Kullanıcının başarıyla teslim aldığı ürünler.
+        var completedReceivedDeliveryCount = await _context.Deliveries
+            .CountAsync(x =>
+                x.ReceiverUserId == user.Id &&
+                x.Status == DeliveryStatus.Delivered);
+
+        // Kullanıcının bağışçı veya alıcı olduğu süresi dolan teslimatlar.
+        var expiredDeliveryCount = await _context.Deliveries
+            .CountAsync(x =>
+                (x.DonorUserId == user.Id || x.ReceiverUserId == user.Id) &&
+                x.Status == DeliveryStatus.Expired);
+
+        // Kullanıcının kazandığı toplam eco puan.
+        var totalEcoPoint = await _context.EcoPointHistories
+            .Where(x => x.UserId == user.Id)
+            .SumAsync(x => (int?)x.Point) ?? 0;
+
+        // Kullanıcının karbon raporlarındaki toplam tahmini karbon tasarrufu.
+        var totalCarbonSavedKg = await _context.CarbonReports
+            .Where(x => x.UserId == user.Id)
+            .SumAsync(x => (decimal?)x.EstimatedCarbonSaved) ?? 0;
+
+        return new AdminUserDto
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email ?? string.Empty,
+            City = user.City,
+            District = user.District,
+            Neighborhood = user.Neighborhood,
+            NeedScore = user.NeedScore,
+            ReliabilityScore = user.ReliabilityScore,
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt,
+            DeletedAt = user.DeletedAt,
+            Roles = roles.ToList(),
+
+            StockItemCount = stockItemCount,
+            ShareListingCount = shareListingCount,
+            ActiveShareListingCount = activeShareListingCount,
+            DonatedDeliveryCount = donatedDeliveryCount,
+            ReceivedDeliveryCount = receivedDeliveryCount,
+            CompletedDonatedDeliveryCount = completedDonatedDeliveryCount,
+            CompletedReceivedDeliveryCount = completedReceivedDeliveryCount,
+            ExpiredDeliveryCount = expiredDeliveryCount,
+            TotalEcoPoint = totalEcoPoint,
+            TotalCarbonSavedKg = totalCarbonSavedKg
+        };
+    }
+    public async Task<List<AdminUserStockDto>> GetUserStocksAsync(string userId)
+    {
+        // Admin panelinde kullanıcının stok kayıtları ürün, birim ve son risk bilgisiyle listelenir.
+        var stockItems = await _context.StockItems
+            .Include(x => x.Product)
+            .Include(x => x.Unit)
+            .Include(x => x.WasteRiskPredictions)
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        return stockItems.Select(x => new AdminUserStockDto
+        {
+            Id = x.Id,
+            ProductName = x.Product.Name,
+            Quantity = x.Quantity,
+            UnitName = x.Unit.ShortName,
+            ExpirationDate = x.ExpirationDate,
+            Status = x.Status.ToString(),
+            RiskLevel = x.WasteRiskPredictions
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => r.RiskLevel.ToString())
+                .FirstOrDefault(),
+            IsActive = x.IsActive,
+            CreatedAt = x.CreatedAt
+        }).ToList();
+    }
+
+    public async Task<List<AdminUserShareListingDto>> GetUserShareListingsAsync(string userId)
+    {
+        // Admin panelinde kullanıcının oluşturduğu paylaşım ilanları listelenir.
+        var listings = await _context.ShareListings
+            .Include(x => x.StockItem)
+                .ThenInclude(x => x.Product)
+            .Include(x => x.StockItem)
+                .ThenInclude(x => x.Unit)
+            .Include(x => x.DeliveryPoint)
+            .Where(x => x.DonorUserId == userId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        return listings.Select(x => new AdminUserShareListingDto
+        {
+            Id = x.Id,
+            ProductName = x.StockItem.Product.Name,
+            Quantity = x.Quantity,
+            UnitName = x.StockItem.Unit.ShortName,
+            DeliveryPointName = x.DeliveryPoint != null ? x.DeliveryPoint.Name : "-",
+            Status = x.Status.ToString(),
+            CreatedAt = x.CreatedAt
+        }).ToList();
+    }
+
+    public async Task<List<AdminUserDeliveryDto>> GetUserDeliveriesAsync(string userId)
+    {
+        // Admin panelinde kullanıcının bağışçı veya alıcı olduğu tüm teslimatlar listelenir.
+        var deliveries = await _context.Deliveries
+            .Include(x => x.ShareListing)
+                .ThenInclude(x => x.StockItem)
+                    .ThenInclude(x => x.Product)
+            .Include(x => x.ShareListing)
+                .ThenInclude(x => x.StockItem)
+                    .ThenInclude(x => x.Unit)
+            .Include(x => x.DeliveryPoint)
+            .Include(x => x.DeliveryBox)
+            .Where(x => x.DonorUserId == userId || x.ReceiverUserId == userId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        return deliveries.Select(x => new AdminUserDeliveryDto
+        {
+            Id = x.Id,
+            Role = x.DonorUserId == userId ? "Bağışçı" : "Alıcı",
+            ProductName = x.ShareListing.StockItem.Product.Name,
+            Quantity = x.ShareListing.Quantity,
+            UnitName = x.ShareListing.StockItem.Unit.ShortName,
+            DeliveryPointName = x.DeliveryPoint?.Name,
+            BoxCode = x.DeliveryBox?.BoxCode,
+            Status = x.Status.ToString(),
+            ExpiresAt = x.ExpiresAt,
+            DroppedOffAt = x.DroppedOffAt,
+            DeliveredAt = x.DeliveredAt,
+            CreatedAt = x.CreatedAt
+        }).ToList();
+    }
 }
