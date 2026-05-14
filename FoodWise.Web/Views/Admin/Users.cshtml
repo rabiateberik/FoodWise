@@ -11,7 +11,18 @@
     Admin kullanıcı listeleme sayfası.
     Kullanıcılar fiziksel olarak silinmez; hesaplar pasifleştirilerek sistem ilişkileri korunur.
 *@
+<div class="admin-filter-bar">
+    <input type="text"
+           class="admin-search-input"
+           data-admin-search
+           placeholder="Kullanıcı adı, e-posta veya şehir ara..." />
 
+    <select class="admin-filter-select" data-admin-status-filter>
+        <option value="">Tüm kullanıcılar</option>
+        <option value="active">Aktif kullanıcılar</option>
+        <option value="passive">Pasif kullanıcılar</option>
+    </select>
+</div>
 <section class="table-card">
     @if (Model == null || !Model.Any())
     {
@@ -21,7 +32,7 @@
     }
     else
     {
-        <table>
+        <table data-admin-filter-table>
             <thead>
                 <tr>
                     <th>Kullanıcı</th>
@@ -39,7 +50,7 @@
                 {
                     var isAdminUser = user.Roles.Any(x => x == "Admin");
 
-                    <tr>
+                    <tr data-status="@(user.IsActive ? "active" : "passive")">
                         <td>
                             <strong>@user.FullName</strong>
                             <div class="mini-note">@user.Email</div>

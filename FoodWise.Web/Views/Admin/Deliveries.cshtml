@@ -1,0 +1,138 @@
+﻿@model List<FoodWise.Web.ViewModels.Admin.AdminDeliveryMonitorViewModel>
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Teslimatlar";
+    ViewData["AdminPageDescription"] = "Sistemdeki tüm teslimat süreçlerini izleyebilirsin.";
+}
+
+@functions {
+    string GetDeliveryStatusText(string status)
+    {
+        return status switch
+        {
+            "Pending" => "Beklemede",
+            "QrGenerated" => "QR Oluşturuldu",
+            "DroppedOff" => "Kutuya Bırakıldı",
+            "Delivered" => "Teslim Edildi",
+            "Expired" => "Süresi Doldu",
+            "Cancelled" => "İptal Edildi",
+            _ => status
+        };
+    }
+
+    string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "Pending" => "info",
+            "QrGenerated" => "info",
+            "DroppedOff" => "info",
+            "Delivered" => "active",
+            "Expired" => "passive",
+            "Cancelled" => "passive",
+            _ => "info"
+        };
+    }
+}
+
+@*
+    Admin sistem geneli teslimat izleme sayfası.
+    Teslimatlar burada sadece takip edilir; manuel durum değişikliği yapılmaz.
+*@
+
+<div class="admin-filter-bar">
+    <input type="text"
+           class="admin-search-input"
+           data-admin-search
+           placeholder="Ürün, bağışçı, alıcı, teslim noktası veya kutu ara..." />
+
+    <select class="admin-filter-select" data-admin-status-filter>
+        <option value="">Tüm teslimatlar</option>
+        <option value="pending">Beklemede</option>
+        <option value="qrgenerated">QR Oluşturuldu</option>
+        <option value="droppedoff">Kutuya Bırakıldı</option>
+        <option value="delivered">Teslim Edildi</option>
+        <option value="expired">Süresi Doldu</option>
+        <option value="cancelled">İptal Edildi</option>
+    </select>
+</div>
+
+<section class="table-card">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            Sistemde teslimat kaydı bulunmuyor.
+        </div>
+    }
+    else
+    {
+        <table data-admin-filter-table>
+            <thead>
+                <tr>
+                    <th>Ürün</th>
+                    <th>Bağışçı</th>
+                    <th>Alıcı</th>
+                    <th>Teslim Noktası</th>
+                    <th>Kutu</th>
+                    <th>Durum</th>
+                    <th>Son Geçerlilik</th>
+                    <th>Oluşturulma</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var delivery in Model)
+                {
+                    <tr data-status="@delivery.Status.ToLowerInvariant()">
+                        <td>
+                            <strong>@delivery.ProductName</strong>
+                            <div class="mini-note">@delivery.Quantity @delivery.UnitName</div>
+                        </td>
+
+                        <td>
+                            @delivery.DonorFullName
+                            <div class="mini-note">@delivery.DonorEmail</div>
+                        </td>
+
+                        <td>
+                            @delivery.ReceiverFullName
+                            <div class="mini-note">@delivery.ReceiverEmail</div>
+                        </td>
+
+                        <td>@(delivery.DeliveryPointName ?? "-")</td>
+
+                        <td>@(delivery.BoxCode ?? "-")</td>
+
+                        <td>
+                            <span class="badge @GetStatusClass(delivery.Status)">
+                                @GetDeliveryStatusText(delivery.Status)
+                            </span>
+                        </td>
+
+                        <td>@delivery.ExpiresAt.ToString("dd.MM.yyyy HH:mm")</td>
+
+                        <td>@delivery.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@section Styles {
+    <style>
+        .mini-note {
+            color: #78909c;
+            font-size: 12px;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .badge.info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+    </style>
+}

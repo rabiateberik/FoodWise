@@ -17,7 +17,18 @@
         Yeni Kategori
     </a>
 }
+<div class="admin-filter-bar">
+    <input type="text"
+           class="admin-search-input"
+           data-admin-search
+           placeholder="Kategori adı veya açıklama ara..." />
 
+    <select class="admin-filter-select" data-admin-status-filter>
+        <option value="">Tüm kategoriler</option>
+        <option value="active">Aktif kategoriler</option>
+        <option value="passive">Pasif kategoriler</option>
+    </select>
+</div>
 <section class="table-card">
     @if (Model == null || !Model.Any())
     {
@@ -27,7 +38,7 @@
     }
     else
     {
-        <table>
+        <table data-admin-filter-table>
             <thead>
                 <tr>
                     <th>Kategori</th>
@@ -42,7 +53,7 @@
             <tbody>
                 @foreach (var category in Model)
                 {
-                    <tr>
+                    <tr data-status="@(category.IsActive ? "active" : "passive")">
                         <td><strong>@category.Name</strong></td>
                         <td>@(category.Description ?? "-")</td>
                         <td>@category.ProductCount</td>

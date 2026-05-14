@@ -28,7 +28,18 @@
         Teslimat Noktalarına Dön
     </a>
 }
+<div class="admin-filter-bar">
+    <input type="text"
+           class="admin-search-input"
+           data-admin-search
+           placeholder="Kutu kodu, QR değeri veya teslim noktası ara..." />
 
+    <select class="admin-filter-select" data-admin-status-filter>
+        <option value="">Tüm kutular</option>
+        <option value="active">Aktif kutular</option>
+        <option value="passive">Pasif kutular</option>
+    </select>
+</div>
 <section class="table-card">
     @if (Model == null || !Model.Any())
     {
@@ -38,7 +49,7 @@
     }
     else
     {
-        <table>
+        <table data-admin-filter-table>
             <thead>
                 <tr>
                     <th>Kutu</th>
@@ -54,7 +65,7 @@
             <tbody>
                 @foreach (var box in Model)
                 {
-                    <tr>
+                    <tr data-status="@(box.IsActive ? "active" : "passive")">
                         <td>
                             <strong>@box.BoxCode</strong>
                             <div class="mini-note">@(box.Description ?? "-")</div>

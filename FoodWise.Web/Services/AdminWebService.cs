@@ -362,4 +362,29 @@ public class AdminWebService : IAdminWebService
         return await response.Content.ReadFromJsonAsync<List<AdminUserDeliveryViewModel>>(GetJsonOptions())
                ?? new List<AdminUserDeliveryViewModel>();
     }
+    public async Task<List<AdminShareListingViewModel>> GetShareListingsAsync(string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync("api/admin/share-listings");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<AdminShareListingViewModel>();
+
+        return await response.Content.ReadFromJsonAsync<List<AdminShareListingViewModel>>(GetJsonOptions())
+               ?? new List<AdminShareListingViewModel>();
+    }
+
+    public async Task<List<AdminDeliveryMonitorViewModel>> GetDeliveriesAsync(string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync("api/admin/deliveries");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<AdminDeliveryMonitorViewModel>();
+
+        return await response.Content.ReadFromJsonAsync<List<AdminDeliveryMonitorViewModel>>(GetJsonOptions())
+               ?? new List<AdminDeliveryMonitorViewModel>();
+    }
 }

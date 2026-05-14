@@ -62,27 +62,32 @@
 </section>
 
 <section class="section">
-    <h3>Yönetim Modülleri</h3>
+    <h3>Hızlı Yönetim Kısayolları</h3>
 
-    <div class="admin-shortcuts">
-        <a href="#" class="shortcut-card">
-            <span>Kullanıcı Yönetimi</span>
-            <p>Kullanıcıları listele, aktif/pasif durumlarını yönet.</p>
+    <div class="quick-link-grid">
+        <a asp-controller="Admin" asp-action="Users" class="quick-link-card">
+            <span>Kullanıcı Yönetimine Git</span>
+            <p>Kullanıcıları listele, detaylarını görüntüle ve aktif/pasif durumlarını yönet.</p>
         </a>
 
-        <a asp-controller="Admin" asp-action="Categories" class="shortcut-card">
-            <span>Kategori Yönetimi</span>
-            <p>Ürün kategorilerini ekle, düzenle veya pasifleştir.</p>
-        </a>
-
-        <a href="#" class="shortcut-card">
-            <span>Ürün Yönetimi</span>
+        <a asp-controller="Admin" asp-action="Products" class="quick-link-card">
+            <span>Ürün Yönetimine Git</span>
             <p>Sistem ürünlerini ve kullanıcıların eklediği ürünleri yönet.</p>
         </a>
 
-        <a href="#" class="shortcut-card">
-            <span>Teslimat Noktaları</span>
-            <p>Güvenli teslim noktalarını ve teslim kutularını yönet.</p>
+        <a asp-controller="Admin" asp-action="Categories" class="quick-link-card">
+            <span>Kategori Yönetimine Git</span>
+            <p>Ürün kategorilerini ekle, düzenle veya pasifleştir.</p>
+        </a>
+
+        <a asp-controller="Admin" asp-action="DeliveryPoints" class="quick-link-card">
+            <span>Teslim Noktalarına Git</span>
+            <p>Şehir, ilçe ve mahalle bazlı güvenli teslim noktalarını yönet.</p>
+        </a>
+
+        <a asp-controller="Admin" asp-action="DeliveryBoxes" class="quick-link-card">
+            <span>Teslim Kutularına Git</span>
+            <p>QR destekli teslim kutularını görüntüle, ekle veya düzenle.</p>
         </a>
     </div>
 </section>

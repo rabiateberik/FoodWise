@@ -56,4 +56,8 @@ public interface IAdminService
     Task<List<AdminUserShareListingDto>> GetUserShareListingsAsync(string userId);
 
     Task<List<AdminUserDeliveryDto>> GetUserDeliveriesAsync(string userId);
+    // ShareListing yönetimi için gerekli metotlar
+    Task<List<AdminShareListingDto>> GetShareListingsAsync();
+
+    Task<List<AdminDeliveryMonitorDto>> GetDeliveriesAsync();
 }

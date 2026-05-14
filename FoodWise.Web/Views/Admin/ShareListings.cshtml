@@ -1,0 +1,140 @@
+﻿@model List<FoodWise.Web.ViewModels.Admin.AdminShareListingViewModel>
+
+@{
+    Layout = "_AdminLayout";
+
+    ViewData["AdminPageTitle"] = "Paylaşım İlanları";
+    ViewData["AdminPageDescription"] = "Sistemde oluşturulan tüm paylaşım ilanlarını izleyebilirsin.";
+}
+
+@functions {
+    string GetShareListingStatusText(string status)
+    {
+        return status switch
+        {
+            "Available" => "Aktif",
+            "Requested" => "Talep Var",
+            "Approved" => "Onaylandı",
+            "Delivered" => "Teslim Edildi",
+            "Expired" => "Süresi Doldu",
+            "Cancelled" => "İptal Edildi",
+            _ => status
+        };
+    }
+
+    string GetStatusClass(string status)
+    {
+        return status switch
+        {
+            "Available" => "active",
+            "Requested" => "info",
+            "Approved" => "info",
+            "Delivered" => "active",
+            "Expired" => "passive",
+            "Cancelled" => "passive",
+            _ => "info"
+        };
+    }
+}
+
+@*
+    Admin sistem geneli paylaşım ilanları izleme sayfası.
+    Bu sayfa sadece görüntüleme amaçlıdır; ilan durumları buradan değiştirilmez.
+*@
+
+<div class="admin-filter-bar">
+    <input type="text"
+           class="admin-search-input"
+           data-admin-search
+           placeholder="Ürün, bağışçı, e-posta veya teslim noktası ara..." />
+
+    <select class="admin-filter-select" data-admin-status-filter>
+        <option value="">Tüm ilanlar</option>
+        <option value="available">Aktif</option>
+        <option value="requested">Talep Var</option>
+        <option value="approved">Onaylandı</option>
+        <option value="delivered">Teslim Edildi</option>
+        <option value="expired">Süresi Doldu</option>
+        <option value="cancelled">İptal Edildi</option>
+    </select>
+</div>
+
+<section class="table-card">
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty-state">
+            Sistemde paylaşım ilanı bulunmuyor.
+        </div>
+    }
+    else
+    {
+        <table data-admin-filter-table>
+            <thead>
+                <tr>
+                    <th>Ürün</th>
+                    <th>Bağışçı</th>
+                    <th>Miktar</th>
+                    <th>Teslim Noktası</th>
+                    <th>Durum</th>
+                    <th>Aktiflik</th>
+                    <th>Oluşturulma</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var listing in Model)
+                {
+                    <tr data-status="@listing.Status.ToLowerInvariant()">
+                        <td>
+                            <strong>@listing.ProductName</strong>
+                        </td>
+
+                        <td>
+                            @listing.DonorFullName
+                            <div class="mini-note">@listing.DonorEmail</div>
+                        </td>
+
+                        <td>@listing.Quantity @listing.UnitName</td>
+
+                        <td>
+                            @(listing.DeliveryPointName ?? "-")
+                            <div class="mini-note">
+                                @(listing.City ?? "-") / @(listing.District ?? "-")
+                            </div>
+                        </td>
+
+                        <td>
+                            <span class="badge @GetStatusClass(listing.Status)">
+                                @GetShareListingStatusText(listing.Status)
+                            </span>
+                        </td>
+
+                        <td>
+                            <span class="badge @(listing.IsActive ? "active" : "passive")">
+                                @(listing.IsActive ? "Aktif" : "Pasif")
+                            </span>
+                        </td>
+
+                        <td>@listing.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@section Styles {
+    <style>
+        .mini-note {
+            color: #78909c;
+            font-size: 12px;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .badge.info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+    </style>
+}

@@ -915,4 +915,105 @@ public class AdminService : IAdminService
             CreatedAt = x.CreatedAt
         }).ToList();
     }
+
+    public async Task<List<AdminShareListingDto>> GetShareListingsAsync()
+    {
+        // Admin panelinde sistem genelindeki tüm paylaşım ilanları izleme amaçlı listelenir.
+        var listings = await _context.ShareListings
+            .Include(x => x.StockItem)
+                .ThenInclude(x => x.Product)
+            .Include(x => x.StockItem)
+                .ThenInclude(x => x.Unit)
+            .Include(x => x.DeliveryPoint)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        var donorIds = listings
+            .Select(x => x.DonorUserId)
+            .Distinct()
+            .ToList();
+
+        var donors = await _userManager.Users
+            .Where(x => donorIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id);
+
+        return listings.Select(x =>
+        {
+            donors.TryGetValue(x.DonorUserId, out var donor);
+
+            return new AdminShareListingDto
+            {
+                Id = x.Id,
+                DonorUserId = x.DonorUserId,
+                DonorFullName = donor?.FullName ?? "-",
+                DonorEmail = donor?.Email ?? "-",
+                ProductName = x.StockItem.Product.Name,
+                Quantity = x.Quantity,
+                UnitName = x.StockItem.Unit.ShortName,
+                DeliveryPointName = x.DeliveryPoint?.Name,
+                City = x.DeliveryPoint?.City,
+                District = x.DeliveryPoint?.District,
+                Status = x.Status.ToString(),
+                IsActive = x.IsActive,
+                CreatedAt = x.CreatedAt
+            };
+        }).ToList();
+    }
+    // Admin panelinde sistem genelindeki tüm teslimatlar izleme amaçlı listelenir.
+    public async Task<List<AdminDeliveryMonitorDto>> GetDeliveriesAsync()
+    {
+        // Admin panelinde sistem genelindeki tüm teslimatlar izleme amaçlı listelenir.
+        var deliveries = await _context.Deliveries
+            .Include(x => x.ShareListing)
+                .ThenInclude(x => x.StockItem)
+                    .ThenInclude(x => x.Product)
+            .Include(x => x.ShareListing)
+                .ThenInclude(x => x.StockItem)
+                    .ThenInclude(x => x.Unit)
+            .Include(x => x.DeliveryPoint)
+            .Include(x => x.DeliveryBox)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        var userIds = deliveries
+            .SelectMany(x => new[] { x.DonorUserId, x.ReceiverUserId })
+            .Distinct()
+            .ToList();
+
+        var users = await _userManager.Users
+            .Where(x => userIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id);
+
+        return deliveries.Select(x =>
+        {
+            users.TryGetValue(x.DonorUserId, out var donor);
+            users.TryGetValue(x.ReceiverUserId, out var receiver);
+
+            return new AdminDeliveryMonitorDto
+            {
+                Id = x.Id,
+
+                DonorUserId = x.DonorUserId,
+                DonorFullName = donor?.FullName ?? "-",
+                DonorEmail = donor?.Email ?? "-",
+
+                ReceiverUserId = x.ReceiverUserId,
+                ReceiverFullName = receiver?.FullName ?? "-",
+                ReceiverEmail = receiver?.Email ?? "-",
+
+                ProductName = x.ShareListing.StockItem.Product.Name,
+                Quantity = x.ShareListing.Quantity,
+                UnitName = x.ShareListing.StockItem.Unit.ShortName,
+
+                DeliveryPointName = x.DeliveryPoint?.Name,
+                BoxCode = x.DeliveryBox?.BoxCode,
+
+                Status = x.Status.ToString(),
+                ExpiresAt = x.ExpiresAt,
+                DroppedOffAt = x.DroppedOffAt,
+                DeliveredAt = x.DeliveredAt,
+                CreatedAt = x.CreatedAt
+            };
+        }).ToList();
+    }
 }

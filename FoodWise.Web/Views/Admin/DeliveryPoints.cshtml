@@ -17,7 +17,18 @@
         Yeni Teslimat Noktası
     </a>
 }
+<div class="admin-filter-bar">
+    <input type="text"
+           class="admin-search-input"
+           data-admin-search
+           placeholder="Teslim noktası, şehir, ilçe veya mahalle ara..." />
 
+    <select class="admin-filter-select" data-admin-status-filter>
+        <option value="">Tüm noktalar</option>
+        <option value="active">Aktif noktalar</option>
+        <option value="passive">Pasif noktalar</option>
+    </select>
+</div>
 <section class="table-card">
     @if (Model == null || !Model.Any())
     {
@@ -27,7 +38,7 @@
     }
     else
     {
-        <table>
+        <table data-admin-filter-table>
             <thead>
                 <tr>
                     <th>Nokta</th>
@@ -43,7 +54,7 @@
             <tbody>
                 @foreach (var point in Model)
                 {
-                    <tr>
+                    <tr data-status="@(point.IsActive ? "active" : "passive")">
                         <td>
                             <strong>@point.Name</strong>
                             <div class="mini-note">@(point.Description ?? "-")</div>

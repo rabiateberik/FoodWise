@@ -60,4 +60,7 @@ public interface IAdminWebService
     Task<List<AdminUserShareListingViewModel>> GetUserShareListingsAsync(string id, string token);
 
     Task<List<AdminUserDeliveryViewModel>> GetUserDeliveriesAsync(string id, string token);
+    Task<List<AdminShareListingViewModel>> GetShareListingsAsync(string token);
+
+    Task<List<AdminDeliveryMonitorViewModel>> GetDeliveriesAsync(string token);
 }

@@ -24,6 +24,8 @@
                              currentAction == "DeliveryBoxes" ||
                              currentAction == "CreateDeliveryBox" ||
                              currentAction == "EditDeliveryBox";
+    var isShareListingActive = currentAction == "ShareListings";
+    var isDeliveryActive = currentAction == "Deliveries";
 
     var pageTitle = ViewData["AdminPageTitle"]?.ToString() ?? "Admin Paneli";
     var pageDescription = ViewData["AdminPageDescription"]?.ToString() ?? "FoodWise yönetim paneli.";
@@ -411,6 +413,79 @@
             color: #607d8b;
         }
 
+        .admin-filter-bar {
+            background: white;
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 18px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .admin-search-input,
+        .admin-filter-select {
+            border: 1px solid #d1d5db;
+            border-radius: 13px;
+            padding: 12px 14px;
+            font-size: 14px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .admin-search-input {
+            min-width: 260px;
+            flex: 1;
+        }
+
+        .admin-filter-select {
+            min-width: 180px;
+            background: white;
+        }
+
+            .admin-search-input:focus,
+            .admin-filter-select:focus {
+                border-color: #238636;
+                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
+            }
+
+        .quick-link-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 14px;
+        }
+
+        .quick-link-card {
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 16px;
+            padding: 18px;
+            text-decoration: none;
+            color: inherit;
+            transition: 0.15s ease;
+        }
+
+            .quick-link-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 26px rgba(0, 0, 0, 0.06);
+                border-color: #bbf7d0;
+            }
+
+            .quick-link-card span {
+                display: block;
+                color: #145c24;
+                font-weight: 900;
+                margin-bottom: 8px;
+            }
+
+            .quick-link-card p {
+                margin: 0;
+                color: #607d8b;
+                line-height: 1.5;
+                font-size: 14px;
+            }
         @@media (max-width: 900px) {
             .admin-layout {
                 grid-template-columns: 1fr;
@@ -422,7 +497,47 @@
             }
         }
     </style>
+    <script>
+        // Admin tablolarında ortak arama ve aktif/pasif filtreleme işlemini yapar.
+        document.addEventListener("DOMContentLoaded", function () {
+            const searchInput = document.querySelector("[data-admin-search]");
+            const statusFilter = document.querySelector("[data-admin-status-filter]");
+            const table = document.querySelector("[data-admin-filter-table]");
 
+            if (!table) {
+                return;
+            }
+
+            const rows = table.querySelectorAll("tbody tr");
+
+            function normalizeText(value) {
+                return (value || "").toLocaleLowerCase("tr-TR").trim();
+            }
+
+            function applyAdminTableFilter() {
+                const searchText = normalizeText(searchInput?.value);
+                const selectedStatus = statusFilter?.value || "";
+
+                rows.forEach(function (row) {
+                    const rowText = normalizeText(row.innerText);
+                    const rowStatus = row.dataset.status || "";
+
+                    const matchesSearch = searchText === "" || rowText.includes(searchText);
+                    const matchesStatus = selectedStatus === "" || rowStatus === selectedStatus;
+
+                    row.style.display = matchesSearch && matchesStatus ? "" : "none";
+                });
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener("input", applyAdminTableFilter);
+            }
+
+            if (statusFilter) {
+                statusFilter.addEventListener("change", applyAdminTableFilter);
+            }
+        });
+    </script>
     @RenderSection("Styles", required: false)
 </head>
 <body>
@@ -460,7 +575,14 @@
                 Teslimat Noktaları
             </a>
 
-            <a href="#" class="disabled">
+            <a asp-controller="Admin"
+               asp-action="ShareListings"
+               class="@(isShareListingActive ? "active" : "")">
+                Paylaşım İlanları
+            </a>
+            <a asp-controller="Admin"
+               asp-action="Deliveries"
+               class="@(isDeliveryActive ? "active" : "")">
                 Teslimatlar
             </a>
         </aside>

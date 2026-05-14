@@ -743,4 +743,30 @@ public class AdminController : Controller
 
         return View(deliveries);
     }
+
+    [HttpGet]
+    public async Task<IActionResult> ShareListings()
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (!AdminAuthHelper.IsAdmin(token))
+            return RedirectToAction(nameof(Login));
+
+        var listings = await _adminWebService.GetShareListingsAsync(token!);
+
+        return View(listings);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Deliveries()
+    {
+        var token = HttpContext.Session.GetString("JWToken");
+
+        if (!AdminAuthHelper.IsAdmin(token))
+            return RedirectToAction(nameof(Login));
+
+        var deliveries = await _adminWebService.GetDeliveriesAsync(token!);
+
+        return View(deliveries);
+    }
 }

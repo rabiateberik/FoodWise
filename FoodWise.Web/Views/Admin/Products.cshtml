@@ -17,7 +17,18 @@
         Yeni Ürün
     </a>
 }
+<div class="admin-filter-bar">
+    <input type="text"
+           class="admin-search-input"
+           data-admin-search
+           placeholder="Ürün adı, kategori veya durum ara..." />
 
+    <select class="admin-filter-select" data-admin-status-filter>
+        <option value="">Tüm ürünler</option>
+        <option value="active">Aktif ürünler</option>
+        <option value="passive">Pasif ürünler</option>
+    </select>
+</div>
 <section class="table-card">
     @if (Model == null || !Model.Any())
     {
@@ -27,7 +38,7 @@
     }
     else
     {
-        <table>
+        <table data-admin-filter-table>
             <thead>
                 <tr>
                     <th>Ürün</th>
@@ -45,7 +56,7 @@
             <tbody>
                 @foreach (var product in Model)
                 {
-                    <tr>
+                    <tr data-status="@(product.IsActive ? "active" : "passive")">
                         <td>
                             <strong>@product.Name</strong>
                             @if (product.IsSensitiveFood)

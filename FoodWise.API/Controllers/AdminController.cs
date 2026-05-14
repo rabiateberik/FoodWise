@@ -277,4 +277,19 @@ public class AdminController : ControllerBase
 
         return Ok(result);
     }
+    [HttpGet("share-listings")]
+    public async Task<IActionResult> GetShareListings()
+    {
+        var result = await _adminService.GetShareListingsAsync();
+
+        return Ok(result);
+    }
+
+    [HttpGet("deliveries")]
+    public async Task<IActionResult> GetDeliveries()
+    {
+        var result = await _adminService.GetDeliveriesAsync();
+
+        return Ok(result);
+    }
 }
