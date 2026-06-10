@@ -27,7 +27,8 @@ public class CarbonReportService : ICarbonReportService
         var startDate = new DateTime(year, month, 1);
         var endDate = startDate.AddMonths(1);
 
-        // Kullanıcının bağışladığı ve teslimatı tamamlanan ürünler alınır.
+        // Kullanıcının bağışçı veya alıcı olarak dahil olduğu tamamlanmış teslimatlar alınır.
+        // Böylece kullanıcı hem ürün bağışladığında hem de başkasından ürün teslim aldığında karbon katkısı hesaplanır.
         var deliveredItems = await _context.Deliveries
             .Include(x => x.ShareListing)
                 .ThenInclude(x => x.StockItem)
@@ -37,7 +38,7 @@ public class CarbonReportService : ICarbonReportService
                     .ThenInclude(x => x.Unit)
             .Where(x =>
                 x.IsActive &&
-                x.DonorUserId == userId &&
+                (x.DonorUserId == userId || x.ReceiverUserId == userId) &&
                 x.Status == DeliveryStatus.Delivered &&
                 x.DeliveredAt != null &&
                 x.DeliveredAt >= startDate &&
@@ -60,6 +61,8 @@ public class CarbonReportService : ICarbonReportService
             estimatedCarbonSaved += quantityKg * product.CarbonFactor;
         }
 
+        // Kullanıcının dahil olduğu teslimatı tamamlanan paylaşım sayısıdır.
+        // Bağışladığı veya teslim aldığı tamamlanmış ürünler bu sayıya dahil edilir.
         var sharedProductCount = deliveredItems
             .Select(x => x.ShareListingId)
             .Distinct()

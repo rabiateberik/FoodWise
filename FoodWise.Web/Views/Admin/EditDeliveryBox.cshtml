@@ -4,11 +4,13 @@
     Layout = "_AdminLayout";
 
     ViewData["AdminPageTitle"] = "Teslim Kutusu Düzenle";
-    ViewData["AdminPageDescription"] = "Teslim kutusunun nokta, kutu kodu ve QR bilgilerini güncelleyebilirsin.";
+    ViewData["AdminPageDescription"] = "Ortak QR teslim kutusunun teslim noktası, kutu kodu ve QR bilgisini güncelleyebilirsin.";
 }
 
 @*
     Admin panelinden teslim kutusu düzenleme sayfası.
+    Teslim kutuları ortak QR bölmesi mantığıyla çalışır.
+    Bir kutu birden fazla aktif teslimat için kullanılabilir.
     Id değeri hidden input olarak gönderilir.
 *@
 
@@ -25,6 +27,8 @@
     <h3>Teslim Kutusu Bilgileri</h3>
 
     <div class="info-box">
+        Bu kutu ortak QR teslim bölmesi olarak kullanılır.
+        Bir kutuya birden fazla aktif teslimat atanabilir.
         QR kod değeri değiştirildiğinde, teslim alma ekranında kullanılacak doğrulama değeri de değişmiş olur.
     </div>
 
@@ -37,6 +41,7 @@
             <label asp-for="DeliveryPointId">Teslimat Noktası</label>
             <select asp-for="DeliveryPointId">
                 <option value="">Teslimat noktası seçiniz</option>
+
                 @foreach (var point in Model.DeliveryPointOptions)
                 {
                     <option value="@point.Id">
@@ -61,7 +66,8 @@
 
         <div class="form-group">
             <label asp-for="Description">Açıklama</label>
-            <textarea asp-for="Description" placeholder="Kutu hakkında kısa açıklama yazabilirsin."></textarea>
+            <textarea asp-for="Description"
+                      placeholder="Örn: Kütüphane girişindeki ortak QR teslim kutusu."></textarea>
             <span asp-validation-for="Description" class="validation-message"></span>
         </div>
 

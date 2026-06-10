@@ -8,19 +8,6 @@
     ViewData["PageDescription"] = "Diğer kullanıcıların paylaşıma açtığı ürünlere buradan talep gönderebilirsin.";
 }
 
-@*
-    Mevcut Paylaşım İlanları sayfası ortak FoodWise layout yapısını kullanır.
-    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-
-    Bu sayfada:
-    - Diğer kullanıcıların aktif paylaşım ilanları listelenir.
-    - Kullanıcı kendi ilanlarını burada görmez.
-    - Süresi geçmiş ilanlar backend tarafında listelenmez.
-    - Kullanıcı seçtiği ilana talep gönderebilir.
-    - Bekleyen talebini iptal edebilir.
-    - Talebi onaylandıysa teslimat oluşturulmasını beklediği bilgisi gösterilir.
-*@
-
 @section TopbarActions {
     <a asp-controller="Sharing" asp-action="MyListings" class="btn-secondary">
         Benim İlanlarım
@@ -56,7 +43,7 @@
 
             <div>
                 <span>Onaylanan Talep</span>
-                <strong>@(Model.Count(x => x.CurrentUserRequestStatus == "Approved"))</strong>
+                <strong>@(Model.Count(x => x.HasCurrentUserApprovedRequest))</strong>
             </div>
         </div>
 
@@ -75,6 +62,14 @@
                     _ => "status-default"
                 };
 
+                var locationClass = listing.LocationPriority switch
+                {
+                    1 => "same-neighborhood",
+                    2 => "same-district",
+                    3 => "same-city",
+                    _ => "other-region"
+                };
+
                 <article class="listing-card">
                     <div class="listing-header">
                         <div>
@@ -82,11 +77,10 @@
 
                             <p>
                                 @listing.ProductName -
-                                @listing.Quantity @DisplayTextHelper.GetUnitText(listing.UnitName)
+                                @listing.Quantity.ToString("0.##") @DisplayTextHelper.GetUnitText(listing.UnitName)
                             </p>
                         </div>
 
-                        @* İlanın mevcut durum bilgisi renkli rozet olarak gösterilir. *@
                         <span class="status-badge @statusClass">
                             @DisplayTextHelper.GetShareListingStatusText(listing.Status)
                         </span>
@@ -99,12 +93,24 @@
                         </p>
                     }
 
-                    <div class="listing-info">
-                        <div>
-                            <span>Teslim Noktası</span>
-                            <strong>@listing.DeliveryPointName</strong>
+                    <div class="delivery-point-box">
+                        <div class="delivery-point-top">
+                            <div>
+                                <span>Teslim Noktası</span>
+                                <strong>@listing.DeliveryPointName</strong>
+                            </div>
+
+                            <span class="location-badge @locationClass">
+                                @listing.SafeLocationMatchText
+                            </span>
                         </div>
 
+                        <div class="delivery-location">
+                            📍 @listing.LocationText
+                        </div>
+                    </div>
+
+                    <div class="listing-info">
                         <div>
                             <span>Talep Sayısı</span>
                             <strong>@listing.RequestCount</strong>
@@ -122,9 +128,8 @@
                     </div>
 
                     <div class="listing-action-area">
-                        @if (listing.HasCurrentUserRequest && listing.CurrentUserRequestStatus == "Pending")
+                        @if (listing.HasCurrentUserPendingRequest)
                         {
-                            @* Kullanıcı bu ilana bekleyen talep gönderdiyse tekrar talep gönderemez; sadece talebini iptal edebilir. *@
                             <form asp-controller="Sharing"
                                   asp-action="CancelRequest"
                                   method="post"
@@ -139,9 +144,8 @@
                                 </button>
                             </form>
                         }
-                        else if (listing.HasCurrentUserRequest && listing.CurrentUserRequestStatus == "Approved")
+                        else if (listing.HasCurrentUserApprovedRequest)
                         {
-                            @* Talep onaylandı fakat bağışçı henüz teslimat oluşturmadıysa kullanıcıya bekleme durumu gösterilir. *@
                             <div class="approved-request-box">
                                 <strong>Talebin Onaylandı</strong>
                                 <span>Teslimat oluşturulması bekleniyor.</span>
@@ -149,7 +153,6 @@
                         }
                         else
                         {
-                            @* Kullanıcı bu form ile seçtiği paylaşım ilanına talep gönderir. *@
                             <form asp-controller="Sharing"
                                   asp-action="CreateRequest"
                                   method="post"
@@ -206,7 +209,7 @@
 
         .listing-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
+            grid-template-columns: repeat(auto-fill, minmax(315px, 380px));
             gap: 18px;
             align-items: stretch;
             justify-content: start;
@@ -222,7 +225,7 @@
             display: flex;
             flex-direction: column;
             min-height: 100%;
-            max-width: 360px;
+            max-width: 380px;
             width: 100%;
             box-sizing: border-box;
         }
@@ -306,11 +309,76 @@
             color: #374151;
         }
 
+        .delivery-point-box {
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 14px;
+            padding: 13px;
+            margin-bottom: 14px;
+        }
+
+        .delivery-point-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+            .delivery-point-top span {
+                display: block;
+                color: #6b7280;
+                font-size: 12px;
+                margin-bottom: 5px;
+            }
+
+            .delivery-point-top strong {
+                color: #145c24;
+                font-size: 15px;
+                font-weight: 900;
+                line-height: 1.35;
+            }
+
+        .delivery-location {
+            color: #405a68;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.4;
+        }
+
+        .location-badge {
+            border-radius: 999px;
+            padding: 6px 9px;
+            font-size: 11px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+            .location-badge.same-neighborhood {
+                background: #dcfce7;
+                color: #166534;
+            }
+
+            .location-badge.same-district {
+                background: #dbeafe;
+                color: #1d4ed8;
+            }
+
+            .location-badge.same-city {
+                background: #fef3c7;
+                color: #92400e;
+            }
+
+            .location-badge.other-region {
+                background: #e5e7eb;
+                color: #607d8b;
+            }
+
         .listing-info {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 10px;
-            margin: 14px 0 16px;
+            margin: 0 0 16px;
         }
 
             .listing-info div {
@@ -330,7 +398,7 @@
             .listing-info strong {
                 color: #1f2937;
                 line-height: 1.4;
-                font-size: 14px;
+                font-size: 13px;
                 word-break: break-word;
             }
 
@@ -346,7 +414,7 @@
         .request-btn,
         .cancel-request-btn {
             width: 100%;
-            min-height: 40px;
+            min-height: 42px;
             border: none;
             border-radius: 11px;
             padding: 10px 14px;
@@ -447,7 +515,8 @@
                 max-width: none;
             }
 
-            .listing-header {
+            .listing-header,
+            .delivery-point-top {
                 flex-direction: column;
             }
 

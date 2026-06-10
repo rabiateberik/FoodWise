@@ -1,4 +1,6 @@
-﻿// AdminDeliveryBoxViewModel, admin panelinde teslim kutularını listelemek için kullanılır.
+﻿// AdminDeliveryBoxViewModel, admin panelinde QR destekli teslim kutularını listelemek için kullanılır.
+// FoodWise teslim kutuları ortak kullanım mantığıyla çalışır;
+// yani bir kutuya birden fazla aktif teslimat atanabilir.
 
 namespace FoodWise.Web.ViewModels.Admin;
 
@@ -22,9 +24,43 @@ public class AdminDeliveryBoxViewModel
 
     public string? Description { get; set; }
 
+    // Eski dolu/boş kutu mantığından kalan alandır.
+    // Yeni teslimat akışında kutular ortak QR bölmesi gibi çalıştığı için
+    // teslimat oluştururken bu alan kullanılmaz.
     public bool IsOccupied { get; set; }
 
     public bool IsActive { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    public string LocationText
+    {
+        get
+        {
+            var values = new[]
+            {
+                Neighborhood,
+                District,
+                City
+            }
+            .Where(x => !string.IsNullOrWhiteSpace(x));
+
+            var result = string.Join(" / ", values);
+
+            return string.IsNullOrWhiteSpace(result)
+                ? "Konum bilgisi yok"
+                : result;
+        }
+    }
+
+    public string ActiveStatusText =>
+        IsActive ? "Aktif" : "Pasif";
+
+    public string UsageTypeText =>
+        "Ortak QR kutusu";
+
+    public string SafeDescription =>
+        string.IsNullOrWhiteSpace(Description)
+            ? "Açıklama bulunmuyor."
+            : Description;
 }

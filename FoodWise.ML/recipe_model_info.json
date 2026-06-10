@@ -1,0 +1,12 @@
+{
+    "model_name": "FoodWise Recipe Recommendation Score Model",
+    "algorithm": "RandomForestRegressor",
+    "dataset_file": "recipe_recommendation_dataset.csv",
+    "row_count": 3000,
+    "target_column": "RecommendationScore",
+    "score_range": "0-100",
+    "mae": 6.8152,
+    "rmse": 9.134,
+    "r2_score": 0.9352,
+    "note": "Bu model sentetik FoodWise tarif öneri veri seti ile eğitilmiştir."
+}

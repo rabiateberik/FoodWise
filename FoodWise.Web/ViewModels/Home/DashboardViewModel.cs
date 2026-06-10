@@ -1,7 +1,5 @@
 ﻿// Bu ViewModel, Dashboard ekranında gösterilecek özet verileri taşır.
-// Stok, riskli ürün ve okunmamış bildirim sayıları bu model üzerinden ekrana basılır.
-
-using FoodWise.Web.ViewModels.Notification;
+// Stok, riskli ürün, eco puan ve karbon tasarrufu bilgileri bu model üzerinden ekrana basılır.
 
 namespace FoodWise.Web.ViewModels.Home;
 
@@ -15,12 +13,10 @@ public class DashboardViewModel
 
     public int RiskyStockCount { get; set; }
 
-    public int UnreadNotificationCount { get; set; }
-
     public decimal CarbonSavedKg { get; set; }
+
     // Dashboard üzerinde kullanıcının eco puan bilgisini göstermek için kullanılır.
     public int EcoPoint { get; set; }
 
     public string EcoPointLevelName { get; set; } = string.Empty;
-    public List<NotificationViewModel> RecentNotifications { get; set; } = new();
 }

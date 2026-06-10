@@ -136,6 +136,9 @@ namespace FoodWise.Infrastructure.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsQrVerified")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("PickedUpAt")
                         .HasColumnType("datetime2");
 
@@ -143,6 +146,9 @@ namespace FoodWise.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("QrVerifiedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ReceiverUserId")
                         .IsRequired()
@@ -773,6 +779,51 @@ namespace FoodWise.Infrastructure.Data.Migrations
                     b.ToTable("Units");
                 });
 
+            modelBuilder.Entity("FoodWise.Domain.Entities.UserRecipeInteraction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("InteractionType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RecipeId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RecommendationScore")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StockItemId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipeId");
+
+                    b.HasIndex("StockItemId");
+
+                    b.HasIndex("UserId", "RecipeId", "InteractionType", "CreatedAt");
+
+                    b.ToTable("UserRecipeInteractions");
+                });
+
             modelBuilder.Entity("FoodWise.Domain.Entities.WasteRiskPrediction", b =>
                 {
                     b.Property<int>("Id")
@@ -1273,6 +1324,30 @@ namespace FoodWise.Infrastructure.Data.Migrations
                     b.Navigation("Unit");
                 });
 
+            modelBuilder.Entity("FoodWise.Domain.Entities.UserRecipeInteraction", b =>
+                {
+                    b.HasOne("FoodWise.Domain.Entities.Recipe", "Recipe")
+                        .WithMany("UserRecipeInteractions")
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FoodWise.Domain.Entities.StockItem", "StockItem")
+                        .WithMany()
+                        .HasForeignKey("StockItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FoodWise.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Recipe");
+
+                    b.Navigation("StockItem");
+                });
+
             modelBuilder.Entity("FoodWise.Domain.Entities.WasteRiskPrediction", b =>
                 {
                     b.HasOne("FoodWise.Domain.Entities.StockItem", "StockItem")
@@ -1366,6 +1441,8 @@ namespace FoodWise.Infrastructure.Data.Migrations
                     b.Navigation("RecipeIngredients");
 
                     b.Navigation("RecipeRecommendations");
+
+                    b.Navigation("UserRecipeInteractions");
                 });
 
             modelBuilder.Entity("FoodWise.Domain.Entities.ShareListing", b =>

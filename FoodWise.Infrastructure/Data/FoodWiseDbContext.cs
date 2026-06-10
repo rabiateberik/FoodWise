@@ -21,6 +21,7 @@ public class FoodWiseDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Recipe> Recipes { get; set; }
     public DbSet<RecipeIngredient> RecipeIngredients { get; set; }
     public DbSet<RecipeRecommendation> RecipeRecommendations { get; set; }
+    public DbSet<UserRecipeInteraction> UserRecipeInteractions { get; set; }
 
     public DbSet<DeliveryPoint> DeliveryPoints { get; set; }
     public DbSet<ShareListing> ShareListings { get; set; }
@@ -134,7 +135,43 @@ public class FoodWiseDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<WasteRiskPrediction>()
             .Property(x => x.RecommendationText)
             .HasMaxLength(500);
+        // UserRecipeInteraction tablosu, kullanıcının tariflerle olan etkileşimlerini tutar.
+        // Bu veriler ileride kişiselleştirilmiş AI tarif öneri modeli için kullanılacaktır.
+        builder.Entity<UserRecipeInteraction>()
+            .Property(x => x.UserId)
+            .HasMaxLength(450)
+            .IsRequired();
 
+        builder.Entity<UserRecipeInteraction>()
+            .Property(x => x.InteractionType)
+            .IsRequired();
+
+        builder.Entity<UserRecipeInteraction>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<UserRecipeInteraction>()
+            .HasOne(x => x.Recipe)
+            .WithMany(x => x.UserRecipeInteractions)
+            .HasForeignKey(x => x.RecipeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserRecipeInteraction>()
+            .HasOne(x => x.StockItem)
+            .WithMany()
+            .HasForeignKey(x => x.StockItemId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<UserRecipeInteraction>()
+            .HasIndex(x => new
+            {
+                x.UserId,
+                x.RecipeId,
+                x.InteractionType,
+                x.CreatedAt
+            });
         builder.Entity<WasteRiskPrediction>()
             .HasOne(x => x.StockItem)
             .WithMany(x => x.WasteRiskPredictions)

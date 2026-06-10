@@ -47,4 +47,6 @@ public class DeliveryDto
     public DateTime ExpiresAt { get; set; }
 
     public string? DropOffImageUrl { get; set; }
+    public bool IsQrVerified { get; set; }
+    public DateTime? QrVerifiedAt { get; set; }
 }

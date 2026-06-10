@@ -1,8 +1,8 @@
 ﻿// Bu ViewModel, kullanıcının stokundaki bir ürünü paylaşım ilanına dönüştürmesi için kullanılır.
 // Formdan alınan bilgiler Sharing API'ye gönderilir.
+// Teslim noktaları kullanıcının kayıtlı konumuna göre yakınlık bilgisiyle birlikte gösterilir.
 
 using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace FoodWise.Web.ViewModels.Sharing;
 
@@ -39,5 +39,10 @@ public class CreateShareListingViewModel
     [Display(Name = "Teslim Bitiş Zamanı")]
     public DateTime PickupEndTime { get; set; } = DateTime.Now.AddHours(24);
 
-    public List<SelectListItem> DeliveryPoints { get; set; } = new();
+    // Web arayüzünde teslim noktalarını sadece klasik dropdown olarak değil,
+    // konum yakınlığı, çalışma saati ve saklama tipiyle birlikte göstermek için kullanılır.
+    public List<DeliveryPointViewModel> DeliveryPoints { get; set; } = new();
+
+    // Kullanıcı web arayüzünde teslim noktası araması yaptığında form state'ini korumak için kullanılır.
+    public string? DeliveryPointSearch { get; set; }
 }

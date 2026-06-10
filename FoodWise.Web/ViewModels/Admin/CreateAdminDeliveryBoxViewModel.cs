@@ -1,4 +1,5 @@
-﻿// CreateAdminDeliveryBoxViewModel, admin panelinden yeni teslim kutusu eklemek için kullanılır.
+﻿// CreateAdminDeliveryBoxViewModel, admin panelinden yeni ortak QR teslim kutusu eklemek için kullanılır.
+// Teslim kutuları tek ürünlük değildir; bir kutuya birden fazla aktif teslimat atanabilir.
 // DeliveryPointOptions sadece formdaki teslim noktası dropdown'u için kullanılır ve API'ye gönderilmez.
 
 using System.ComponentModel.DataAnnotations;

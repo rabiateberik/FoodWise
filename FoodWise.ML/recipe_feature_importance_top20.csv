@@ -1,0 +1,21 @@
+﻿Feature,Importance
+MatchedIngredientRatio,0.6993715839622487
+UserDislikedSimilarRecipes,0.08553690757867285
+UserCookedSimilarRecipes,0.04325957684324594
+UserSavedSimilarRecipes,0.03989115696861396
+UserLikedSimilarRecipes,0.038506205520162734
+RiskyIngredientCount,0.029866386112995438
+AverageDaysUntilExpiration,0.011845397774651671
+ViewedSimilarRecipes,0.011790317590682222
+PreparationTimeMinutes,0.010487388745137896
+MissingIngredientCount,0.005999589981947601
+TotalIngredientCount,0.0035333787152987406
+HasSensitiveIngredient,0.0021879377372136036
+MatchedIngredientCount,0.002180453127627995
+RecipeCategory_Ana Yemek,0.0018457524672288738
+Difficulty_Kolay,0.001491952030530867
+Season_Yaz,0.0012320077506424762
+Season_Sonbahar,0.0011006664897261088
+Season_İlkbahar,0.0010812148415291184
+Season_Kış,0.0010810539266398287
+Difficulty_Orta,0.0006737599734223606

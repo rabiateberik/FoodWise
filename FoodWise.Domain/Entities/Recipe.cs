@@ -36,4 +36,5 @@ public class Recipe : BaseEntity
     public ICollection<RecipeIngredient> RecipeIngredients { get; set; } = new List<RecipeIngredient>();
 
     public ICollection<RecipeRecommendation> RecipeRecommendations { get; set; } = new List<RecipeRecommendation>();
+    public ICollection<UserRecipeInteraction> UserRecipeInteractions { get; set; } = new List<UserRecipeInteraction>();
 }

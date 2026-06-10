@@ -1,0 +1,16 @@
+FoodWise Risk Prediction Model Metrics
+=====================================
+
+Accuracy: 0.8283
+
+Classification Report:
+              precision    recall  f1-score   support
+
+    Critical       0.85      0.90      0.87       150
+        High       0.74      0.79      0.76       150
+         Low       0.92      0.88      0.90       150
+      Medium       0.81      0.75      0.78       150
+
+    accuracy                           0.83       600
+   macro avg       0.83      0.83      0.83       600
+weighted avg       0.83      0.83      0.83       600

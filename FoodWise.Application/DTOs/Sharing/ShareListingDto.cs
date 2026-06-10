@@ -44,4 +44,17 @@ public class ShareListingDto
 
     // Giriş yapan kullanıcının talep durumudur.
     public string? CurrentUserRequestStatus { get; set; }
+    // Teslim noktasının bölgesel konum bilgileri.
+    // Açık adres tutulmaz; sadece şehir, ilçe ve mahalle bilgisi gönderilir.
+    public string? City { get; set; }
+
+    public string? District { get; set; }
+
+    public string? Neighborhood { get; set; }
+
+    // Giriş yapan kullanıcının konumuna göre teslim noktasının yakınlık önceliğidir.
+    // 1: Aynı mahalle, 2: Aynı ilçe, 3: Aynı şehir, 99: Diğer bölge
+    public int LocationPriority { get; set; } = 99;
+
+    public string LocationMatchText { get; set; } = "Diğer bölge";
 }

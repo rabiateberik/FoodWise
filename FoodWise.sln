@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36518.9 d17.14
+VisualStudioVersion = 17.14.36518.9
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoodWise.Domain", "FoodWise.Domain\FoodWise.Domain.csproj", "{7B0E6A8D-DC22-47FC-A4E7-F9B5F801C615}"
 EndProject
@@ -12,6 +12,12 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoodWise.API", "FoodWise.API\FoodWise.API.csproj", "{36ED1ABE-96FA-408D-AF28-45D2A0967479}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoodWise.Web", "FoodWise.Web\FoodWise.Web.csproj", "{1A352B6B-702A-4507-B56C-FBDFBE9805E5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "FoodWise.ML", "FoodWise.ML", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		FoodWise.ML\generate_foodwise_dataset.py = FoodWise.ML\generate_foodwise_dataset.py
+		FoodWise.ML\train_foodwise_model.py = FoodWise.ML\train_foodwise_model.py
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

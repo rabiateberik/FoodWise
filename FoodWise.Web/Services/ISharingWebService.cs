@@ -1,5 +1,5 @@
 ﻿// Bu interface, FoodWise.Web projesinin Sharing API ile haberleşmesi için gereken metotları tanımlar.
-// Controller doğrudan HttpClient kullanmaz; paylaşım işlemleri bu servis üzerinden yapılır.
+// Controller doğrudan HttpClient kullanmaz; paylaşım ve teslim noktası işlemleri bu servis üzerinden yapılır.
 
 using FoodWise.Web.ViewModels.Sharing;
 
@@ -23,5 +23,11 @@ public interface ISharingWebService
 
     // Kullanıcının kendi paylaşım ilanını iptal etmesi için kullanılır.
     Task<bool> CancelListingAsync(int listingId, string token);
+
+    // Kullanıcının kendi bekleyen talebini iptal etmesi için kullanılır.
     Task<bool> CancelRequestAsync(int requestId, string token);
+
+    // Kullanıcının kayıtlı konumuna göre yakın teslim noktalarını getirir.
+    // Arama metni gönderilirse teslim noktası adı/açıklama/konum bilgisine göre filtreleme yapılır.
+    Task<List<DeliveryPointViewModel>> GetDeliveryPointsAsync(string token, string? search = null);
 }

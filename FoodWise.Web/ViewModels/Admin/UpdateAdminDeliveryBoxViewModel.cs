@@ -1,4 +1,5 @@
-﻿// UpdateAdminDeliveryBoxViewModel, admin panelinden teslim kutusu bilgilerini güncellemek için kullanılır.
+﻿// UpdateAdminDeliveryBoxViewModel, admin panelinden ortak QR teslim kutusu bilgilerini güncellemek için kullanılır.
+// Teslim kutuları tek ürünlük değildir; bir kutuya birden fazla aktif teslimat atanabilir.
 // DeliveryPointOptions sadece formdaki teslim noktası dropdown'u için kullanılır ve API'ye gönderilmez.
 
 using System.ComponentModel.DataAnnotations;

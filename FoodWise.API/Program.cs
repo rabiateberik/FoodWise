@@ -51,14 +51,22 @@ builder.Services.AddScoped<ICarbonReportService, CarbonReportService>();
 
 // Profil bilgilerini yöneten servis burada Dependency Injection container'a eklenir.
 builder.Services.AddScoped<IProfileService, ProfileService>();
-
+//Tarif ai için servis
+builder.Services.AddScoped<IRecipeAiScoringService, RecipeAiScoringService>();
 // Eco puan geçmiþi ve toplam puan hesaplama iþlemleri için servis kaydý.
 builder.Services.AddScoped<IEcoPointService, EcoPointService>();
-
+//paylaþým ai için
+builder.Services.AddScoped<IShareRequestMatchingService, ShareRequestMatchingService>();
 // Tarif veri setini veritabanýna aktarmak için kullanýlan servis burada Dependency Injection container'a eklenir.
 builder.Services.AddScoped<IRecipeDatasetImportService, RecipeDatasetImportService>();
 //Admin iþlemleri için servis kaydý yapýlýr. Bu servis, admin kullanýcýlarýn yönetimi ve raporlama iþlemleri için kullanýlabilir.
 builder.Services.AddScoped<IAdminService, AdminService>();
+// ML risk tahmin servisi için HttpClient ile servis kaydý yapýlýr.
+builder.Services.AddHttpClient<IMlRiskPredictionService, MlRiskPredictionService>();
+// ML tarif öneri servisi için HttpClient ile servis kaydý yapýlýr.
+builder.Services.AddHttpClient<IMlRecipeRecommendationService, MlRecipeRecommendationService>();
+// ML paylaþým eþleþtirme servisi için HttpClient ile servis kaydý yapýlýr.
+builder.Services.AddHttpClient<IMlShareMatchingService, MlShareMatchingService>();
 // JWT Authentication ayarlarý yapýlýr.
 // Böylece [Authorize] kullanýlan endpointler token ile korunabilir.
 builder.Services.AddAuthentication(options =>

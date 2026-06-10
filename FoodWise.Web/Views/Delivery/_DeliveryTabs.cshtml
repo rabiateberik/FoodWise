@@ -1,29 +1,28 @@
 ﻿@{
-    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+    var activeTab = ViewBag.ActiveDeliveryTab as string ?? "Outgoing";
+
+    bool IsActive(string tab)
+    {
+        return string.Equals(activeTab, tab, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 <div class="delivery-tabs">
     <a asp-controller="Delivery"
-       asp-action="Index"
-       class="delivery-tab @(currentAction == "Index" ? "active" : "")">
-        Tüm Teslimatlar
-    </a>
-
-    <a asp-controller="Delivery"
        asp-action="Outgoing"
-       class="delivery-tab @(currentAction == "Outgoing" ? "active" : "")">
+       class="delivery-tab @(IsActive("Outgoing") ? "active" : "")">
         Teslim Edeceklerim
     </a>
 
     <a asp-controller="Delivery"
        asp-action="Incoming"
-       class="delivery-tab @(currentAction == "Incoming" ? "active" : "")">
+       class="delivery-tab @(IsActive("Incoming") ? "active" : "")">
         Teslim Alacaklarım
     </a>
 
     <a asp-controller="Delivery"
        asp-action="Completed"
-       class="delivery-tab @(currentAction == "Completed" ? "active" : "")">
+       class="delivery-tab @(IsActive("Completed") ? "active" : "")">
         Tamamlananlar
     </a>
 </div>

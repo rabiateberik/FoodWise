@@ -24,10 +24,11 @@ public class CarbonReportController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
+        await GenerateCurrentMonthReportIfPossibleAsync(token);
+
         var model = await CreatePageModelAsync(token);
 
-        ViewBag.FullName = HttpContext.Session.GetString("FullName");
-        ViewBag.Email = HttpContext.Session.GetString("Email");
+        SetUserViewBag();
 
         return View(model);
     }
@@ -47,16 +48,41 @@ public class CarbonReportController : Controller
             pageModel.Month = model.Month;
             pageModel.Year = model.Year;
 
+            SetUserViewBag();
+
             return View("Index", pageModel);
         }
 
-        var result = await _carbonReportWebService.GenerateMonthlyReportAsync(model.Month, model.Year, token);
+        var result = await _carbonReportWebService.GenerateMonthlyReportAsync(
+            model.Month,
+            model.Year,
+            token
+        );
 
         TempData["SuccessMessage"] = result != null
-            ? "Karbon raporu başarıyla oluşturuldu."
+            ? "Karbon raporu başarıyla oluşturuldu/güncellendi."
             : "Karbon raporu oluşturulurken bir hata oluştu.";
 
         return RedirectToAction(nameof(Index));
+    }
+
+    private async Task GenerateCurrentMonthReportIfPossibleAsync(string token)
+    {
+        var now = DateTime.Now;
+
+        try
+        {
+            await _carbonReportWebService.GenerateMonthlyReportAsync(
+                now.Month,
+                now.Year,
+                token
+            );
+        }
+        catch
+        {
+            // Sayfa açılışında otomatik rapor oluşturma başarısız olursa
+            // kullanıcı sayfayı yine görebilsin. Manuel oluşturma butonu hata mesajını gösterebilir.
+        }
     }
 
     private async Task<CarbonReportPageViewModel> CreatePageModelAsync(string token)
@@ -71,5 +97,11 @@ public class CarbonReportController : Controller
             Month = DateTime.Now.Month,
             Year = DateTime.Now.Year
         };
+    }
+
+    private void SetUserViewBag()
+    {
+        ViewBag.FullName = HttpContext.Session.GetString("FullName");
+        ViewBag.Email = HttpContext.Session.GetString("Email");
     }
 }

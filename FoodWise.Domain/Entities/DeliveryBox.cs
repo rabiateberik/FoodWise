@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// DeliveryBox, kontrollü teslim noktasında bulunan QR destekli ortak teslim kutusunu/bölmesini temsil eder.
+// Bir teslim kutusu tek ürünlük değildir; aynı kutuya birden fazla aktif teslimat atanabilir.
+// Alıcı, kutunun QR değerini doğrulayarak kendisine ait teslimatı teslim alır.
 
-// DeliveryBox, kontrollü teslim noktasında bulunan fiziksel kutu/bölmeyi temsil eder.
-// Her kutunun sabit bir QR değeri vardır ve alıcı bu QR ile teslimatı doğrular.
 using FoodWise.Domain.Common;
 
 namespace FoodWise.Domain.Entities;
@@ -20,6 +16,9 @@ public class DeliveryBox : BaseEntity
 
     public string? Description { get; set; }
 
+    // Eski dolu/boş kutu mantığı için tutulmuş alandır.
+    // FoodWise teslimat akışında artık kutular ortak kullanım mantığıyla çalışır.
+    // Bu nedenle teslimat oluştururken IsOccupied kontrolü yapılmaz.
     public bool IsOccupied { get; set; } = false;
 
     public DeliveryPoint DeliveryPoint { get; set; } = null!;

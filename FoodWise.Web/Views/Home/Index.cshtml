@@ -1,11 +1,10 @@
-﻿@using FoodWise.Web.Helpers
-@model FoodWise.Web.ViewModels.Home.DashboardViewModel
+﻿@model FoodWise.Web.ViewModels.Home.DashboardViewModel
 
 @{
     Layout = "_FoodWiseLayout";
 
     ViewData["Title"] = "Dashboard";
-    ViewData["PageDescription"] = "FoodWise paneline hoş geldin. Stoklarını, riskli ürünlerini, bildirimlerini ve sürdürülebilirlik katkını buradan takip edebilirsin.";
+    ViewData["PageDescription"] = "FoodWise paneline hoş geldin. Stoklarını, riskli ürünlerini ve sürdürülebilirlik katkını buradan takip edebilirsin.";
 
     var fullName = string.IsNullOrWhiteSpace(Model.FullName) ? "Kullanıcı" : Model.FullName;
 }
@@ -17,7 +16,7 @@
     - Kullanıcıya kısa bir karşılama alanı gösterilir.
     - Özet kartlar tıklanabilir şekilde ilgili modüllere yönlendirir.
     - Hızlı işlem bağlantıları ile ana akışlara erişim sağlanır.
-    - Son bildirimler kısa liste halinde gösterilir.
+    - FoodWise akış özeti ile projenin temel süreci sade şekilde anlatılır.
 *@
 
 <section class="dashboard-page">
@@ -52,15 +51,6 @@
             <p>Yüksek riskli veya kritik seviyedeki ürün sayısı.</p>
             <small>Riskli Ürünleri Gör →</small>
         </a>
-
-        <a asp-controller="Notification" asp-action="Index" class="summary-card">
-            <div class="summary-icon">🔔</div>
-            <span>Okunmamış Bildirim</span>
-            <strong>@Model.UnreadNotificationCount</strong>
-            <p>Henüz okunmamış bildirimlerin toplam sayısı.</p>
-            <small>Bildirimlere Git →</small>
-        </a>
-
         <a asp-controller="EcoPoint" asp-action="Index" class="summary-card">
             <div class="summary-icon">🌱</div>
             <span>Eco Puanım</span>
@@ -78,96 +68,50 @@
         </a>
     </section>
 
-    <section class="dashboard-grid">
-        <div class="panel-card">
-            <div class="section-header">
-                <div>
-                    <h3>Hızlı İşlemler</h3>
-                    <p>En sık kullanılan FoodWise işlemlerine buradan hızlıca ulaşabilirsin.</p>
-                </div>
-            </div>
-
-            <div class="quick-action-grid">
-                <a asp-controller="Stock" asp-action="Create" class="quick-action">
-                    <span>➕</span>
-                    <strong>Stok Ekle</strong>
-                    <small>Yeni ürününü stoklarına ekle.</small>
-                </a>
-
-                <a asp-controller="Stock" asp-action="Risky" class="quick-action">
-                    <span>⚠️</span>
-                    <strong>Riskli Ürünler</strong>
-                    <small>Yakında bozulabilecek ürünleri gör.</small>
-                </a>
-
-                <a asp-controller="Sharing" asp-action="MyListings" class="quick-action">
-                    <span>🤝</span>
-                    <strong>Paylaşım İlanlarım</strong>
-                    <small>Paylaşıma açtığın ürünleri takip et.</small>
-                </a>
-
-                <a asp-controller="Sharing" asp-action="Available" class="quick-action">
-                    <span>🛒</span>
-                    <strong>Mevcut İlanlar</strong>
-                    <small>Diğer kullanıcıların paylaşımlarını incele.</small>
-                </a>
-
-                <a asp-controller="Delivery" asp-action="Index" class="quick-action">
-                    <span>📍</span>
-                    <strong>Teslimatlar</strong>
-                    <small>Teslim alma ve bağışlama süreçlerini takip et.</small>
-                </a>
-
-                <a asp-controller="CarbonReport" asp-action="Index" class="quick-action">
-                    <span>📊</span>
-                    <strong>Karbon Raporu</strong>
-                    <small>Sürdürülebilirlik etkini görüntüle.</small>
-                </a>
+    <section class="panel-card">
+        <div class="section-header">
+            <div>
+                <h3>Hızlı İşlemler</h3>
+                <p>En sık kullanılan FoodWise işlemlerine buradan hızlıca ulaşabilirsin.</p>
             </div>
         </div>
 
-        <div class="panel-card">
-            <div class="section-header notification-header-area">
-                <div>
-                    <h3>Son Bildirimler</h3>
-                    <p>Son sistem hareketlerini ve işlem bildirimlerini buradan takip edebilirsin.</p>
-                </div>
+        <div class="quick-action-grid">
+            <a asp-controller="Stock" asp-action="Create" class="quick-action">
+                <span>➕</span>
+                <strong>Stok Ekle</strong>
+                <small>Yeni ürününü stoklarına ekle.</small>
+            </a>
 
-                <a asp-controller="Notification" asp-action="Index" class="mini-link">
-                    Tümünü Gör
-                </a>
-            </div>
+            <a asp-controller="Stock" asp-action="Risky" class="quick-action">
+                <span>⚠️</span>
+                <strong>Riskli Ürünler</strong>
+                <small>Yakında bozulabilecek ürünleri gör.</small>
+            </a>
 
-            @if (Model.RecentNotifications == null || !Model.RecentNotifications.Any())
-            {
-                <div class="empty-state">
-                    <div class="empty-icon">🔔</div>
-                    <h4>Henüz bildirim yok.</h4>
-                    <p>İşlem yaptıkça bildirimlerin burada görünecek.</p>
-                </div>
-            }
-            else
-            {
-                <div class="notification-list">
-                    @foreach (var notification in Model.RecentNotifications)
-                    {
-                        var readClass = notification.IsRead ? "read" : "unread";
+            <a asp-controller="Sharing" asp-action="MyListings" class="quick-action">
+                <span>🤝</span>
+                <strong>Paylaşım İlanlarım</strong>
+                <small>Paylaşıma açtığın ürünleri takip et.</small>
+            </a>
 
-                        <a asp-controller="Notification"
-                           asp-action="Index"
-                           class="notification-row @readClass">
-                            <div>
-                                <strong>@notification.Title</strong>
-                                <p>@notification.Message</p>
-                                <span>
-                                    @DisplayTextHelper.GetNotificationTypeText(notification.Type)
-                                    · @notification.CreatedAt.ToString("dd.MM.yyyy HH:mm")
-                                </span>
-                            </div>
-                        </a>
-                    }
-                </div>
-            }
+            <a asp-controller="Sharing" asp-action="Available" class="quick-action">
+                <span>🛒</span>
+                <strong>Mevcut İlanlar</strong>
+                <small>Diğer kullanıcıların paylaşımlarını incele.</small>
+            </a>
+
+            <a asp-controller="Delivery" asp-action="Index" class="quick-action">
+                <span>📍</span>
+                <strong>Teslimatlar</strong>
+                <small>Teslim alma ve bağışlama süreçlerini takip et.</small>
+            </a>
+
+            <a asp-controller="CarbonReport" asp-action="Index" class="quick-action">
+                <span>📊</span>
+                <strong>Karbon Raporu</strong>
+                <small>Sürdürülebilirlik etkini görüntüle.</small>
+            </a>
         </div>
     </section>
 
@@ -329,13 +273,6 @@
             font-weight: 900;
         }
 
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
-            gap: 22px;
-            align-items: start;
-        }
-
         .panel-card,
         .flow-card {
             background: white;
@@ -360,23 +297,9 @@
                 margin: 0;
             }
 
-        .notification-header-area {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 14px;
-        }
-
-        .mini-link {
-            color: #238636;
-            font-weight: 900;
-            text-decoration: none;
-            white-space: nowrap;
-        }
-
         .quick-action-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 14px;
         }
 
@@ -412,79 +335,6 @@
                 color: #526b7a;
                 line-height: 1.4;
             }
-
-        .notification-list {
-            display: grid;
-            gap: 12px;
-        }
-
-        .notification-row {
-            display: block;
-            background: #f8faf8;
-            border: 1px solid #e5eee7;
-            border-radius: 16px;
-            padding: 14px;
-            text-decoration: none;
-            color: inherit;
-        }
-
-            .notification-row.unread {
-                background: #f0fdf4;
-                border-left: 4px solid #238636;
-            }
-
-            .notification-row.read {
-                opacity: 0.82;
-            }
-
-            .notification-row strong {
-                color: #145c24;
-                display: block;
-                margin-bottom: 5px;
-            }
-
-            .notification-row p {
-                color: #526b7a;
-                line-height: 1.4;
-                margin: 0 0 7px;
-                font-size: 14px;
-            }
-
-            .notification-row span {
-                color: #6b7280;
-                font-size: 12px;
-            }
-
-        .empty-state {
-            background: #f8faf8;
-            border-radius: 18px;
-            padding: 34px 18px;
-            text-align: center;
-        }
-
-        .empty-icon {
-            width: 58px;
-            height: 58px;
-            border-radius: 18px;
-            background: #dcfce7;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            margin: 0 auto 14px;
-        }
-
-        .empty-state h4 {
-            color: #145c24;
-            margin: 0 0 8px;
-            font-size: 20px;
-        }
-
-        .empty-state p {
-            color: #526b7a;
-            margin: 0;
-            line-height: 1.5;
-        }
 
         .flow-steps {
             display: grid;
@@ -525,8 +375,8 @@
             }
 
         @@media (max-width: 1100px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
+            .quick-action-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
             .flow-steps {
@@ -548,10 +398,6 @@
             .quick-action-grid,
             .flow-steps {
                 grid-template-columns: 1fr;
-            }
-
-            .notification-header-area {
-                flex-direction: column;
             }
         }
     </style>

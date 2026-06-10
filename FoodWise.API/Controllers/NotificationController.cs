@@ -107,7 +107,7 @@ public class NotificationController : ControllerBase
         return Ok("Bildirim silindi.");
     }
 
-    private string GetUserId()
+    private string GetUserId() 
     {
         // JWT token içindeki NameIdentifier claim'i Identity kullanıcı Id bilgisini taşır.
         return User.FindFirstValue(ClaimTypes.NameIdentifier)!;

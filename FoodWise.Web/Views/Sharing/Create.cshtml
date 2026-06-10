@@ -7,17 +7,6 @@
     ViewData["PageDescription"] = "Stokundaki ürünü güvenli teslim noktası üzerinden başka kullanıcılarla paylaşabilirsin.";
 }
 
-@*
-    Paylaşıma Aç sayfası ortak FoodWise layout yapısını kullanır.
-    Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
-
-    Bu sayfada:
-    - Seçilen stok ürünü için paylaşım ilanı oluşturulur.
-    - Teslim noktası ve teslim zaman aralığı belirlenir.
-    - Paylaşılacak miktar ve açıklama bilgileri alınır.
-    - Form gönderildiğinde Sharing API üzerinden paylaşım ilanı oluşturulur.
-*@
-
 @section TopbarActions {
     <a asp-controller="Stock" asp-action="Index" class="btn-secondary">
         Stoklara Dön
@@ -54,11 +43,9 @@
         <form asp-controller="Sharing" asp-action="Create" method="post">
             @Html.AntiForgeryToken()
 
-            @* Paylaşıma açılacak stok ürünü bilgisi form içinde gizli olarak gönderilir. *@
             <input asp-for="StockItemId" type="hidden" />
             <input asp-for="ProductName" type="hidden" />
 
-            @* Model seviyesindeki doğrulama hataları burada gösterilir. *@
             <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
 
             <div class="form-grid">
@@ -70,19 +57,118 @@
 
                     <span asp-validation-for="Title"></span>
                 </div>
-
-                <div class="form-group">
+                <div class="form-group delivery-point-group">
                     <label asp-for="DeliveryPointId"></label>
+                <div class="delivery-point-selector">
+                    <button type="button" class="delivery-dropdown-button" id="deliveryDropdownButton">
+                        <div>
+                            <strong id="selectedDeliveryPointName">
+                                @{
+                                    var selectedPoint = Model.DeliveryPoints?.FirstOrDefault(x => x.Id == Model.DeliveryPointId);
+                                }
 
-                    <select asp-for="DeliveryPointId" asp-items="Model.DeliveryPoints">
-                        <option value="">Teslim noktası seçiniz</option>
-                    </select>
+                                @(selectedPoint != null ? selectedPoint.Name : "Teslim noktası seç")
+                            </strong>
 
-                    <small class="field-hint">
-                        Teslim işlemi seçilen güvenli teslim noktası üzerinden yapılır.
-                    </small>
+                            <span id="selectedDeliveryPointDetail">
+                                @(selectedPoint != null
+                                                                ? $"{selectedPoint.LocationMatchText} • {selectedPoint.LocationText}"
+                                                                : "Sana yakın teslim noktaları öncelikli listelenir.")
+                            </span>
+                        </div>
 
-                    <span asp-validation-for="DeliveryPointId"></span>
+                        <span class="dropdown-arrow">⌄</span>
+                    </button>
+
+                    <div class="delivery-dropdown-panel" id="deliveryDropdownPanel">
+                        <div class="delivery-search-box">
+                            <input asp-for="DeliveryPointSearch"
+                                   id="deliveryPointSearchInput"
+                                   type="text"
+                                   placeholder="Teslim noktası ara: kampüs, yurt, kafeterya..." />
+
+                            <span class="search-icon">🔍</span>
+                        </div>
+
+                        <small class="field-hint">
+                            Sana yakın teslim noktaları öncelikli listelenir. Aynı mahalle / aynı ilçe / aynı şehir bilgisine göre seçim yapabilirsin.
+                        </small>
+
+                        <div class="delivery-point-list" id="deliveryPointList">
+                            @if (Model.DeliveryPoints == null || !Model.DeliveryPoints.Any())
+                            {
+                                <div class="delivery-empty">
+                                    Teslim noktası bulunamadı.
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var point in Model.DeliveryPoints)
+                                {
+                                    var isSelected = Model.DeliveryPointId == point.Id;
+
+                                    var priorityClass = point.LocationPriority switch
+                                    {
+                                        1 => "same-neighborhood",
+                                        2 => "same-district",
+                                        3 => "same-city",
+                                        _ => "other-region"
+                                    };
+
+                                    var searchText = $"{point.Name} {point.Description} {point.City} {point.District} {point.Neighborhood} {point.LocationMatchText} {point.WorkingHours} {point.StorageType}".ToLower();
+
+                                    <label class="delivery-point-card @(isSelected ? "selected" : "")"
+                                           data-search="@searchText"
+                                           data-name="@point.Name"
+                                           data-detail="@($"{point.LocationMatchText} • {point.LocationText}")">
+
+                                        @if (isSelected)
+                                        {
+                                            <input type="radio"
+                                                   name="DeliveryPointId"
+                                                   value="@point.Id"
+                                                   required
+                                                   checked />
+                                        }
+                                        else
+                                        {
+                                            <input type="radio"
+                                                   name="DeliveryPointId"
+                                                   value="@point.Id"
+                                                   required />
+                                        }
+
+                                        <div class="delivery-radio-dot"></div>
+
+                                        <div class="delivery-point-content">
+                                            <div class="delivery-point-top">
+                                                <strong>@point.Name</strong>
+
+                                                <span class="location-badge @priorityClass">
+                                                    @point.LocationMatchText
+                                                </span>
+                                            </div>
+
+                                            @if (!string.IsNullOrWhiteSpace(point.Description))
+                                            {
+                                                <p class="delivery-description">
+                                                    @point.Description
+                                                </p>
+                                            }
+
+                                            <div class="delivery-location">
+                                                📍 @point.LocationText
+                                            </div>
+
+                                            <div class="delivery-detail">
+                                                @point.DetailText
+                                            </div>
+                                        </div>
+                                    </label>
+                                }
+                            }
+                        </div>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -123,8 +209,9 @@
 
                     <span asp-validation-for="PickupEndTime"></span>
                 </div>
+                    <span asp-validation-for="DeliveryPointId"></span>
             </div>
-
+            
             <div class="form-group full">
                 <label asp-for="Description"></label>
 
@@ -149,6 +236,11 @@
 
     <aside class="helper-card">
         <h3>Paylaşım Bilgisi</h3>
+
+        <div class="helper-item">
+            <strong>Yakın teslim noktası</strong>
+            <p>Sistem, kayıtlı konumuna göre aynı mahalle, aynı ilçe ve aynı şehirdeki teslim noktalarını öncelikli gösterir.</p>
+        </div>
 
         <div class="helper-item">
             <strong>Güvenli teslim</strong>
@@ -242,7 +334,8 @@
                 margin-top: 4px;
             }
 
-        .title-group {
+        .title-group,
+        .delivery-point-group {
             grid-column: 1 / -1;
         }
 
@@ -253,7 +346,6 @@
         }
 
         input,
-        select,
         textarea {
             border: 1px solid #d1d5db;
             background: #ffffff;
@@ -267,7 +359,6 @@
         }
 
             input:focus,
-            select:focus,
             textarea:focus {
                 border-color: #238636;
                 box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
@@ -302,6 +393,224 @@
             .validation-summary:empty {
                 display: none;
             }
+
+        .delivery-dropdown-button {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            cursor: pointer;
+            text-align: left;
+        }
+
+            .delivery-dropdown-button strong {
+                display: block;
+                color: #145c24;
+                font-size: 15px;
+                font-weight: 900;
+                margin-bottom: 4px;
+            }
+
+            .delivery-dropdown-button span {
+                color: #607d8b;
+                font-size: 13px;
+                font-weight: 700;
+            }
+
+        .dropdown-arrow {
+            font-size: 22px !important;
+            color: #238636 !important;
+            transition: 0.2s ease;
+        }
+
+        .delivery-dropdown-button.open .dropdown-arrow {
+            transform: rotate(180deg);
+        }
+
+        .delivery-dropdown-panel {
+            display: none;
+            margin-top: 12px;
+        }
+
+            .delivery-dropdown-panel.show {
+                display: block;
+            }
+        .delivery-point-selector {
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 18px;
+            padding: 16px;
+        }
+
+        .delivery-search-box {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+            .delivery-search-box input {
+                padding-right: 48px;
+                background: white;
+            }
+
+        .search-icon {
+            position: absolute;
+            top: 50%;
+            right: 16px;
+            transform: translateY(-50%);
+            color: #607d8b;
+            font-size: 16px;
+        }
+
+        .delivery-point-group {
+            grid-column: 1 / -1;
+        }
+        .delivery-point-list {
+            display: grid;
+            gap: 12px;
+            margin-top: 14px;
+            max-height: 430px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .delivery-point-card {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            background: #ffffff;
+            border: 1px solid #e5eee7;
+            border-radius: 16px;
+            padding: 14px;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+            .delivery-point-card:hover {
+                border-color: #86efac;
+                background: #fbfffc;
+                transform: translateY(-1px);
+            }
+
+            .delivery-point-card.selected,
+            .delivery-point-card:has(input:checked) {
+                border-color: #238636;
+                background: #effdf3;
+                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.10);
+            }
+
+            .delivery-point-card input[type="radio"] {
+                display: none;
+            }
+
+        .delivery-radio-dot {
+            width: 19px;
+            height: 19px;
+            border-radius: 999px;
+            border: 2px solid #94a3b8;
+            flex-shrink: 0;
+            margin-top: 2px;
+            position: relative;
+        }
+
+        .delivery-point-card input[type="radio"]:checked + .delivery-radio-dot {
+            border-color: #238636;
+        }
+
+            .delivery-point-card input[type="radio"]:checked + .delivery-radio-dot::after {
+                content: "";
+                position: absolute;
+                width: 9px;
+                height: 9px;
+                border-radius: 999px;
+                background: #238636;
+                top: 3px;
+                left: 3px;
+            }
+
+        .delivery-point-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .delivery-point-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+
+            .delivery-point-top strong {
+                color: #145c24;
+                font-size: 15px;
+                line-height: 1.35;
+            }
+
+        .location-badge {
+            border-radius: 999px;
+            padding: 6px 9px;
+            font-size: 11px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+            .location-badge.same-neighborhood {
+                background: #dcfce7;
+                color: #166534;
+            }
+
+            .location-badge.same-district {
+                background: #dbeafe;
+                color: #1d4ed8;
+            }
+
+            .location-badge.same-city {
+                background: #fef3c7;
+                color: #92400e;
+            }
+
+            .location-badge.other-region {
+                background: #e5e7eb;
+                color: #607d8b;
+            }
+
+        .delivery-description {
+            color: #607d8b;
+            font-size: 13px;
+            line-height: 1.4;
+            margin: 0 0 7px;
+        }
+
+        .delivery-location {
+            color: #405a68;
+            font-size: 13px;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        .delivery-detail {
+            color: #78909c;
+            font-size: 12.5px;
+            font-weight: 700;
+        }
+
+        .delivery-empty {
+            background: white;
+            border-radius: 14px;
+            padding: 16px;
+            color: #607d8b;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .delivery-point-card.hidden {
+            display: none;
+        }
 
         .form-actions {
             display: flex;
@@ -399,8 +708,13 @@
                 grid-template-columns: 1fr;
             }
 
-            .title-group {
+            .title-group,
+            .delivery-point-group {
                 grid-column: auto;
+            }
+
+            .delivery-point-top {
+                flex-direction: column;
             }
 
             .form-actions {
@@ -414,4 +728,82 @@
             }
         }
     </style>
+}
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const dropdownButton = document.getElementById("deliveryDropdownButton");
+            const dropdownPanel = document.getElementById("deliveryDropdownPanel");
+            const selectedName = document.getElementById("selectedDeliveryPointName");
+            const selectedDetail = document.getElementById("selectedDeliveryPointDetail");
+
+            const searchInput = document.getElementById("deliveryPointSearchInput");
+            const cards = document.querySelectorAll(".delivery-point-card");
+
+            if (!dropdownButton || !dropdownPanel) {
+                return;
+            }
+
+            dropdownButton.addEventListener("click", function () {
+                dropdownPanel.classList.toggle("show");
+                dropdownButton.classList.toggle("open");
+            });
+
+            function normalizeText(value) {
+                return (value || "")
+                    .toString()
+                    .toLowerCase()
+                    .replaceAll("ç", "c")
+                    .replaceAll("ğ", "g")
+                    .replaceAll("ı", "i")
+                    .replaceAll("ö", "o")
+                    .replaceAll("ş", "s")
+                    .replaceAll("ü", "u");
+            }
+
+            if (searchInput && cards.length) {
+                searchInput.addEventListener("input", function () {
+                    const query = normalizeText(searchInput.value);
+
+                    cards.forEach(function (card) {
+                        const searchText = normalizeText(card.dataset.search);
+
+                        if (!query || searchText.includes(query)) {
+                            card.classList.remove("hidden");
+                        } else {
+                            card.classList.add("hidden");
+                        }
+                    });
+                });
+            }
+
+            cards.forEach(function (card) {
+                card.addEventListener("click", function () {
+                    cards.forEach(function (item) {
+                        item.classList.remove("selected");
+                    });
+
+                    card.classList.add("selected");
+
+                    const radio = card.querySelector('input[type="radio"]');
+
+                    if (radio) {
+                        radio.checked = true;
+                    }
+
+                    if (selectedName) {
+                        selectedName.textContent = card.dataset.name || "Teslim noktası seçildi";
+                    }
+
+                    if (selectedDetail) {
+                        selectedDetail.textContent = card.dataset.detail || "";
+                    }
+
+                    dropdownPanel.classList.remove("show");
+                    dropdownButton.classList.remove("open");
+                });
+            });
+        });
+    </script>
 }

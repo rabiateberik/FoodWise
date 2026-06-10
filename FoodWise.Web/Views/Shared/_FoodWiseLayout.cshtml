@@ -126,23 +126,31 @@
         }
 
         .content {
-            flex: 1;
+            min-height: 100vh;
+            margin-left: 260px;
             padding: 36px;
             box-sizing: border-box;
         }
 
         .topbar {
+            position: fixed;
+            top: 0;
+            left: 260px;
+            right: 0;
+            z-index: 1200;
             background: white;
-            border-radius: 20px;
+            border-radius: 0 0 20px 20px;
             padding: 24px 28px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
-            margin-bottom: 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10);
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 20px;
         }
 
+            .topbar + * {
+                margin-top: 120px;
+            }
             .topbar h2 {
                 color: #145c24;
                 font-size: 30px;
@@ -162,6 +170,30 @@
             flex-wrap: wrap;
         }
 
+        .layout {
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 260px;
+            height: 100vh;
+            background: #145c24;
+            color: white;
+            padding: 28px 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .content {
+            min-height: 100vh;
+            margin-left: 260px;
+            padding: 36px;
+            box-sizing: border-box;
+        }
         /* Sağ üst bildirim zili alanı */
         .notification-wrapper {
             position: relative;
@@ -440,29 +472,46 @@
                 border-color: #238636;
                 box-shadow: 0 8px 20px rgba(35, 134, 54, 0.18);
             }
+
         @@media (max-width: 900px) {
             .layout {
-                flex-direction: column;
+                min-height: 100vh;
             }
 
             .sidebar {
+                position: relative;
                 width: 100%;
+                height: auto;
+                max-height: none;
+                overflow-y: visible;
             }
 
             .content {
+                margin-left: 0;
                 padding: 18px;
             }
 
+          
             .topbar {
+                position: static;
+                border-radius: 20px;
+                margin-bottom: 24px;
                 flex-direction: column;
                 align-items: flex-start;
             }
+
+                .topbar + * {
+                    margin-top: 0;
+                }
+         
 
             .topbar-actions {
                 width: 100%;
                 justify-content: flex-start;
             }
         }
+      
+        
 
         @@media (max-width: 600px) {
             .notification-dropdown {
@@ -524,7 +573,7 @@
                 </a>
 
                 <a asp-controller="Delivery"
-                   asp-action="Index"
+                   asp-action="Outgoing"
                    class="@(IsController("Delivery") ? "active" : "")">
                     Teslimatlar
                 </a>

@@ -1,0 +1,12 @@
+{
+    "model_name": "FoodWise Smart Share Matching Model",
+    "algorithm": "RandomForestRegressor",
+    "dataset_file": "share_matching_dataset.csv",
+    "row_count": 3000,
+    "target_column": "MatchScore",
+    "score_range": "0-100",
+    "mae": 6.8932,
+    "rmse": 8.956,
+    "r2_score": 0.8169,
+    "note": "Bu model sentetik FoodWise paylaşım eşleştirme veri seti ile eğitilmiştir."
+}

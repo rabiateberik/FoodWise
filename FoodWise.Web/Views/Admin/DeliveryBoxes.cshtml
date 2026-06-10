@@ -6,12 +6,13 @@
     var selectedDeliveryPointId = ViewBag.DeliveryPointId as int?;
 
     ViewData["AdminPageTitle"] = "Teslim Kutuları";
-    ViewData["AdminPageDescription"] = "Teslim noktalarına bağlı QR destekli teslim kutularını buradan yönetebilirsin.";
+    ViewData["AdminPageDescription"] = "Teslim noktalarına bağlı ortak QR destekli teslim kutularını buradan yönetebilirsin.";
 }
 
 @*
     Admin teslim kutusu listeleme sayfası.
-    Kutular, teslim noktasına bağlı QR doğrulama alanlarıdır.
+    Kutular tek ürünlük dolu/boş alanlar değildir.
+    Bir teslim kutusu ortak QR bölmesi olarak çalışır ve birden fazla aktif teslimatı barındırabilir.
 *@
 
 @section TopActions {
@@ -28,6 +29,7 @@
         Teslimat Noktalarına Dön
     </a>
 }
+
 <div class="admin-filter-bar">
     <input type="text"
            class="admin-search-input"
@@ -40,6 +42,7 @@
         <option value="passive">Pasif kutular</option>
     </select>
 </div>
+
 <section class="table-card">
     @if (Model == null || !Model.Any())
     {
@@ -55,7 +58,7 @@
                     <th>Kutu</th>
                     <th>Teslim Noktası</th>
                     <th>QR Değeri</th>
-                    <th>Doluluk</th>
+                    <th>Kullanım</th>
                     <th>Durum</th>
                     <th>Oluşturulma</th>
                     <th>İşlemler</th>
@@ -68,11 +71,17 @@
                     <tr data-status="@(box.IsActive ? "active" : "passive")">
                         <td>
                             <strong>@box.BoxCode</strong>
-                            <div class="mini-note">@(box.Description ?? "-")</div>
-                        </td>
+
+                            <div class="mini-note">
+                                @(string.IsNullOrWhiteSpace(box.Description)
+                                                        ? "Açıklama bulunmuyor."
+                                                        : box.Description)
+                    </div>
+                </td>
 
                         <td>
                             @box.DeliveryPointName
+
                             <div class="mini-note">
                                 @box.City / @box.District / @(box.Neighborhood ?? "-")
                             </div>
@@ -83,9 +92,13 @@
                         </td>
 
                         <td>
-                            <span class="badge @(box.IsOccupied ? "passive" : "active")">
-                                @(box.IsOccupied ? "Dolu" : "Boş")
+                            <span class="badge info">
+                                Ortak QR kutusu
                             </span>
+
+                            <div class="mini-note">
+                                Birden fazla teslimat için kullanılabilir.
+                            </div>
                         </td>
 
                         <td>
@@ -94,7 +107,9 @@
                             </span>
                         </td>
 
-                        <td>@box.CreatedAt.ToString("dd.MM.yyyy")</td>
+                        <td>
+                            @box.CreatedAt.ToString("dd.MM.yyyy")
+                        </td>
 
                         <td>
                             <div class="row-actions">
@@ -120,7 +135,7 @@
                             </div>
                         </td>
                     </tr>
-                }
+                        }
             </tbody>
         </table>
     }
@@ -141,6 +156,11 @@
             padding: 5px 8px;
             color: #145c24;
             font-weight: 800;
+        }
+
+        .badge.info {
+            background: #dbeafe;
+            color: #1d4ed8;
         }
     </style>
 }

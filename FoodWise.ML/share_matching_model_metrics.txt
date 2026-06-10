@@ -1,0 +1,11 @@
+FoodWise Smart Share Matching Model Metrics
+===========================================
+
+MAE: 6.8932
+RMSE: 8.9560
+R2 Score: 0.8169
+
+Açıklama:
+MAE, tahmin edilen eşleşme skorunun gerçek skordan ortalama kaç puan saptığını gösterir.
+RMSE, büyük hataları daha fazla cezalandıran hata metriğidir.
+R2 Score, modelin hedef değişkendeki varyansı ne kadar açıkladığını gösterir.

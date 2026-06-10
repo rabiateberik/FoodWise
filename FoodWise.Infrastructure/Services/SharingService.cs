@@ -19,13 +19,15 @@ public class SharingService : ISharingService
 {
     private readonly FoodWiseDbContext _context;
     private readonly INotificationService _notificationService;
-
+    private readonly IShareRequestMatchingService _shareRequestMatchingService;
     public SharingService(
         FoodWiseDbContext context,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IShareRequestMatchingService shareRequestMatchingService)
     {
         _context = context;
         _notificationService = notificationService;
+        _shareRequestMatchingService = shareRequestMatchingService;
     }
 
     public async Task<ShareListingDto?> CreateListingAsync(string userId, CreateShareListingDto model)
@@ -106,11 +108,12 @@ public class SharingService : ISharingService
     {
         var now = DateTime.Now;
 
-        // Mevcut ilanlar sayfasında:
-        // - Kullanıcının kendi ilanları gösterilmez.
-        // - İptal edilen, süresi dolan, teslimata geçen veya teslim edilen ilanlar gösterilmez.
-        // - Available / Requested ilanlar listelenir.
-        // - Kullanıcının onaylanmış ama henüz teslimata geçmemiş talebi varsa ilan "Teslimat bekleniyor" olarak gösterilir.
+        // Giriş yapan kullanıcının kayıtlı konumu alınır.
+        // İlan teslim noktaları bu konuma göre aynı mahalle / aynı ilçe / aynı şehir şeklinde etiketlenir.
+        var currentUser = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == userId && x.IsActive);
+
         var listings = await _context.ShareListings
             .Include(x => x.StockItem)
                 .ThenInclude(x => x.Product)
@@ -123,19 +126,15 @@ public class SharingService : ISharingService
                 x.DonorUserId != userId &&
                 x.PickupEndTime > now &&
 
-                // Teslimata geçmiş veya bitmiş ilanlar artık Mevcut İlanlar sayfasında görünmez.
                 x.Status != ShareListingStatus.QrGenerated &&
                 x.Status != ShareListingStatus.Delivered &&
                 x.Status != ShareListingStatus.Cancelled &&
                 x.Status != ShareListingStatus.Expired &&
 
                 (
-                    // Herkesin görebileceği aktif ilanlar.
                     x.Status == ShareListingStatus.Available ||
                     x.Status == ShareListingStatus.Requested ||
 
-                    // Sadece bu kullanıcının onaylanmış talebi varsa,
-                    // teslimat oluşturulana kadar durum bilgisini göstermek için listede tutulur.
                     (
                         x.Status == ShareListingStatus.Approved &&
                         x.ShareRequests.Any(r =>
@@ -150,10 +149,13 @@ public class SharingService : ISharingService
 
         foreach (var listing in listings)
         {
-            var dto = MapToListingDto(listing);
+            var dto = MapToListingDto(
+                listing,
+                currentUser?.City,
+                currentUser?.District,
+                currentUser?.Neighborhood
+            );
 
-            // Kullanıcının bu ilandaki aktif talebi bulunur.
-            // Cancelled ve Rejected talepler aktif sayılmaz.
             var currentUserRequest = listing.ShareRequests
                 .OrderByDescending(x => x.RequestedAt)
                 .FirstOrDefault(x =>
@@ -170,12 +172,14 @@ public class SharingService : ISharingService
 
         return result;
     }
-
     public async Task<List<ShareListingDto>> GetMyListingsAsync(string userId)
     {
-        // Giriş yapan kullanıcının iptal edilmemiş ve süresi dolmamış paylaşım ilanları listelenir.
-        // İptal edilen veya süresi geçmiş aktif ilanlar bu sayfada gösterilmez.
-        // Kullanıcı ürünü tekrar paylaşmak isterse Stoklarım sayfasından yeniden paylaşıma açabilir.
+        // Giriş yapan kullanıcının kayıtlı konumu alınır.
+        // Kendi ilanlarında da seçilen teslim noktasının kullanıcıya yakınlığı gösterilir.
+        var currentUser = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == userId && x.IsActive);
+
         var listings = await _context.ShareListings
             .Include(x => x.StockItem)
                 .ThenInclude(x => x.Product)
@@ -184,16 +188,23 @@ public class SharingService : ISharingService
             .Include(x => x.DeliveryPoint)
             .Include(x => x.ShareRequests)
             .Where(x =>
-    x.DonorUserId == userId &&
-    x.Status != ShareListingStatus.Cancelled &&
-    x.Status != ShareListingStatus.Expired &&
-    x.Status != ShareListingStatus.Delivered &&
-    x.Status != ShareListingStatus.QrGenerated &&
-    !(x.Status == ShareListingStatus.Available && x.PickupEndTime <= DateTime.Now))
+                x.DonorUserId == userId &&
+                x.Status != ShareListingStatus.Cancelled &&
+                x.Status != ShareListingStatus.Expired &&
+                x.Status != ShareListingStatus.Delivered &&
+                x.Status != ShareListingStatus.QrGenerated &&
+                !(x.Status == ShareListingStatus.Available && x.PickupEndTime <= DateTime.Now))
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
-        return listings.Select(MapToListingDto).ToList();
+        return listings
+            .Select(x => MapToListingDto(
+                x,
+                currentUser?.City,
+                currentUser?.District,
+                currentUser?.Neighborhood
+            ))
+            .ToList();
     }
     public async Task<ShareListingDto?> GetListingByIdAsync(int listingId)
     {
@@ -206,10 +217,11 @@ public class SharingService : ISharingService
     {
         // Talep oluşturulacak ilan aktif, alınabilir ve süresi geçmemiş durumda olmalıdır.
         var listing = await _context.ShareListings
-            .Include(x => x.StockItem)
-                .ThenInclude(x => x.Product)
-            .FirstOrDefaultAsync(x =>
-                x.Id == shareListingId &&
+     .Include(x => x.StockItem)
+         .ThenInclude(x => x.Product)
+     .Include(x => x.DeliveryPoint)
+     .FirstOrDefaultAsync(x =>
+                 x.Id == shareListingId &&
                 x.IsActive &&
                 x.Status == ShareListingStatus.Available &&
                 x.PickupEndTime > DateTime.Now);
@@ -232,11 +244,16 @@ public class SharingService : ISharingService
 
         if (alreadyRequested)
             return null;
+        var matchScore = await _shareRequestMatchingService.CalculateMatchScoreAsync(
+    requesterUserId,
+    listing
+);
+
         var request = new ShareRequest
         {
             ShareListingId = shareListingId,
             RequesterUserId = requesterUserId,
-            MatchScore = 80,
+            MatchScore = matchScore,
             Status = ShareRequestStatus.Pending,
             RequestedAt = DateTime.Now,
             CreatedAt = DateTime.Now
@@ -284,7 +301,55 @@ public class SharingService : ISharingService
             .OrderByDescending(x => x.RequestedAt)
             .ToListAsync();
 
-        return requests.Select(MapToRequestDto).ToList();
+        if (!requests.Any())
+            return new List<ShareRequestDto>();
+
+        // Bu taleplerden hangileri için teslimat oluşturulduğu kontrol edilir.
+        var requestIds = requests.Select(x => x.Id).ToList();
+
+        var deliveries = await _context.Deliveries
+            .Where(x => requestIds.Contains(x.ShareRequestId))
+            .Select(x => new
+            {
+                x.Id,
+                x.ShareRequestId
+            })
+            .ToListAsync();
+
+        var requesterIds = requests
+    .Select(x => x.RequesterUserId)
+    .Distinct()
+    .ToList();
+
+        var requesterNames = await _context.Users
+            .AsNoTracking()
+            .Where(x => requesterIds.Contains(x.Id))
+            .Select(x => new
+            {
+                x.Id,
+                x.FullName
+            })
+            .ToDictionaryAsync(x => x.Id, x => x.FullName);
+
+        var result = new List<ShareRequestDto>();
+
+        foreach (var request in requests)
+        {
+            var dto = MapToRequestDto(request);
+
+            var delivery = deliveries.FirstOrDefault(x => x.ShareRequestId == request.Id);
+
+            dto.HasDelivery = delivery != null;
+            dto.DeliveryId = delivery?.Id;
+
+            dto.RequesterFullName = requesterNames.TryGetValue(request.RequesterUserId, out var fullName)
+                ? fullName
+                : "Kullanıcı";
+
+            result.Add(dto);
+        }
+
+        return result;
     }
 
     public async Task<ShareRequestDto?> ApproveRequestAsync(string donorUserId, int requestId)
@@ -498,8 +563,21 @@ public class SharingService : ISharingService
 
         return true;
     }
-    private ShareListingDto MapToListingDto(ShareListing listing)
+    private ShareListingDto MapToListingDto(
+     ShareListing listing,
+     string? userCity = null,
+     string? userDistrict = null,
+     string? userNeighborhood = null)
     {
+        var locationPriority = CalculateLocationPriority(
+            userCity,
+            userDistrict,
+            userNeighborhood,
+            listing.DeliveryPoint?.City,
+            listing.DeliveryPoint?.District,
+            listing.DeliveryPoint?.Neighborhood
+        );
+
         return new ShareListingDto
         {
             Id = listing.Id,
@@ -509,18 +587,90 @@ public class SharingService : ISharingService
             UnitName = listing.StockItem.Unit.ShortName,
             DonorUserId = listing.DonorUserId,
             DeliveryPointId = listing.DeliveryPointId,
-            DeliveryPointName = listing.DeliveryPoint.Name,
+            DeliveryPointName = listing.DeliveryPoint?.Name,
+            City = listing.DeliveryPoint?.City,
+            District = listing.DeliveryPoint?.District,
+            Neighborhood = listing.DeliveryPoint?.Neighborhood,
+            LocationPriority = locationPriority,
+            LocationMatchText = GetLocationMatchText(locationPriority),
             Title = listing.Title,
             Description = listing.Description,
             PickupStartTime = listing.PickupStartTime,
             PickupEndTime = listing.PickupEndTime,
             Status = listing.Status.ToString(),
             RequestCount = listing.ShareRequests.Count(x =>
-    x.Status == ShareRequestStatus.Pending ||
-    x.Status == ShareRequestStatus.Approved)
+                x.Status == ShareRequestStatus.Pending ||
+                x.Status == ShareRequestStatus.Approved)
+        };
+    }
+    private static int CalculateLocationPriority(
+    string? userCity,
+    string? userDistrict,
+    string? userNeighborhood,
+    string? pointCity,
+    string? pointDistrict,
+    string? pointNeighborhood)
+    {
+        var normalizedUserCity = NormalizeText(userCity);
+        var normalizedUserDistrict = NormalizeText(userDistrict);
+        var normalizedUserNeighborhood = NormalizeText(userNeighborhood);
+
+        var normalizedPointCity = NormalizeText(pointCity);
+        var normalizedPointDistrict = NormalizeText(pointDistrict);
+        var normalizedPointNeighborhood = NormalizeText(pointNeighborhood);
+
+        var sameCity =
+            !string.IsNullOrWhiteSpace(normalizedUserCity) &&
+            normalizedUserCity == normalizedPointCity;
+
+        var sameDistrict =
+            sameCity &&
+            !string.IsNullOrWhiteSpace(normalizedUserDistrict) &&
+            normalizedUserDistrict == normalizedPointDistrict;
+
+        var sameNeighborhood =
+            sameDistrict &&
+            !string.IsNullOrWhiteSpace(normalizedUserNeighborhood) &&
+            normalizedUserNeighborhood == normalizedPointNeighborhood;
+
+        if (sameNeighborhood)
+            return 1;
+
+        if (sameDistrict)
+            return 2;
+
+        if (sameCity)
+            return 3;
+
+        return 99;
+    }
+
+    private static string GetLocationMatchText(int locationPriority)
+    {
+        return locationPriority switch
+        {
+            1 => "Aynı mahalle",
+            2 => "Aynı ilçe",
+            3 => "Aynı şehir",
+            _ => "Diğer bölge"
         };
     }
 
+    private static string NormalizeText(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        return input
+            .Trim()
+            .ToLower()
+            .Replace("ç", "c")
+            .Replace("ğ", "g")
+            .Replace("ı", "i")
+            .Replace("ö", "o")
+            .Replace("ş", "s")
+            .Replace("ü", "u");
+    }
     private ShareRequestDto MapToRequestDto(ShareRequest request)
     {
         return new ShareRequestDto

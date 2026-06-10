@@ -1,0 +1,11 @@
+FoodWise Recipe Recommendation Model Metrics
+============================================
+
+MAE: 6.8152
+RMSE: 9.1340
+R2 Score: 0.9352
+
+Açıklama:
+MAE, tahmin edilen skorun gerçek skordan ortalama kaç puan saptığını gösterir.
+RMSE, büyük hataları daha fazla cezalandıran hata metriğidir.
+R2 Score, modelin hedef değişkendeki varyansı ne kadar açıkladığını gösterir.

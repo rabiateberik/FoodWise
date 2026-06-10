@@ -1,5 +1,6 @@
 ﻿// DeliveryController, Web arayüzünde QR destekli teslimat işlemlerini yönetir.
 // Bağışlanan ve alınacak teslimatlar listelenir; drop-off, QR okutma ve teslim tamamlama işlemleri yapılır.
+// Tüm Teslimatlar sekmesi kaldırılmıştır; varsayılan teslimat ekranı Teslim Edeceklerim olarak açılır.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Delivery;
@@ -17,29 +18,11 @@ public class DeliveryController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index()
+    public IActionResult Index()
     {
-        var token = HttpContext.Session.GetString("JWToken");
-
-        if (string.IsNullOrWhiteSpace(token))
-            return RedirectToAction("Login", "Auth");
-
-        var model = await CreateDeliveryPageModelAsync(token);
-
-        // Tüm Teslimatlar sekmesinde sadece aktif süreçler gösterilir.
-        model.DonatedDeliveries = model.DonatedDeliveries
-            .Where(IsActiveDelivery)
-            .ToList();
-
-        model.ReceivedDeliveries = model.ReceivedDeliveries
-            .Where(IsActiveDelivery)
-            .ToList();
-
-        ViewBag.ActiveDeliveryTab = "Index";
-        ViewBag.DeliveryTabTitle = "Tüm Teslimatlar";
-        ViewBag.DeliveryTabDescription = "Aktif teslimat süreçlerini buradan takip edebilirsin.";
-
-        return View(model);
+        // Tüm Teslimatlar ekranı kaldırıldı.
+        // Teslimatlar menüsüne gelen kullanıcı varsayılan olarak Teslim Edeceklerim ekranına yönlendirilir.
+        return RedirectToAction(nameof(Outgoing));
     }
 
     [HttpGet]
@@ -52,7 +35,7 @@ public class DeliveryController : Controller
 
         var model = await CreateDeliveryPageModelAsync(token);
 
-        // Teslim Edeceklerim sekmesinde tamamlanan/iptal/süresi dolan kayıtlar gösterilmez.
+        // Teslim Edeceklerim sekmesinde yalnızca aktif bağış teslimatları gösterilir.
         model.DonatedDeliveries = model.DonatedDeliveries
             .Where(IsActiveDelivery)
             .ToList();
@@ -61,7 +44,7 @@ public class DeliveryController : Controller
 
         ViewBag.ActiveDeliveryTab = "Outgoing";
         ViewBag.DeliveryTabTitle = "Teslim Edeceklerim";
-        ViewBag.DeliveryTabDescription = "Bağışladığın aktif teslimatları buradan yönetebilirsin.";
+        ViewBag.DeliveryTabDescription = "Paylaştığın ürünlerin teslimat ve kutuya bırakma sürecini buradan takip edebilirsin.";
 
         return View("Index", model);
     }
@@ -76,7 +59,7 @@ public class DeliveryController : Controller
 
         var model = await CreateDeliveryPageModelAsync(token);
 
-        // Teslim Alacaklarım sekmesinde tamamlanan/iptal/süresi dolan kayıtlar gösterilmez.
+        // Teslim Alacaklarım sekmesinde yalnızca aktif alım teslimatları gösterilir.
         model.ReceivedDeliveries = model.ReceivedDeliveries
             .Where(IsActiveDelivery)
             .ToList();
@@ -85,7 +68,7 @@ public class DeliveryController : Controller
 
         ViewBag.ActiveDeliveryTab = "Incoming";
         ViewBag.DeliveryTabTitle = "Teslim Alacaklarım";
-        ViewBag.DeliveryTabDescription = "Teslim alacağın aktif ürünleri buradan takip edebilirsin.";
+        ViewBag.DeliveryTabDescription = "Onaylanan taleplerin için teslim alma sürecini buradan takip edebilirsin.";
 
         return View("Index", model);
     }
@@ -100,7 +83,7 @@ public class DeliveryController : Controller
 
         var model = await CreateDeliveryPageModelAsync(token);
 
-        // Tamamlananlar sekmesinde sadece teslimatı tamamlanan kayıtlar gösterilir.
+        // Tamamlananlar sekmesinde teslim alınmış veya tamamlanmış kayıtlar gösterilir.
         model.DonatedDeliveries = model.DonatedDeliveries
             .Where(IsCompletedDelivery)
             .ToList();
@@ -127,11 +110,14 @@ public class DeliveryController : Controller
 
         var result = await _deliveryWebService.CreateDeliveryAsync(shareRequestId, token);
 
-        TempData["SuccessMessage"] = result != null
-            ? "Teslimat başarıyla oluşturuldu ve teslim kutusu atandı."
-            : "Teslimat oluşturulamadı. Talep durumu, yetki veya boş kutu durumunu kontrol edin.";
+        if (result != null)
+        {
+            TempData["SuccessMessage"] = "Teslimat başarıyla oluşturuldu ve teslim kutusu atandı.";
+            return RedirectToAction(nameof(Outgoing));
+        }
 
-        return RedirectToAction(nameof(Index));
+        TempData["ErrorMessage"] = "Teslimat oluşturulamadı. Talep durumu, yetki veya boş kutu durumunu kontrol edin.";
+        return RedirectToAction("MyListings", "Sharing");
     }
 
     [HttpPost]
@@ -145,9 +131,14 @@ public class DeliveryController : Controller
 
         var result = await _deliveryWebService.MarkAsDroppedOffAsync(model, token);
 
-        TempData["SuccessMessage"] = result != null
-            ? "Ürün kutuya bırakıldı olarak işaretlendi."
-            : "Ürün kutuya bırakıldı olarak işaretlenemedi.";
+        if (result != null)
+        {
+            TempData["SuccessMessage"] = "Ürün kutuya bırakıldı olarak işaretlendi.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Ürün kutuya bırakıldı olarak işaretlenemedi.";
+        }
 
         return RedirectToAction(nameof(Outgoing));
     }
@@ -169,9 +160,14 @@ public class DeliveryController : Controller
 
         var result = await _deliveryWebService.ScanBoxQrAsync(model, token);
 
-        TempData["SuccessMessage"] = result != null
-            ? "QR kod doğrulandı. Teslimatı tamamlayabilirsin."
-            : "Bu QR kod için sana ait aktif teslimat bulunamadı.";
+        if (result != null)
+        {
+            TempData["SuccessMessage"] = "QR kod doğrulandı. Teslimatı tamamlayabilirsin.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Bu QR kod için sana ait aktif teslimat bulunamadı.";
+        }
 
         return RedirectToAction(nameof(Incoming));
     }
@@ -187,9 +183,14 @@ public class DeliveryController : Controller
 
         var result = await _deliveryWebService.CompleteDeliveryAsync(deliveryId, token);
 
-        TempData["SuccessMessage"] = result != null
-            ? "Teslimat başarıyla tamamlandı."
-            : "Teslimat tamamlanamadı. Yetki, durum veya süre bilgisini kontrol edin.";
+        if (result != null)
+        {
+            TempData["SuccessMessage"] = "Teslimat başarıyla tamamlandı.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Teslimat tamamlanamadı. Yetki, durum veya süre bilgisini kontrol edin.";
+        }
 
         return RedirectToAction(nameof(Incoming));
     }

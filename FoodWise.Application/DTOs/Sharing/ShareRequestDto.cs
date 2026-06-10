@@ -26,4 +26,10 @@ public class ShareRequestDto
     public DateTime RequestedAt { get; set; }
 
     public DateTime? RespondedAt { get; set; }
+    // Bu talep için teslimat oluşturulduysa true olur.
+    public bool HasDelivery { get; set; }
+
+    // Oluşturulan teslimat Id bilgisidir.
+    public int? DeliveryId { get; set; }
+    public string? RequesterFullName { get; set; }
 }

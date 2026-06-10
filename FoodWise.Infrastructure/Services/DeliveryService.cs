@@ -1,5 +1,8 @@
-﻿// DeliveryService, QR destekli teslim kutusu akışını yönetir.
-// Onaylanan talepten teslimat oluşturur, boş kutu atar, bırakma ve teslim alma işlemlerini kontrol eder.
+﻿// DeliveryService, QR destekli ortak teslim kutusu akışını yönetir.
+// Onaylanan talepten teslimat oluşturur, aktif QR kutusu atar,
+// bırakma, QR doğrulama ve teslim alma işlemlerini kontrol eder.
+// Bir teslim kutusu birden fazla aktif teslimatı barındırabilir.
+
 using FoodWise.Application.DTOs.Delivery;
 using FoodWise.Application.DTOs.Notification;
 using FoodWise.Application.Interfaces;
@@ -7,11 +10,6 @@ using FoodWise.Domain.Entities;
 using FoodWise.Domain.Enums;
 using FoodWise.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace FoodWise.Infrastructure.Services;
 
@@ -20,10 +18,11 @@ public class DeliveryService : IDeliveryService
     private readonly FoodWiseDbContext _context;
     private readonly IEcoPointService _ecoPointService;
     private readonly INotificationService _notificationService;
+
     public DeliveryService(
-      FoodWiseDbContext context,
-      IEcoPointService ecoPointService,
-      INotificationService notificationService)
+        FoodWiseDbContext context,
+        IEcoPointService ecoPointService,
+        INotificationService notificationService)
     {
         _context = context;
         _ecoPointService = ecoPointService;
@@ -55,23 +54,39 @@ public class DeliveryService : IDeliveryService
         if (request.Status != ShareRequestStatus.Approved)
             return null;
 
-        // Aynı talep için daha önce teslimat oluşturulduysa tekrar oluşturma.
+        // Aynı talep için daha önce teslimat oluşturulduysa tekrar oluşturulmaz.
         var existingDelivery = await GetDeliveryEntityByRequestIdAsync(shareRequestId);
 
         if (existingDelivery != null)
             return MapToDto(existingDelivery);
 
-        // İlgili teslim noktasında boş ve aktif bir kutu aranır.
-        var availableBox = await _context.DeliveryBoxes
-            .FirstOrDefaultAsync(x =>
+        // İlgili teslim noktasındaki aktif QR kutularından biri seçilir.
+        // Kutular ortak kullanım mantığıyla çalışır; bir kutuya birden fazla teslimat atanabilir.
+        // Birden fazla aktif kutu varsa aktif teslimat sayısı daha az olan kutu tercih edilir.
+        var availableBoxInfo = await _context.DeliveryBoxes
+            .Where(x =>
                 x.DeliveryPointId == request.ShareListing.DeliveryPointId &&
-                x.IsActive &&
-                !x.IsOccupied);
+                x.IsActive)
+            .Select(x => new
+            {
+                Box = x,
+                ActiveDeliveryCount = _context.Deliveries.Count(d =>
+                    d.DeliveryBoxId == x.Id &&
+                    (
+                        d.Status == DeliveryStatus.Pending ||
+                        d.Status == DeliveryStatus.QrGenerated ||
+                        d.Status == DeliveryStatus.DroppedOff
+                    ))
+            })
+            .OrderBy(x => x.ActiveDeliveryCount)
+            .ThenBy(x => x.Box.BoxCode)
+            .FirstOrDefaultAsync();
+
+        var availableBox = availableBoxInfo?.Box;
 
         if (availableBox == null)
             return null;
 
-        // Teslimat kaydı oluşturulur ve kutu rezerve edilir.
         var delivery = new Delivery
         {
             ShareListingId = request.ShareListingId,
@@ -82,29 +97,32 @@ public class DeliveryService : IDeliveryService
             DeliveryBoxId = availableBox.Id,
 
             // QrToken teslimatın iç takip kodudur.
-            // Asıl okutulan QR, DeliveryBox.QrCodeValue alanıdır.
+            // Kullanıcının doğruladığı QR değeri DeliveryBox.QrCodeValue alanıdır.
             QrToken = Guid.NewGuid().ToString("N"),
 
             Status = DeliveryStatus.QrGenerated,
             CreatedAt = DateTime.Now,
-            ExpiresAt = request.ShareListing.PickupEndTime
-        };
+            ExpiresAt = request.ShareListing.PickupEndTime,
 
-        availableBox.IsOccupied = true;
-        availableBox.UpdatedAt = DateTime.Now;
+            // Teslimat ilk oluşturulduğunda QR henüz doğrulanmamıştır.
+            IsQrVerified = false,
+            QrVerifiedAt = null
+        };
 
         request.ShareListing.Status = ShareListingStatus.QrGenerated;
         request.ShareListing.UpdatedAt = DateTime.Now;
 
         await _context.Deliveries.AddAsync(delivery);
         await _context.SaveChangesAsync();
+
         await _notificationService.CreateAsync(request.RequesterUserId, new CreateNotificationDto
         {
             Title = "Teslimat oluşturuldu",
             Message = $"{request.ShareListing.StockItem.Product.Name} için teslimat oluşturuldu. Teslimatlar sayfasından takip edebilirsin.",
             Type = NotificationType.DeliveryCreated,
-            TargetUrl = "/Delivery/Index"
+            TargetUrl = "/Delivery/Incoming"
         });
+
         var createdDelivery = await GetDeliveryEntityByIdAsync(delivery.Id);
 
         return createdDelivery == null ? null : MapToDto(createdDelivery);
@@ -112,7 +130,6 @@ public class DeliveryService : IDeliveryService
 
     public async Task<DeliveryDto?> MarkAsDroppedOffAsync(string donorUserId, int deliveryId, DropOffDeliveryDto model)
     {
-        // Ürün sahibi ürünü kutuya bıraktığında teslimat DroppedOff durumuna geçer.
         var delivery = await GetDeliveryEntityByIdAsync(deliveryId);
 
         if (delivery == null)
@@ -129,11 +146,12 @@ public class DeliveryService : IDeliveryService
         if (delivery.ExpiresAt < DateTime.Now)
         {
             delivery.Status = DeliveryStatus.Expired;
+            delivery.UpdatedAt = DateTime.Now;
 
-            if (delivery.DeliveryBox != null)
+            if (delivery.ShareListing != null)
             {
-                delivery.DeliveryBox.IsOccupied = false;
-                delivery.DeliveryBox.UpdatedAt = DateTime.Now;
+                delivery.ShareListing.Status = ShareListingStatus.Expired;
+                delivery.ShareListing.UpdatedAt = DateTime.Now;
             }
 
             await _context.SaveChangesAsync();
@@ -145,14 +163,20 @@ public class DeliveryService : IDeliveryService
         delivery.DropOffImageUrl = model.DropOffImageUrl;
         delivery.UpdatedAt = DateTime.Now;
 
+        // Ürün kutuya bırakıldığında alıcının QR doğrulaması yeniden beklenir.
+        delivery.IsQrVerified = false;
+        delivery.QrVerifiedAt = null;
+
         await _context.SaveChangesAsync();
+
         await _notificationService.CreateAsync(delivery.ReceiverUserId, new CreateNotificationDto
         {
             Title = "Ürün kutuya bırakıldı",
             Message = $"{delivery.ShareListing.StockItem.Product.Name} teslim noktasına bırakıldı. QR doğrulama ile teslim alabilirsin.",
             Type = NotificationType.DeliveryDroppedOff,
-            TargetUrl = "/Delivery/Index"
+            TargetUrl = "/Delivery/Incoming"
         });
+
         var updatedDelivery = await GetDeliveryEntityByIdAsync(delivery.Id);
 
         return updatedDelivery == null ? null : MapToDto(updatedDelivery);
@@ -160,17 +184,13 @@ public class DeliveryService : IDeliveryService
 
     public async Task<DeliveryDto?> ScanBoxQrAsync(string receiverUserId, ScanDeliveryBoxDto model)
     {
-        // Alıcı kutudaki QR kodu okutur.
-        // Sistem önce QR değerinden kutuyu bulur.
-        var deliveryBox = await _context.DeliveryBoxes
-            .FirstOrDefaultAsync(x =>
-                x.QrCodeValue == model.QrCodeValue &&
-                x.IsActive);
+        // Aynı QR kutusunda birden fazla teslimat olabilir.
+        // Bu yüzden doğrulama sadece QR koduna göre değil,
+        // DeliveryId + ReceiverUserId + QR değeri birlikte kontrol edilerek yapılır.
 
-        if (deliveryBox == null)
+        if (model.DeliveryId <= 0 || string.IsNullOrWhiteSpace(model.QrCodeValue))
             return null;
 
-        // Bu kutuda, bu alıcıya ait, bırakılmış ve teslim alınmamış teslimat aranır.
         var delivery = await _context.Deliveries
             .Include(x => x.ShareListing)
                 .ThenInclude(x => x.StockItem)
@@ -181,36 +201,57 @@ public class DeliveryService : IDeliveryService
             .Include(x => x.DeliveryPoint)
             .Include(x => x.DeliveryBox)
             .FirstOrDefaultAsync(x =>
-                x.DeliveryBoxId == deliveryBox.Id &&
+                x.Id == model.DeliveryId &&
                 x.ReceiverUserId == receiverUserId &&
                 x.Status == DeliveryStatus.DroppedOff);
 
         if (delivery == null)
             return null;
 
+        // Teslimata atanmış aktif QR kutusu olmalıdır.
+        if (delivery.DeliveryBox == null || !delivery.DeliveryBox.IsActive)
+            return null;
+
+        var expectedQrCode = delivery.DeliveryBox.QrCodeValue?.Trim();
+        var enteredQrCode = model.QrCodeValue.Trim();
+
+        // Girilen QR değeri, bu teslimata atanmış kutunun QR değeriyle eşleşmelidir.
+        if (!string.Equals(expectedQrCode, enteredQrCode, StringComparison.OrdinalIgnoreCase))
+            return null;
+
         // Süresi dolmuş teslimatlar geçersiz kabul edilir.
         if (delivery.ExpiresAt < DateTime.Now)
         {
             delivery.Status = DeliveryStatus.Expired;
+            delivery.UpdatedAt = DateTime.Now;
 
-            deliveryBox.IsOccupied = false;
-            deliveryBox.UpdatedAt = DateTime.Now;
+            if (delivery.ShareListing != null)
+            {
+                delivery.ShareListing.Status = ShareListingStatus.Expired;
+                delivery.ShareListing.UpdatedAt = DateTime.Now;
+            }
 
             await _context.SaveChangesAsync();
 
             return null;
         }
 
-        // QR doğruysa teslimat bilgileri alıcıya gösterilir.
-        return MapToDto(delivery);
-    }
+        // QR doğruysa sadece bu teslimat doğrulanmış kabul edilir.
+        delivery.IsQrVerified = true;
+        delivery.QrVerifiedAt = DateTime.Now;
+        delivery.UpdatedAt = DateTime.Now;
 
+        await _context.SaveChangesAsync();
+
+        var verifiedDelivery = await GetDeliveryEntityByIdAsync(delivery.Id);
+
+        return verifiedDelivery == null ? null : MapToDto(verifiedDelivery);
+    }
     public async Task<DeliveryDto?> CompleteDeliveryAsync(string receiverUserId, int deliveryId)
     {
         // Tamamlama işleminden önce süresi geçmiş DroppedOff teslimatlar Expired yapılır.
         await ExpireOverdueDroppedOffDeliveriesAsync(receiverUserId);
 
-        // Alıcı QR doğrulamasından sonra ürünü teslim aldığını onaylar.
         var delivery = await GetDeliveryEntityByIdAsync(deliveryId);
 
         if (delivery == null)
@@ -224,14 +265,19 @@ public class DeliveryService : IDeliveryService
         if (delivery.Status != DeliveryStatus.DroppedOff)
             return null;
 
+        // Alıcı teslimatı tamamlamadan önce QR kodu doğrulamış olmalıdır.
+        if (!delivery.IsQrVerified)
+            return null;
+
         if (delivery.ExpiresAt < DateTime.Now)
         {
             delivery.Status = DeliveryStatus.Expired;
+            delivery.UpdatedAt = DateTime.Now;
 
-            if (delivery.DeliveryBox != null)
+            if (delivery.ShareListing != null)
             {
-                delivery.DeliveryBox.IsOccupied = false;
-                delivery.DeliveryBox.UpdatedAt = DateTime.Now;
+                delivery.ShareListing.Status = ShareListingStatus.Expired;
+                delivery.ShareListing.UpdatedAt = DateTime.Now;
             }
 
             await _context.SaveChangesAsync();
@@ -243,25 +289,14 @@ public class DeliveryService : IDeliveryService
         delivery.DeliveredAt = DateTime.Now;
         delivery.UpdatedAt = DateTime.Now;
 
-        // İlan teslim edildi durumuna geçer.
         delivery.ShareListing.Status = ShareListingStatus.Delivered;
         delivery.ShareListing.UpdatedAt = DateTime.Now;
 
-        // Stok ürünü artık paylaşıldı kabul edilir.
         delivery.ShareListing.StockItem.Status = StockItemStatus.Shared;
         delivery.ShareListing.StockItem.UpdatedAt = DateTime.Now;
 
-        // Kutu boşaltılır.
-        if (delivery.DeliveryBox != null)
-        {
-            delivery.DeliveryBox.IsOccupied = false;
-            delivery.DeliveryBox.UpdatedAt = DateTime.Now;
-        }
-
         await _context.SaveChangesAsync();
 
-        // Teslimat başarıyla tamamlandığında bağış yapan kullanıcı Eco Puan kazanır.
-        // Aynı teslimat için tekrar puan yazılmaması EcoPointService içinde kontrol edilir.
         await _ecoPointService.AddPointAsync(
             delivery.DonorUserId,
             10,
@@ -269,7 +304,6 @@ public class DeliveryService : IDeliveryService
             "Ürününü başarıyla paylaşarak gıda israfını azaltmaya katkı sağladın.",
             delivery.Id);
 
-        // Teslim alan kullanıcı da sürdürülebilir paylaşım sürecine katıldığı için Eco Puan kazanır.
         await _ecoPointService.AddPointAsync(
             delivery.ReceiverUserId,
             3,
@@ -277,25 +311,25 @@ public class DeliveryService : IDeliveryService
             "Paylaşılan ürünü teslim alarak gıda israfını azaltmaya katkı sağladın.",
             delivery.Id);
 
-        // Teslimat tamamlandığında bağış yapan kullanıcıya bilgilendirme bildirimi gönderilir.
         await _notificationService.CreateAsync(delivery.DonorUserId, new CreateNotificationDto
         {
             Title = "Teslimat tamamlandı",
             Message = $"{delivery.ShareListing.StockItem.Product.Name} teslimatı tamamlandı. +10 Eco Puan kazandın.",
             Type = NotificationType.DeliveryCompleted,
-            TargetUrl = "/Delivery/Index"
+            TargetUrl = "/Delivery/Completed"
         });
+
         var completedDelivery = await GetDeliveryEntityByIdAsync(delivery.Id);
 
         return completedDelivery == null ? null : MapToDto(completedDelivery);
     }
+
     private async Task ExpireOverdueDroppedOffDeliveriesAsync(string userId)
     {
         var now = DateTime.Now;
 
         var overdueDeliveries = await _context.Deliveries
             .Include(x => x.ShareListing)
-            .Include(x => x.DeliveryBox)
             .Where(x =>
                 (x.DonorUserId == userId || x.ReceiverUserId == userId) &&
                 x.Status == DeliveryStatus.DroppedOff &&
@@ -310,29 +344,20 @@ public class DeliveryService : IDeliveryService
             delivery.Status = DeliveryStatus.Expired;
             delivery.UpdatedAt = now;
 
-            // Teslimat süresi dolduysa paylaşım ilanı da süresi dolmuş kabul edilir.
             if (delivery.ShareListing != null)
             {
                 delivery.ShareListing.Status = ShareListingStatus.Expired;
                 delivery.ShareListing.UpdatedAt = now;
             }
-
-            // Kutu tekrar kullanılabilir hale getirilir.
-            if (delivery.DeliveryBox != null)
-            {
-                delivery.DeliveryBox.IsOccupied = false;
-                delivery.DeliveryBox.UpdatedAt = now;
-            }
         }
 
         await _context.SaveChangesAsync();
     }
+
     public async Task<List<DeliveryDto>> GetMyDonatedDeliveriesAsync(string donorUserId)
     {
-        // Sayfa açıldığında süresi geçmiş DroppedOff teslimatlar otomatik Expired yapılır.
         await ExpireOverdueDroppedOffDeliveriesAsync(donorUserId);
 
-        // Ürün sahibinin oluşturduğu teslimatlar listelenir.
         var deliveries = await _context.Deliveries
             .Include(x => x.ShareListing)
                 .ThenInclude(x => x.StockItem)
@@ -348,12 +373,11 @@ public class DeliveryService : IDeliveryService
 
         return deliveries.Select(MapToDto).ToList();
     }
+
     public async Task<List<DeliveryDto>> GetMyReceivedDeliveriesAsync(string receiverUserId)
     {
-        // Sayfa açıldığında süresi geçmiş DroppedOff teslimatlar otomatik Expired yapılır.
         await ExpireOverdueDroppedOffDeliveriesAsync(receiverUserId);
 
-        // Alıcının teslim alacağı veya aldığı teslimatlar listelenir.
         var deliveries = await _context.Deliveries
             .Include(x => x.ShareListing)
                 .ThenInclude(x => x.StockItem)
@@ -420,7 +444,9 @@ public class DeliveryService : IDeliveryService
             PickedUpAt = delivery.PickedUpAt,
             DeliveredAt = delivery.DeliveredAt,
             ExpiresAt = delivery.ExpiresAt,
-            DropOffImageUrl = delivery.DropOffImageUrl
+            DropOffImageUrl = delivery.DropOffImageUrl,
+            IsQrVerified = delivery.IsQrVerified,
+            QrVerifiedAt = delivery.QrVerifiedAt
         };
     }
 }

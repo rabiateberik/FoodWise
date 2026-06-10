@@ -1,0 +1,15 @@
+{
+    "model_name": "FoodWise Waste Risk Prediction Model",
+    "algorithm": "RandomForestClassifier",
+    "dataset_file": "food_waste_risk_dataset.csv",
+    "row_count": 3000,
+    "target_column": "RiskLabel",
+    "labels": [
+        "Low",
+        "Medium",
+        "High",
+        "Critical"
+    ],
+    "accuracy": 0.8283,
+    "note": "Bu model sentetik FoodWise veri seti ile eğitilmiştir."
+}

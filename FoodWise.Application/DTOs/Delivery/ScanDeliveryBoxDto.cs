@@ -1,13 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// Alıcı kullanıcının teslimat kartından QR doğrulama yaparken göndereceği bilgileri temsil eder.
+// Aynı QR kutusunda birden fazla teslimat olabileceği için sadece QR değeri yeterli değildir.
+// DeliveryId ile hangi teslimatın doğrulanacağı netleştirilir.
 
-// Alıcı kullanıcının kutudaki QR kodu okuttuğunda göndereceği QR değerini temsil eder.
 namespace FoodWise.Application.DTOs.Delivery;
 
 public class ScanDeliveryBoxDto
 {
+    public int DeliveryId { get; set; }
+
     public string QrCodeValue { get; set; } = null!;
 }

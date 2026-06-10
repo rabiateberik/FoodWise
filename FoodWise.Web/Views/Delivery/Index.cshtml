@@ -4,7 +4,8 @@
 @{
     Layout = "_FoodWiseLayout";
 
-    var activeTab = ViewBag.ActiveDeliveryTab as string ?? "Index";
+    var activeTab = ViewBag.ActiveDeliveryTab as string ?? "Outgoing";
+
     var pageTitle = ViewBag.DeliveryTabTitle as string ?? "Teslimatlar";
     var pageDescription = ViewBag.DeliveryTabDescription as string
         ?? "Bağışladığın ve teslim alacağın ürünlerin QR destekli teslimat sürecini buradan yönetebilirsin.";
@@ -13,26 +14,22 @@
     ViewData["PageDescription"] = pageDescription;
 
     var showCompletedSection = activeTab == "Completed";
-    var showReceivedSection = activeTab == "Index" || activeTab == "Incoming";
-    var showDonatedSection = activeTab == "Index" || activeTab == "Outgoing";
+    var showReceivedSection = activeTab == "Incoming";
+    var showDonatedSection = activeTab == "Outgoing";
 
     var completedReceivedDeliveries = Model.ReceivedDeliveries ?? new List<FoodWise.Web.ViewModels.Delivery.DeliveryViewModel>();
     var completedDonatedDeliveries = Model.DonatedDeliveries ?? new List<FoodWise.Web.ViewModels.Delivery.DeliveryViewModel>();
 
     var hasCompletedDelivery = completedReceivedDeliveries.Any() || completedDonatedDeliveries.Any();
-
-    var hasReadyToReceiveDelivery =
-        Model.ReceivedDeliveries != null &&
-        Model.ReceivedDeliveries.Any(x => x.Status == "DroppedOff");
 }
 
 @*
     Teslimatlar sayfası ortak FoodWise layout yapısını kullanır.
 
     Bu sayfada:
-    - Tüm Teslimatlar, Teslim Edeceklerim, Teslim Alacaklarım ve Tamamlananlar sekmeleri gösterilir.
-    - Filtreleme JavaScript ile değil, DeliveryController action'ları üzerinden yapılır.
-    - Tamamlananlar sekmesinde alım ve bağış teslimatları tek bölümde gösterilir.
+    - Teslim Edeceklerim, Teslim Alacaklarım ve Tamamlananlar sekmeleri gösterilir.
+    - Aynı QR kutusunda birden fazla teslimat olabileceği için QR doğrulama kart bazlı yapılır.
+    - Her QR doğrulama formu DeliveryId + QrCodeValue gönderir.
 *@
 
 <section class="delivery-page">
@@ -180,35 +177,12 @@
             <div class="section-header">
                 <div>
                     <h3>Teslim Alacaklarım</h3>
-                    <p>Onaylanan taleplerin için teslim alma sürecini buradan takip edebilirsin.</p>
+                    <p>
+                        Onaylanan taleplerin için teslim alma sürecini buradan takip edebilirsin.
+                        Gerçek kullanımda teslim kutusu üzerindeki QR kod okutulur; demo/test ortamında karttaki Demo QR Değeri kullanılabilir.
+                    </p>
                 </div>
             </div>
-
-            @if (hasReadyToReceiveDelivery)
-            {
-                <div class="scan-card">
-                    <div class="scan-info">
-                        <span class="scan-icon">📷</span>
-
-                        <div>
-                            <h3>QR Kod Doğrula</h3>
-                            <p>Teslim kutusunda yer alan QR kod değerini girerek teslim alacağın ürünü doğrulayabilirsin.</p>
-                        </div>
-                    </div>
-
-                    <form asp-controller="Delivery" asp-action="ScanBox" method="post" class="scan-form">
-                        @Html.AntiForgeryToken()
-
-                        <input asp-for="ScanModel.QrCodeValue"
-                               name="QrCodeValue"
-                               placeholder="Örn: FW-DP-LIB-B01" />
-
-                        <button type="submit" class="scan-btn">
-                            QR Doğrula
-                        </button>
-                    </form>
-                </div>
-            }
 
             @if (Model.ReceivedDeliveries == null || !Model.ReceivedDeliveries.Any())
             {
@@ -259,9 +233,16 @@
                                     <strong>@(delivery.BoxCode ?? "-")</strong>
                                 </div>
 
-                                <div>
-                                    <span>Kutu QR</span>
+                                <div class="demo-qr-box">
+                                    <span>Demo QR Değeri</span>
                                     <strong>@(delivery.BoxQrCodeValue ?? "-")</strong>
+
+                                    @if (delivery.Status == "DroppedOff" && !delivery.IsQrVerified)
+                                    {
+                                        <small>
+                                            Test için bu değeri bu karttaki QR doğrulama alanına yazabilirsin.
+                                        </small>
+                                    }
                                 </div>
 
                                 <div>
@@ -272,23 +253,59 @@
 
                             @if (delivery.Status == "DroppedOff")
                             {
-                                <div class="info-box">
-                                    Ürün bağışçı tarafından kutuya bırakıldı. Teslim aldıysan işlemi tamamlayabilirsin.
-                                </div>
+                                @if (!delivery.IsQrVerified)
+                                {
+                                    <div class="info-box waiting">
+                                        Ürün bağışçı tarafından kutuya bırakıldı. Teslim alma işlemi için önce bu teslimata ait kutu QR kodunu doğrulamalısın.
+                                    </div>
 
-                                <form asp-controller="Delivery"
-                                      asp-action="Complete"
-                                      method="post"
-                                      class="action-form single-action"
-                                      onsubmit="return confirm('Bu ürünü teslim aldığını onaylıyor musun?');">
-                                    @Html.AntiForgeryToken()
+                                    <form asp-controller="Delivery"
+                                          asp-action="ScanBox"
+                                          method="post"
+                                          class="qr-card-form">
+                                        @Html.AntiForgeryToken()
 
-                                    <input type="hidden" name="deliveryId" value="@delivery.Id" />
+                                        <input type="hidden"
+                                               name="DeliveryId"
+                                               value="@delivery.Id" />
 
-                                    <button type="submit" class="action-btn complete-btn">
-                                        Teslim Aldım
-                                    </button>
-                                </form>
+                                        <input type="text"
+                                               name="QrCodeValue"
+                                               placeholder="Demo QR değerini gir" />
+
+                                        <button type="submit" class="action-btn scan-btn">
+                                            QR Doğrula
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <div class="info-box success">
+                                        QR kod başarıyla doğrulandı. Ürünü teslim aldıysan işlemi tamamlayabilirsin.
+
+                                        @if (delivery.QrVerifiedAt.HasValue)
+                                        {
+                                            <br />
+                                            <small>
+                                                Doğrulama zamanı: @delivery.QrVerifiedAt.Value.ToString("dd.MM.yyyy HH:mm")
+                                            </small>
+                                        }
+                                    </div>
+
+                                    <form asp-controller="Delivery"
+                                          asp-action="Complete"
+                                          method="post"
+                                          class="action-form single-action"
+                                          onsubmit="return confirm('Bu ürünü teslim aldığını onaylıyor musun?');">
+                                        @Html.AntiForgeryToken()
+
+                                        <input type="hidden" name="deliveryId" value="@delivery.Id" />
+
+                                        <button type="submit" class="action-btn complete-btn">
+                                            Teslim Aldım
+                                        </button>
+                                    </form>
+                                }
                             }
                             else if (delivery.Status == "QrGenerated" || delivery.Status == "Pending")
                             {
@@ -408,7 +425,7 @@
                             else if (delivery.Status == "DroppedOff")
                             {
                                 <div class="info-box waiting">
-                                    Ürün kutuya bırakıldı. Alıcının teslim aldığını onaylaması bekleniyor.
+                                    Ürün kutuya bırakıldı. Alıcının QR doğrulaması ve teslim aldığını onaylaması bekleniyor.
                                 </div>
                             }
                             else if (delivery.Status == "Delivered" || delivery.Status == "Completed")
@@ -435,21 +452,21 @@
     <style>
         .delivery-page {
             display: grid;
-            gap: 24px;
+            gap: 18px;
         }
 
         .delivery-tabs {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 14px;
         }
 
         .delivery-tab {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-height: 42px;
+            min-height: 40px;
             padding: 10px 18px;
             border-radius: 999px;
             background: #f8faf8;
@@ -475,137 +492,68 @@
 
         .delivery-section {
             background: white;
-            border-radius: 22px;
-            padding: 28px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
         }
 
         .section-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 18px;
-            margin-bottom: 20px;
+            gap: 16px;
+            margin-bottom: 16px;
         }
 
-            .section-header h3,
-            .scan-card h3 {
+            .section-header h3 {
                 color: #145c24;
-                margin: 0 0 8px;
-                font-size: 24px;
+                margin: 0 0 6px;
+                font-size: 22px;
             }
 
-            .section-header p,
-            .scan-card p {
+            .section-header p {
                 margin: 0;
                 color: #526b7a;
-                line-height: 1.5;
-            }
-
-        .scan-card {
-            background: #f8faf8;
-            border: 1px solid #e5eee7;
-            border-radius: 18px;
-            padding: 20px;
-            margin-bottom: 22px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 24px;
-        }
-
-        .scan-info {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .scan-icon {
-            width: 58px;
-            height: 58px;
-            border-radius: 18px;
-            background: #dcfce7;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 30px;
-            flex-shrink: 0;
-        }
-
-        .scan-form {
-            margin: 0;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            min-width: 420px;
-        }
-
-        input {
-            border: 1px solid #d1d5db;
-            border-radius: 12px;
-            padding: 13px 14px;
-            font-size: 15px;
-            outline: none;
-            box-sizing: border-box;
-            width: 100%;
-        }
-
-            input:focus {
-                border-color: #238636;
-                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
-            }
-
-        .scan-btn,
-        .action-btn {
-            border: none;
-            border-radius: 12px;
-            padding: 12px 16px;
-            font-weight: 800;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .scan-btn {
-            background: #238636;
-            color: white;
-            min-height: 44px;
-        }
-
-            .scan-btn:hover {
-                background: #1f7a30;
+                line-height: 1.45;
+                font-size: 14px;
             }
 
         .delivery-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 430px));
+            gap: 16px;
+            align-items: stretch;
+            justify-content: start;
         }
 
         .delivery-card {
             background: #f8faf8;
-            border-radius: 20px;
-            padding: 22px;
+            border-radius: 18px;
+            padding: 18px;
             border: 1px solid #e5eee7;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
+            width: 100%;
+            max-width: 430px;
+            box-sizing: border-box;
             min-width: 0;
         }
 
             .delivery-card:hover {
                 transform: translateY(-2px);
-                box-shadow: 0 14px 32px rgba(0, 0, 0, 0.07);
+                box-shadow: 0 12px 26px rgba(0, 0, 0, 0.07);
             }
 
         .completed-card {
             position: relative;
-            padding-top: 54px;
+            padding-top: 50px;
         }
 
         .role-badge {
             position: absolute;
-            top: 18px;
-            left: 18px;
+            top: 16px;
+            left: 16px;
             border-radius: 999px;
-            padding: 7px 12px;
+            padding: 6px 11px;
             font-size: 12px;
             font-weight: 900;
         }
@@ -623,29 +571,32 @@
         .delivery-header {
             display: flex;
             justify-content: space-between;
-            gap: 16px;
+            gap: 12px;
             align-items: flex-start;
-            margin-bottom: 18px;
+            margin-bottom: 14px;
         }
 
             .delivery-header h4 {
                 color: #145c24;
-                font-size: 22px;
-                margin: 0 0 6px;
+                font-size: 20px;
+                margin: 0 0 4px;
+                line-height: 1.25;
             }
 
             .delivery-header p {
                 color: #526b7a;
                 margin: 0;
-                font-weight: 700;
+                font-weight: 800;
+                font-size: 14px;
             }
 
         .status-badge {
             border-radius: 999px;
-            padding: 8px 12px;
-            font-size: 13px;
-            font-weight: 800;
+            padding: 7px 10px;
+            font-size: 12px;
+            font-weight: 900;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .status-pending,
@@ -678,49 +629,94 @@
         .delivery-info {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-            margin-bottom: 18px;
+            gap: 10px;
+            margin-bottom: 14px;
         }
 
             .delivery-info div {
                 background: white;
-                border-radius: 15px;
-                padding: 14px;
+                border-radius: 14px;
+                padding: 12px;
+                min-width: 0;
             }
 
             .delivery-info span {
                 display: block;
                 color: #6b7280;
-                font-size: 13px;
-                margin-bottom: 6px;
+                font-size: 12px;
+                margin-bottom: 4px;
             }
 
             .delivery-info strong {
+                display: block;
                 color: #1f2937;
-                line-height: 1.5;
+                line-height: 1.35;
+                font-size: 13.5px;
                 word-break: break-word;
             }
 
-        .action-form {
+        .demo-qr-box small {
+            display: block;
+            color: #607d8b;
+            font-size: 11.5px;
+            line-height: 1.35;
+            margin-top: 6px;
+            font-weight: 700;
+        }
+
+        input {
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            padding: 11px 13px;
+            font-size: 14px;
+            outline: none;
+            box-sizing: border-box;
+            width: 100%;
+            min-height: 42px;
+        }
+
+            input:focus {
+                border-color: #238636;
+                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
+            }
+
+        .action-form,
+        .qr-card-form {
             margin: 0;
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
             gap: 10px;
             align-items: center;
+            margin-top: 12px;
         }
 
             .action-form.single-action {
                 grid-template-columns: 1fr;
             }
 
-        .dropoff-btn,
-        .complete-btn {
-            color: white;
-            min-height: 44px;
+        .action-btn {
+            border: none;
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 14px;
+            min-height: 42px;
         }
+
+        .scan-btn {
+            background: #238636;
+            color: white;
+        }
+
+            .scan-btn:hover {
+                background: #1f7a30;
+            }
 
         .dropoff-btn {
             background: #238636;
+            color: white;
         }
 
             .dropoff-btn:hover {
@@ -729,6 +725,7 @@
 
         .complete-btn {
             background: #1d4ed8;
+            color: white;
         }
 
             .complete-btn:hover {
@@ -736,11 +733,11 @@
             }
 
         .info-box {
-            border-radius: 14px;
-            padding: 13px;
-            margin-top: 14px;
-            line-height: 1.5;
-            font-size: 14px;
+            border-radius: 13px;
+            padding: 12px;
+            margin-top: 12px;
+            line-height: 1.45;
+            font-size: 13.5px;
             background: #eef6ff;
             color: #1e40af;
             border: 1px solid #bfdbfe;
@@ -766,49 +763,38 @@
 
         .empty-state {
             background: #f8faf8;
-            border-radius: 18px;
-            padding: 34px 22px;
-            margin-top: 18px;
+            border-radius: 16px;
+            padding: 30px 20px;
+            margin-top: 14px;
             text-align: center;
         }
 
         .empty-icon {
-            width: 64px;
-            height: 64px;
-            border-radius: 20px;
+            width: 58px;
+            height: 58px;
+            border-radius: 18px;
             background: #dcfce7;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 30px;
-            margin: 0 auto 16px;
+            font-size: 28px;
+            margin: 0 auto 14px;
         }
 
         .empty-state h4 {
             color: #145c24;
-            font-size: 23px;
+            font-size: 21px;
             margin: 0 0 8px;
         }
 
         .empty-state p {
             color: #526b7a;
             margin: 0;
-            line-height: 1.5;
-        }
-
-        @@media (max-width: 1050px) {
-            .scan-card {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .scan-form {
-                min-width: 0;
-            }
+            line-height: 1.45;
+            font-size: 14px;
         }
 
         @@media (max-width: 800px) {
-            .scan-info,
             .delivery-header {
                 flex-direction: column;
                 align-items: flex-start;
@@ -818,17 +804,20 @@
                 grid-template-columns: 1fr;
             }
 
+            .delivery-card {
+                max-width: none;
+            }
+
             .delivery-info {
                 grid-template-columns: 1fr;
             }
 
-            .scan-form,
-            .action-form {
+            .action-form,
+            .qr-card-form {
                 grid-template-columns: 1fr;
                 width: 100%;
             }
 
-            .scan-btn,
             .action-btn {
                 width: 100%;
             }

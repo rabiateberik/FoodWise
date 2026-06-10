@@ -1,27 +1,30 @@
-﻿@using FoodWise.Web.Helpers
-@model List<FoodWise.Web.ViewModels.Recipe.RecipeRecommendationViewModel>
+﻿@model List<FoodWise.Web.ViewModels.Recipe.RecipeRecommendationViewModel>
 
 @{
     Layout = "_FoodWiseLayout";
 
     var productName = ViewBag.ProductName as string;
+    var stockItemId = ViewBag.StockItemId as int?;
+    var activeRecipeTab = ViewBag.ActiveRecipeTab as string ?? "Recommendations";
 
-    ViewData["Title"] = "Tarif Önerileri";
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
 
-    ViewData["PageDescription"] = !string.IsNullOrWhiteSpace(productName)
-        ? $"{productName} ürününü değerlendirmek için önerilen tarifleri buradan görebilirsin."
-        : "Stok ürünlerine göre önerilen tarifleri buradan görüntüleyebilirsin.";
+    ViewData["Title"] = activeRecipeTab switch
+    {
+        "Saved" => "Kaydedilen Tarifler",
+        "Cooked" => "Yaptığım Tarifler",
+        _ => "Tarif Önerileri"
+    };
+
+    ViewData["PageDescription"] = activeRecipeTab switch
+    {
+        "Saved" => "Kaydettiğin tarifleri buradan görüntüleyebilirsin.",
+        "Cooked" => "Yaptım olarak işaretlediğin tarifleri buradan takip edebilirsin.",
+        _ => !string.IsNullOrWhiteSpace(productName)
+            ? $"{productName} ürününü değerlendirmek için önerilen tarifleri buradan görebilirsin."
+            : "Stok ürünlerine göre önerilen tarifleri buradan görüntüleyebilirsin."
+    };
 }
-
-@*
-    Tarif Önerileri sayfası ortak FoodWise layout yapısını kullanır.
-
-    Bu sayfada:
-    - Seçilen riskli ürüne göre önerilen tarifler listelenir.
-    - Kullanıcının stoklarıyla eşleşen malzemeler gösterilir.
-    - Tarifte olup stokta bulunmayan malzemeler ayrıca belirtilir.
-    - Dataset tariflerinde malzemeler IngredientsText alanından gösterilir.
-*@
 
 @section TopbarActions {
     <a asp-controller="Stock" asp-action="Risky" class="btn-secondary">
@@ -30,7 +33,41 @@
 }
 
 <section class="recipe-page">
-    @if (!string.IsNullOrWhiteSpace(productName))
+
+    <section class="recipe-tabs">
+        @if (stockItemId.HasValue && stockItemId.Value > 0)
+        {
+            <a asp-controller="Recipe"
+               asp-action="Recommendations"
+               asp-route-stockItemId="@stockItemId"
+               asp-route-productName="@productName"
+               class="recipe-tab @(activeRecipeTab == "Recommendations" ? "active" : "")">
+                Önerilenler
+            </a>
+        }
+        else
+        {
+            <a asp-controller="Recipe"
+               asp-action="Index"
+               class="recipe-tab @(activeRecipeTab == "Recommendations" ? "active" : "")">
+                Önerilenler
+            </a>
+        }
+
+        <a asp-controller="Recipe"
+           asp-action="Saved"
+           class="recipe-tab @(activeRecipeTab == "Saved" ? "active" : "")">
+            Kaydedilenler
+        </a>
+
+        <a asp-controller="Recipe"
+           asp-action="Cooked"
+           class="recipe-tab @(activeRecipeTab == "Cooked" ? "active" : "")">
+            Yaptıklarım
+        </a>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(productName) && activeRecipeTab == "Recommendations")
     {
         <section class="recipe-hero-card">
             <div>
@@ -54,11 +91,24 @@
             <div class="empty-state">
                 <div class="empty-icon">🍽️</div>
 
-                <h3>Tarif önerisi bulunamadı.</h3>
-                <p>Bu ürün için henüz sistemde eşleşen tarif bulunmuyor.</p>
+                @if (activeRecipeTab == "Saved")
+                {
+                    <h3>Kaydedilen tarif bulunamadı.</h3>
+                    <p>Beğendiğin tarifleri kaydederek burada daha sonra tekrar görüntüleyebilirsin.</p>
+                }
+                else if (activeRecipeTab == "Cooked")
+                {
+                    <h3>Yaptığın tarif bulunamadı.</h3>
+                    <p>Bir tarifi “Yaptım” olarak işaretlediğinde burada listelenir.</p>
+                }
+                else
+                {
+                    <h3>Tarif önerisi bulunamadı.</h3>
+                    <p>Bu ürün için henüz sistemde eşleşen tarif bulunmuyor.</p>
+                }
 
-                <a asp-controller="Stock" asp-action="Risky" class="btn-primary">
-                    Riskli Ürünlere Dön
+                <a asp-controller="Recipe" asp-action="Index" class="btn-primary">
+                    Tarif Önerilerine Dön
                 </a>
             </div>
         }
@@ -75,13 +125,6 @@
                 var matchedSummary = recipe.TotalIngredientCount > 0
                 ? $"{recipe.MatchedIngredientCount}/{recipe.TotalIngredientCount}"
                 : "-";
-
-                var ingredientLines = string.IsNullOrWhiteSpace(recipe.IngredientsText)
-                ? new List<string>()
-                : recipe.IngredientsText
-                .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .ToList();
 
                 <article class="recipe-card">
                     <div class="recipe-header">
@@ -107,19 +150,69 @@
                         </div>
                     </div>
 
+                    <div class="recipe-actions">
+                        <form asp-controller="Recipe" asp-action="Like" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="recipeId" value="@recipe.RecipeId" />
+                            <input type="hidden" name="stockItemId" value="@stockItemId" />
+                            <input type="hidden" name="recommendationScore" value="@recipe.MatchScore" />
+                            <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+                            <button type="submit" class="recipe-action-btn like">
+                                👍 Beğen
+                            </button>
+                        </form>
+
+                        <form asp-controller="Recipe" asp-action="Save" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="recipeId" value="@recipe.RecipeId" />
+                            <input type="hidden" name="stockItemId" value="@stockItemId" />
+                            <input type="hidden" name="recommendationScore" value="@recipe.MatchScore" />
+                            <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+                            <button type="submit" class="recipe-action-btn save">
+                                🔖 Kaydet
+                            </button>
+                        </form>
+
+                        <form asp-controller="Recipe" asp-action="Cook" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="recipeId" value="@recipe.RecipeId" />
+                            <input type="hidden" name="stockItemId" value="@stockItemId" />
+                            <input type="hidden" name="recommendationScore" value="@recipe.MatchScore" />
+                            <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+                            <button type="submit" class="recipe-action-btn cooked">
+                                ✅ Yaptım
+                            </button>
+                        </form>
+
+                        <form asp-controller="Recipe" asp-action="Dislike" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="recipeId" value="@recipe.RecipeId" />
+                            <input type="hidden" name="stockItemId" value="@stockItemId" />
+                            <input type="hidden" name="recommendationScore" value="@recipe.MatchScore" />
+                            <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+                            <button type="submit" class="recipe-action-btn dislike">
+                                👎 Beğenmedim
+                            </button>
+                        </form>
+                    </div>
+
                     <div class="reason-box">
                         <span>Öneri Sebebi</span>
-                        <p>@(recipe.RecommendationReason ?? "Bu tarif stok ürünlerinle eşleştiği için önerildi.")</p>
+                        <p>@recipe.SafeRecommendationReason</p>
                     </div>
 
                     <div class="match-area">
                         <div class="match-box matched">
                             <h4>Stokunda Olanlar</h4>
 
-                            @if (recipe.MatchedIngredients != null && recipe.MatchedIngredients.Any())
+                            @if (recipe.HasMatchedIngredients)
                             {
                                 <div class="tag-list">
-                                    @foreach (var ingredient in recipe.MatchedIngredients)
+                                    @foreach (var ingredient in recipe.MatchedIngredients.Take(8))
                                     {
                                         <span>@ingredient</span>
                                     }
@@ -134,7 +227,7 @@
                         <div class="match-box missing">
                             <h4>Eksik Olabilecekler</h4>
 
-                            @if (recipe.MissingIngredients != null && recipe.MissingIngredients.Any())
+                            @if (recipe.HasMissingIngredients)
                             {
                                 <div class="tag-list">
                                     @foreach (var ingredient in recipe.MissingIngredients.Take(8))
@@ -150,71 +243,18 @@
                         </div>
                     </div>
 
-                    <details class="recipe-detail">
-                        <summary>Malzemeleri Gör</summary>
-
-                        @if (ingredientLines.Any())
-                        {
-                            <ul class="ingredient-line-list">
-                                @foreach (var ingredientLine in ingredientLines)
-                                {
-                                    <li>@ingredientLine</li>
-                                }
-                            </ul>
-                        }
-                        else if (recipe.Ingredients != null && recipe.Ingredients.Any())
-                        {
-                            <ul class="ingredient-line-list">
-                                @foreach (var ingredient in recipe.Ingredients)
-                                {
-                                    <li>
-                                        @ingredient.ProductName
-
-                                        @if (ingredient.Quantity.HasValue)
-                                        {
-                                            <strong>
-                                                @ingredient.Quantity.Value.ToString("0.##")
-                                                @DisplayTextHelper.GetUnitText(ingredient.UnitName)
-                                            </strong>
-                                        }
-                                    </li>
-                                }
-                            </ul>
-                        }
-                        else
-                        {
-                            <p class="empty-text">Malzeme bilgisi bulunmuyor.</p>
-                        }
-                    </details>
-
-                    <details class="recipe-detail">
-                        <summary>Yapılışı Gör</summary>
-
-                        <div class="instructions">
-                            @{
-                                var instructionLines = string.IsNullOrWhiteSpace(recipe.Instructions)
-                                ? new List<string>()
-                                : recipe.Instructions
-                                .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-                                .Where(x => !string.IsNullOrWhiteSpace(x))
-                                .ToList();
-                            }
-
-                            @if (instructionLines.Any())
-                            {
-                                <ol>
-                                    @foreach (var step in instructionLines)
-                                    {
-                                        <li>@step</li>
-                                    }
-                                </ol>
-                            }
-                            else
-                            {
-                                <p class="empty-text">Yapılış bilgisi bulunmuyor.</p>
-                            }
-                        </div>
-                    </details>
+                    <div class="recipe-card-footer">
+                        <a asp-controller="Recipe"
+                           asp-action="Detail"
+                           asp-route-recipeId="@recipe.RecipeId"
+                           asp-route-stockItemId="@stockItemId"
+                           asp-route-recommendationScore="@recipe.MatchScore"
+                           asp-route-source="@activeRecipeTab"
+                           asp-route-returnUrl="@returnUrl"
+                           class="recipe-detail-link">
+                            Tarifi İncele
+                        </a>
+                    </div>
                 </article>
             }
         }
@@ -227,6 +267,37 @@
             display: grid;
             gap: 22px;
         }
+
+        .recipe-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            background: #ffffff;
+            border: 1px solid #e5eee7;
+            border-radius: 18px;
+            padding: 8px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.04);
+        }
+
+        .recipe-tab {
+            text-decoration: none;
+            border-radius: 14px;
+            padding: 11px 16px;
+            color: #145c24;
+            font-weight: 900;
+            background: #f8faf8;
+            transition: 0.2s ease;
+        }
+
+            .recipe-tab:hover {
+                background: #dcfce7;
+                color: #145c24;
+            }
+
+            .recipe-tab.active {
+                background: #145c24;
+                color: #ffffff;
+            }
 
         .recipe-hero-card {
             background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
@@ -334,7 +405,7 @@
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }
 
             .recipe-meta div,
@@ -357,6 +428,58 @@
                 color: #1f2937;
                 font-size: 15px;
                 line-height: 1.5;
+            }
+
+        .recipe-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+            .recipe-actions form {
+                margin: 0;
+            }
+
+        .recipe-action-btn {
+            width: 100%;
+            border: none;
+            border-radius: 13px;
+            padding: 11px 10px;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+            transition: 0.2s ease;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+            .recipe-action-btn:hover {
+                transform: translateY(-1px);
+            }
+
+            .recipe-action-btn.like {
+                background: #dcfce7;
+                color: #166534;
+            }
+
+            .recipe-action-btn.save {
+                background: #e0f2fe;
+                color: #0369a1;
+            }
+
+            .recipe-action-btn.cooked {
+                background: #fef9c3;
+                color: #854d0e;
+            }
+
+            .recipe-action-btn.dislike {
+                background: #fee2e2;
+                color: #991b1b;
             }
 
         .reason-box {
@@ -405,77 +528,28 @@
             color: #92400e;
         }
 
-        .recipe-detail {
-            border: 1px solid #e5eee7;
-            border-radius: 15px;
-            padding: 0;
-            overflow: hidden;
-            margin-top: 12px;
-            background: #ffffff;
+        .recipe-card-footer {
+            margin-top: 16px;
         }
 
-            .recipe-detail summary {
-                cursor: pointer;
-                padding: 14px;
-                color: #145c24;
-                font-weight: 900;
-                list-style: none;
-                background: #f8faf8;
-            }
-
-                .recipe-detail summary::-webkit-details-marker {
-                    display: none;
-                }
-
-                .recipe-detail summary::after {
-                    content: "↓";
-                    float: right;
-                    color: #238636;
-                }
-
-            .recipe-detail[open] summary::after {
-                content: "↑";
-            }
-
-        .ingredient-line-list {
-            list-style: none;
-            padding: 14px;
-            margin: 0;
-            display: grid;
-            gap: 9px;
+        .recipe-detail-link {
+            width: 100%;
+            min-height: 46px;
+            border-radius: 14px;
+            background: #145c24;
+            color: white;
+            text-decoration: none;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s ease;
         }
 
-            .ingredient-line-list li {
-                color: #405a68;
-                line-height: 1.5;
-                border-bottom: 1px solid #edf2ef;
-                padding-bottom: 9px;
-            }
-
-                .ingredient-line-list li:last-child {
-                    border-bottom: none;
-                    padding-bottom: 0;
-                }
-
-            .ingredient-line-list strong {
-                margin-left: 6px;
-                color: #1f2937;
-            }
-
-        .instructions {
-            padding: 14px;
-        }
-
-            .instructions ol {
-                margin: 0;
-                padding-left: 20px;
-                display: grid;
-                gap: 10px;
-            }
-
-            .instructions li {
-                color: #405a68;
-                line-height: 1.6;
+            .recipe-detail-link:hover {
+                background: #238636;
+                color: white;
+                transform: translateY(-1px);
             }
 
         .empty-state {
@@ -524,6 +598,10 @@
 
         @@media (max-width: 620px) {
             .recipe-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .recipe-actions {
                 grid-template-columns: 1fr;
             }
         }

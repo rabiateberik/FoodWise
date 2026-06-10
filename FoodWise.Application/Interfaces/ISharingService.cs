@@ -25,4 +25,5 @@ public interface ISharingService
 
     Task<bool> CancelListingAsync(string userId, int listingId);
     Task<bool> CancelRequestAsync(string requesterUserId, int requestId);
+    
 }

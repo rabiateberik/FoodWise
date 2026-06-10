@@ -1,5 +1,6 @@
 ﻿// Bu servis, FoodWise.Web ile FoodWise.API arasındaki tarif önerisi bağlantısını yönetir.
 // JWT token ile korunan Recipe API endpointlerine istek gönderir.
+// Tarif önerileri, kaydedilen/yapılan tarifler ve kullanıcı tarif etkileşimleri bu servis üzerinden yönetilir.
 
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -52,6 +53,61 @@ public class RecipeWebService : IRecipeWebService
         return result ?? new List<RecipeRecommendationViewModel>();
     }
 
+    public async Task<List<RecipeRecommendationViewModel>> GetGeneralRecommendationsAsync(string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync("api/recipe/recommendations");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<RecipeRecommendationViewModel>();
+
+        var result = await response.Content.ReadFromJsonAsync<List<RecipeRecommendationViewModel>>(GetJsonOptions());
+
+        return result ?? new List<RecipeRecommendationViewModel>();
+    }
+
+    public async Task<List<RecipeRecommendationViewModel>> GetSavedRecipesAsync(string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync("api/recipe/interactions/saved");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<RecipeRecommendationViewModel>();
+
+        var result = await response.Content.ReadFromJsonAsync<List<RecipeRecommendationViewModel>>(GetJsonOptions());
+
+        return result ?? new List<RecipeRecommendationViewModel>();
+    }
+
+    public async Task<List<RecipeRecommendationViewModel>> GetCookedRecipesAsync(string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.GetAsync("api/recipe/interactions/cooked");
+
+        if (!response.IsSuccessStatusCode)
+            return new List<RecipeRecommendationViewModel>();
+
+        var result = await response.Content.ReadFromJsonAsync<List<RecipeRecommendationViewModel>>(GetJsonOptions());
+
+        return result ?? new List<RecipeRecommendationViewModel>();
+    }
+
+    public async Task<bool> CreateRecipeInteractionAsync(CreateRecipeInteractionViewModel model, string token)
+    {
+        SetBearerToken(token);
+
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/recipe/interactions",
+            model,
+            GetJsonOptions()
+        );
+
+        return response.IsSuccessStatusCode;
+    }
+
     private void SetBearerToken(string token)
     {
         _httpClient.DefaultRequestHeaders.Authorization =
@@ -64,17 +120,5 @@ public class RecipeWebService : IRecipeWebService
         {
             PropertyNameCaseInsensitive = true
         };
-    }
-    public async Task<List<RecipeRecommendationViewModel>> GetGeneralRecommendationsAsync(string token)
-    {
-        SetBearerToken(token);
-
-        var response = await _httpClient.GetAsync("api/recipe/recommendations");
-
-        if (!response.IsSuccessStatusCode)
-            return new List<RecipeRecommendationViewModel>();
-
-        return await response.Content.ReadFromJsonAsync<List<RecipeRecommendationViewModel>>(GetJsonOptions())
-               ?? new List<RecipeRecommendationViewModel>();
     }
 }

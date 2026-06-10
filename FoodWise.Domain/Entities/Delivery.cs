@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using FoodWise.Domain.Common;
+﻿using FoodWise.Domain.Common;
 using FoodWise.Domain.Enums;
 
 namespace FoodWise.Domain.Entities;
@@ -35,8 +30,12 @@ public class Delivery : BaseEntity
     public ShareRequest ShareRequest { get; set; } = null!;
 
     public DeliveryPoint DeliveryPoint { get; set; } = null!;
+
     // Teslimatın atanacağı kutu/bölme bilgisidir.
     public int? DeliveryBoxId { get; set; }
+
+    // Teslimatın bağlı olduğu kutu bilgisidir.
+    public DeliveryBox? DeliveryBox { get; set; }
 
     // Alıcı ürünü kutudan teslim aldığında dolacak tarih alanıdır.
     public DateTime? PickedUpAt { get; set; }
@@ -44,6 +43,10 @@ public class Delivery : BaseEntity
     // Ürün sahibi ürünü kutuya bıraktığında opsiyonel fotoğraf yüklerse tutulur.
     public string? DropOffImageUrl { get; set; }
 
-    // Teslimatın bağlı olduğu kutu bilgisidir.
-    public DeliveryBox? DeliveryBox { get; set; }
+    // Alıcı QR kodu doğru şekilde doğruladığında true olur.
+    // Teslim alma işlemi yapılmadan önce bu alan kontrol edilir.
+    public bool IsQrVerified { get; set; } = false;
+
+    // QR kodun başarıyla doğrulandığı tarih bilgisidir.
+    public DateTime? QrVerifiedAt { get; set; }
 }

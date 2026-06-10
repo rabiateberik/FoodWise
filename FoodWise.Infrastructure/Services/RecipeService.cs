@@ -2,6 +2,7 @@
 // Tarif önerileri, dataset üzerinden aktarılan normalize edilmiş malzeme metinleri kullanılarak hesaplanır.
 
 using FoodWise.Application.DTOs.Recipe;
+using FoodWise.Application.DTOs.RecipeRecommendation;
 using FoodWise.Application.Interfaces;
 using FoodWise.Domain.Entities;
 using FoodWise.Domain.Enums;
@@ -12,13 +13,21 @@ using System.Text.RegularExpressions;
 
 namespace FoodWise.Infrastructure.Services;
 
+
 public class RecipeService : IRecipeService
 {
     private readonly FoodWiseDbContext _context;
+    private readonly IRecipeAiScoringService _recipeAiScoringService;
+    private readonly IMlRecipeRecommendationService _mlRecipeRecommendationService;
 
-    public RecipeService(FoodWiseDbContext context)
+    public RecipeService(
+        FoodWiseDbContext context,
+        IRecipeAiScoringService recipeAiScoringService,
+        IMlRecipeRecommendationService mlRecipeRecommendationService)
     {
         _context = context;
+        _recipeAiScoringService = recipeAiScoringService;
+        _mlRecipeRecommendationService = mlRecipeRecommendationService;
     }
 
     public async Task<List<RecipeRecommendationDto>> GetRecommendationsByStockItemAsync(string userId, int stockItemId)
@@ -77,9 +86,25 @@ public class RecipeService : IRecipeService
             .ToListAsync();
 
         var recommendations = recipes
-            .Select(recipe => EvaluateRecipe(recipe, selectedProductCandidate, stockCandidates))
-            .Where(result => result != null)
-            .Select(result => result!)
+        .Select(recipe => EvaluateRecipe(recipe, selectedProductCandidate, stockCandidates))
+        .Where(result => result != null)
+        .Select(result => result!)
+        .OrderByDescending(x => x.MatchScore)
+        .ThenBy(x => x.PreparationTimeMinutes)
+        .Take(20)
+        .ToList();
+
+        recommendations = await _recipeAiScoringService.ApplyPersonalizedScoresAsync(
+      userId,
+      recommendations
+  );
+
+        recommendations = await ApplyMlRecipeScoresAsync(
+            userId,
+            recommendations,
+            userStockItems);
+
+        recommendations = recommendations
             .OrderByDescending(x => x.MatchScore)
             .ThenBy(x => x.PreparationTimeMinutes)
             .Take(20)
@@ -132,17 +157,199 @@ public class RecipeService : IRecipeService
             .ToListAsync();
 
         var recommendations = recipes
-            .Select(recipe => EvaluateGeneralRecipe(recipe, stockCandidates))
-            .Where(result => result != null)
-            .Select(result => result!)
+       .Select(recipe => EvaluateGeneralRecipe(recipe, stockCandidates))
+       .Where(result => result != null)
+       .Select(result => result!)
+       .OrderByDescending(x => x.MatchScore)
+       .ThenBy(x => x.PreparationTimeMinutes)
+       .Take(30)
+       .ToList();
+
+        recommendations = await _recipeAiScoringService.ApplyPersonalizedScoresAsync(
+      userId,
+      recommendations
+  );
+
+        recommendations = await ApplyMlRecipeScoresAsync(
+            userId,
+            recommendations,
+            userStockItems);
+
+        return recommendations
             .OrderByDescending(x => x.MatchScore)
             .ThenBy(x => x.PreparationTimeMinutes)
             .Take(30)
             .ToList();
+    }
+    private async Task<List<RecipeRecommendationDto>> ApplyMlRecipeScoresAsync(
+    string userId,
+    List<RecipeRecommendationDto> recommendations,
+    List<StockItem> userStockItems)
+    {
+        if (!recommendations.Any())
+            return recommendations;
+
+        var interactionSummary = await GetUserRecipeInteractionSummaryAsync(userId);
+
+        foreach (var recommendation in recommendations)
+        {
+            var mlRequest = CreateMlRecipeScoreRequest(
+                recommendation,
+                userStockItems,
+                interactionSummary);
+
+            var mlResult = await _mlRecipeRecommendationService.PredictRecipeScoreAsync(mlRequest);
+
+            if (mlResult == null)
+            {
+                Console.WriteLine($"Tarif ML skoru alınamadı. Eski skor kullanıldı: {recommendation.RecipeName}");
+                continue;
+            }
+
+            var currentScore = recommendation.MatchScore;
+            var mlScore = (int)Math.Round(Math.Clamp(mlResult.RecommendationScore, 0, 100));
+
+            // Mevcut kural/kişiselleştirme skoru tamamen çöpe atılmaz.
+            // ML skoru ağırlıklı olacak şekilde hibrit skor hesaplanır.
+            var finalScore = (int)Math.Round((currentScore * 0.35) + (mlScore * 0.65));
+
+            recommendation.MatchScore = Math.Clamp(finalScore, 0, 100);
+
+            Console.WriteLine($"Tarif ML skoru kullanıldı: {recommendation.RecipeName} - ML: {mlScore} - Final: {recommendation.MatchScore}");
+        }
 
         return recommendations;
     }
 
+    private MlRecipeScorePredictionRequestDto CreateMlRecipeScoreRequest(
+        RecipeRecommendationDto recommendation,
+        List<StockItem> userStockItems,
+        RecipeInteractionSummary interactionSummary)
+    {
+        var matchedIngredientNames = recommendation.MatchedIngredients
+            .Select(NormalizeText)
+            .ToHashSet();
+
+        var matchedStockItems = userStockItems
+            .Where(x =>
+                x.Product != null &&
+                matchedIngredientNames.Contains(NormalizeText(x.Product.Name)))
+            .ToList();
+
+        var riskyIngredientCount = matchedStockItems.Count(IsRiskyStockItem);
+
+        var averageDaysUntilExpiration = matchedStockItems.Any()
+            ? (int)Math.Round(matchedStockItems.Average(x =>
+                (x.ExpirationDate.Date - DateTime.Now.Date).Days))
+            : 30;
+
+        var hasSensitiveIngredient = matchedStockItems.Any(x =>
+            x.Product != null &&
+            x.Product.IsSensitiveFood);
+
+        var totalIngredientCount = recommendation.TotalIngredientCount <= 0
+            ? Math.Max(1, recommendation.MatchedIngredientCount + recommendation.MissingIngredients.Count)
+            : recommendation.TotalIngredientCount;
+
+        var matchedIngredientRatio = totalIngredientCount > 0
+            ? recommendation.MatchedIngredientCount / (double)totalIngredientCount
+            : 0;
+
+        return new MlRecipeScorePredictionRequestDto
+        {
+            RecipeName = recommendation.RecipeName,
+            RecipeCategory = InferRecipeCategory(recommendation.RecipeName),
+            Difficulty = InferRecipeDifficulty(recommendation.PreparationTimeMinutes),
+            PreparationTimeMinutes = recommendation.PreparationTimeMinutes,
+            TotalIngredientCount = totalIngredientCount,
+            MatchedIngredientCount = recommendation.MatchedIngredientCount,
+            MissingIngredientCount = recommendation.MissingIngredients.Count,
+            MatchedIngredientRatio = Math.Round(matchedIngredientRatio, 3),
+            RiskyIngredientCount = riskyIngredientCount,
+            AverageDaysUntilExpiration = averageDaysUntilExpiration,
+            HasSensitiveIngredient = hasSensitiveIngredient,
+            UserLikedSimilarRecipes = interactionSummary.LikedCount,
+            UserSavedSimilarRecipes = interactionSummary.SavedCount,
+            UserCookedSimilarRecipes = interactionSummary.CookedCount,
+            UserDislikedSimilarRecipes = interactionSummary.DislikedCount,
+            ViewedSimilarRecipes = interactionSummary.ViewedCount,
+            Season = GetCurrentSeasonText()
+        };
+    }
+
+    private async Task<RecipeInteractionSummary> GetUserRecipeInteractionSummaryAsync(string userId)
+    {
+        var interactions = await _context.UserRecipeInteractions
+            .AsNoTracking()
+            .Where(x =>
+                x.UserId == userId &&
+                x.IsActive)
+            .ToListAsync();
+
+        return new RecipeInteractionSummary
+        {
+            LikedCount = interactions.Count(x => x.InteractionType == RecipeInteractionType.Liked),
+            SavedCount = interactions.Count(x => x.InteractionType == RecipeInteractionType.Saved),
+            CookedCount = interactions.Count(x => x.InteractionType == RecipeInteractionType.Cooked),
+            DislikedCount = interactions.Count(x => x.InteractionType == RecipeInteractionType.Disliked),
+            ViewedCount = interactions.Count(x => x.InteractionType == RecipeInteractionType.Viewed)
+        };
+    }
+
+    private static string InferRecipeDifficulty(int preparationTimeMinutes)
+    {
+        if (preparationTimeMinutes <= 20)
+            return "Kolay";
+
+        if (preparationTimeMinutes <= 40)
+            return "Orta";
+
+        return "Zor";
+    }
+
+    private static string InferRecipeCategory(string recipeName)
+    {
+        var normalizedName = NormalizeText(recipeName);
+
+        if (normalizedName.Contains("omlet") ||
+            normalizedName.Contains("tost") ||
+            normalizedName.Contains("menemen") ||
+            normalizedName.Contains("yulaf"))
+            return "Kahvaltı";
+
+        if (normalizedName.Contains("corba"))
+            return "Çorba";
+
+        if (normalizedName.Contains("salata"))
+            return "Salata";
+
+        if (normalizedName.Contains("smoothie") ||
+            normalizedName.Contains("sandvic") ||
+            normalizedName.Contains("rulo") ||
+            normalizedName.Contains("pizza"))
+            return "Atıştırmalık";
+
+        if (normalizedName.Contains("tatli") ||
+            normalizedName.Contains("pankek") ||
+            normalizedName.Contains("sutlac") ||
+            normalizedName.Contains("meyve"))
+            return "Tatlı";
+
+        return "Ana Yemek";
+    }
+
+    private static string GetCurrentSeasonText()
+    {
+        var month = DateTime.Now.Month;
+
+        return month switch
+        {
+            3 or 4 or 5 => "İlkbahar",
+            6 or 7 or 8 => "Yaz",
+            9 or 10 or 11 => "Sonbahar",
+            _ => "Kış"
+        };
+    }
     public async Task<List<RecipeRecommendationDto>> GetRecipesByProductAsync(int productId)
     {
         var product = await _context.Products
@@ -194,7 +401,189 @@ public class RecipeService : IRecipeService
             .Select(MapToBasicRecipeDto)
             .ToList();
     }
+    public async Task<bool> CreateRecipeInteractionAsync(string userId, CreateRecipeInteractionDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return false;
 
+        if (!Enum.IsDefined(typeof(RecipeInteractionType), dto.InteractionType))
+            return false;
+
+        var recipeExists = await _context.Recipes
+            .AnyAsync(x => x.Id == dto.RecipeId && x.IsActive);
+
+        if (!recipeExists)
+            return false;
+
+        if (dto.StockItemId.HasValue)
+        {
+            var stockItemExists = await _context.StockItems
+                .AnyAsync(x =>
+                    x.Id == dto.StockItemId.Value &&
+                    x.UserId == userId &&
+                    x.IsActive);
+
+            if (!stockItemExists)
+                return false;
+        }
+
+        int? recommendationScore = dto.RecommendationScore.HasValue
+       ? Math.Clamp(dto.RecommendationScore.Value, 0, 100)
+       : null;
+
+        // Viewed etkileşimi tekrar tekrar kaydedilebilir.
+        // Like, Save, Cooked ve Disliked gibi etkileşimlerde aynı kayıt varsa güncellenir.
+        if (dto.InteractionType != RecipeInteractionType.Viewed)
+        {
+            var existingInteraction = await _context.UserRecipeInteractions
+                .FirstOrDefaultAsync(x =>
+                    x.IsActive &&
+                    x.UserId == userId &&
+                    x.RecipeId == dto.RecipeId &&
+                    x.InteractionType == dto.InteractionType);
+
+            if (existingInteraction != null)
+            {
+                existingInteraction.StockItemId = dto.StockItemId;
+                existingInteraction.RecommendationScore = recommendationScore;
+                existingInteraction.UpdatedAt = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+                return true;
+            }
+        }
+
+        var interaction = new UserRecipeInteraction
+        {
+            UserId = userId,
+            RecipeId = dto.RecipeId,
+            InteractionType = dto.InteractionType,
+            StockItemId = dto.StockItemId,
+            RecommendationScore = recommendationScore,
+            CreatedAt = DateTime.Now,
+            IsActive = true
+        };
+
+        await _context.UserRecipeInteractions.AddAsync(interaction);
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+    public async Task<List<RecipeRecommendationDto>> GetRecipesByInteractionTypeAsync(
+    string userId,
+    RecipeInteractionType interactionType)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return new List<RecipeRecommendationDto>();
+
+        if (!Enum.IsDefined(typeof(RecipeInteractionType), interactionType))
+            return new List<RecipeRecommendationDto>();
+
+        var interactions = await _context.UserRecipeInteractions
+            .AsNoTracking()
+            .Include(x => x.Recipe)
+            .Where(x =>
+                x.IsActive &&
+                x.UserId == userId &&
+                x.InteractionType == interactionType &&
+                x.Recipe.IsActive)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        return interactions
+            .GroupBy(x => x.RecipeId)
+            .Select(group =>
+            {
+                var latestInteraction = group
+                    .OrderByDescending(x => x.CreatedAt)
+                    .First();
+
+                var dto = MapToBasicRecipeDto(latestInteraction.Recipe);
+
+                dto.MatchScore = latestInteraction.RecommendationScore ?? 0;
+                dto.RecommendationReason = interactionType switch
+                {
+                    RecipeInteractionType.Saved => "Bu tarif daha önce kaydedildiği için listeleniyor.",
+                    RecipeInteractionType.Cooked => "Bu tarif daha önce yapıldı olarak işaretlendiği için listeleniyor.",
+                    RecipeInteractionType.Liked => "Bu tarif daha önce beğenildiği için listeleniyor.",
+                    RecipeInteractionType.Disliked => "Bu tarif daha önce beğenilmedi olarak işaretlendiği için listeleniyor.",
+                    RecipeInteractionType.Viewed => "Bu tarif daha önce görüntülendiği için listeleniyor.",
+                    _ => "Kullanıcı tarif geçmişine göre listeleniyor."
+                };
+
+                return dto;
+            })
+            .ToList();
+    }
+    public async Task<List<RecipeAiTrainingDataDto>> GetRecipeAiTrainingDataAsync()
+    {
+        var interactions = await _context.UserRecipeInteractions
+            .AsNoTracking()
+            .Include(x => x.Recipe)
+            .Where(x =>
+                x.IsActive &&
+                x.Recipe.IsActive)
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync();
+
+        if (!interactions.Any())
+            return new List<RecipeAiTrainingDataDto>();
+
+        var trainingData = new List<RecipeAiTrainingDataDto>();
+
+        foreach (var interaction in interactions)
+        {
+            var previousUserInteractions = interactions
+                .Where(x =>
+                    x.UserId == interaction.UserId &&
+                    x.CreatedAt < interaction.CreatedAt)
+                .ToList();
+
+            var previousRecipeInteractions = interactions
+                .Where(x =>
+                    x.RecipeId == interaction.RecipeId &&
+                    x.CreatedAt < interaction.CreatedAt)
+                .ToList();
+
+            trainingData.Add(new RecipeAiTrainingDataDto
+            {
+                UserId = interaction.UserId,
+                RecipeId = interaction.RecipeId,
+                InteractionType = (int)interaction.InteractionType,
+                Label = GetInteractionLabel(interaction.InteractionType),
+                RecommendationScore = interaction.RecommendationScore ?? 0,
+                PreparationTimeMinutes = interaction.Recipe.PreparationTimeMinutes,
+                IngredientCount = GetRecipeIngredientCount(interaction.Recipe),
+                HasStockContext = interaction.StockItemId.HasValue,
+
+                UserLikedCount = previousUserInteractions.Count(x =>
+                    x.InteractionType == RecipeInteractionType.Liked),
+
+                UserSavedCount = previousUserInteractions.Count(x =>
+                    x.InteractionType == RecipeInteractionType.Saved),
+
+                UserCookedCount = previousUserInteractions.Count(x =>
+                    x.InteractionType == RecipeInteractionType.Cooked),
+
+                UserDislikedCount = previousUserInteractions.Count(x =>
+                    x.InteractionType == RecipeInteractionType.Disliked),
+
+                RecipeLikedCount = previousRecipeInteractions.Count(x =>
+                    x.InteractionType == RecipeInteractionType.Liked),
+
+                RecipeSavedCount = previousRecipeInteractions.Count(x =>
+                    x.InteractionType == RecipeInteractionType.Saved),
+
+                RecipeCookedCount = previousRecipeInteractions.Count(x =>
+                    x.InteractionType == RecipeInteractionType.Cooked),
+
+                RecipeDislikedCount = previousRecipeInteractions.Count(x =>
+                    x.InteractionType == RecipeInteractionType.Disliked)
+            });
+        }
+
+        return trainingData;
+    }
     private static RecipeRecommendationDto? EvaluateRecipe(
         Recipe recipe,
         StockIngredientCandidate selectedProduct,
@@ -295,7 +684,18 @@ public class RecipeService : IRecipeService
             Ingredients = new List<RecipeIngredientDto>()
         };
     }
-
+    private static float GetInteractionLabel(RecipeInteractionType interactionType)
+    {
+        return interactionType switch
+        {
+            RecipeInteractionType.Disliked => 0.0f,
+            RecipeInteractionType.Viewed => 0.35f,
+            RecipeInteractionType.Liked => 0.75f,
+            RecipeInteractionType.Saved => 0.85f,
+            RecipeInteractionType.Cooked => 1.0f,
+            _ => 0.0f
+        };
+    }
     private static RecipeRecommendationDto? EvaluateGeneralRecipe(
         Recipe recipe,
         List<StockIngredientCandidate> userStockCandidates)
@@ -705,5 +1105,17 @@ public class RecipeService : IRecipeService
         public HashSet<string> Tokens { get; set; } = new();
 
         public bool IsRisky { get; set; }
+    }
+    private class RecipeInteractionSummary
+    {
+        public int LikedCount { get; set; }
+
+        public int SavedCount { get; set; }
+
+        public int CookedCount { get; set; }
+
+        public int DislikedCount { get; set; }
+
+        public int ViewedCount { get; set; }
     }
 }

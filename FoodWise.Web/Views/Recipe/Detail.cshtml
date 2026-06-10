@@ -1,0 +1,431 @@
+﻿@using FoodWise.Web.Helpers
+@model FoodWise.Web.ViewModels.Recipe.RecipeRecommendationViewModel
+
+@{
+    Layout = "_FoodWiseLayout";
+
+    var stockItemId = ViewBag.StockItemId as int?;
+    var recommendationScore = ViewBag.RecommendationScore as int?;
+    var returnUrl = ViewBag.ReturnUrl as string ?? Url.Action("Index", "Recipe");
+
+    ViewData["Title"] = Model.RecipeName;
+    ViewData["PageDescription"] = "Tarif detayını, malzemeleri ve yapılış adımlarını buradan inceleyebilirsin.";
+
+    var ingredientLines = string.IsNullOrWhiteSpace(Model.IngredientsText)
+        ? new List<string>()
+        : Model.IngredientsText
+            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+    var instructionLines = string.IsNullOrWhiteSpace(Model.Instructions)
+        ? new List<string>()
+        : Model.Instructions
+            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+    var matchedSummary = Model.TotalIngredientCount > 0
+        ? $"{Model.MatchedIngredientCount}/{Model.TotalIngredientCount}"
+        : "-";
+}
+
+@section TopbarActions {
+    <a href="@returnUrl" class="btn-secondary">
+        Tariflere Dön
+    </a>
+}
+
+<section class="recipe-detail-page">
+    <article class="recipe-detail-card">
+        <div class="detail-header">
+            <div>
+                <span class="detail-label">Tarif Detayı</span>
+
+                <h2>@Model.RecipeName</h2>
+
+                <p>
+                    @(Model.Description ?? "Açıklama bulunmuyor.")
+                </p>
+            </div>
+
+            <span class="score-badge">
+                %@Model.MatchScore eşleşme
+            </span>
+        </div>
+
+        <div class="detail-meta">
+            <div>
+                <span>Hazırlık / Pişirme</span>
+                <strong>@Model.PreparationTimeMinutes dk</strong>
+            </div>
+
+            <div>
+                <span>Malzeme Eşleşmesi</span>
+                <strong>@matchedSummary malzeme</strong>
+            </div>
+        </div>
+
+        <div class="recipe-actions">
+            <form asp-controller="Recipe" asp-action="Like" method="post">
+                @Html.AntiForgeryToken()
+
+                <input type="hidden" name="recipeId" value="@Model.RecipeId" />
+                <input type="hidden" name="stockItemId" value="@stockItemId" />
+                <input type="hidden" name="recommendationScore" value="@recommendationScore" />
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+
+                <button type="submit" class="recipe-action-btn like">
+                    👍 Beğen
+                </button>
+            </form>
+
+            <form asp-controller="Recipe" asp-action="Save" method="post">
+                @Html.AntiForgeryToken()
+
+                <input type="hidden" name="recipeId" value="@Model.RecipeId" />
+                <input type="hidden" name="stockItemId" value="@stockItemId" />
+                <input type="hidden" name="recommendationScore" value="@recommendationScore" />
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+
+                <button type="submit" class="recipe-action-btn save">
+                    🔖 Kaydet
+                </button>
+            </form>
+
+            <form asp-controller="Recipe" asp-action="Cook" method="post">
+                @Html.AntiForgeryToken()
+
+                <input type="hidden" name="recipeId" value="@Model.RecipeId" />
+                <input type="hidden" name="stockItemId" value="@stockItemId" />
+                <input type="hidden" name="recommendationScore" value="@recommendationScore" />
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+
+                <button type="submit" class="recipe-action-btn cooked">
+                    ✅ Yaptım
+                </button>
+            </form>
+
+            <form asp-controller="Recipe" asp-action="Dislike" method="post">
+                @Html.AntiForgeryToken()
+
+                <input type="hidden" name="recipeId" value="@Model.RecipeId" />
+                <input type="hidden" name="stockItemId" value="@stockItemId" />
+                <input type="hidden" name="recommendationScore" value="@recommendationScore" />
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+
+                <button type="submit" class="recipe-action-btn dislike">
+                    👎 Beğenmedim
+                </button>
+            </form>
+        </div>
+
+        <section class="detail-section">
+            <h3>Öneri Sebebi</h3>
+            <p>@Model.SafeRecommendationReason</p>
+        </section>
+
+        <section class="detail-section">
+            <h3>Stokunda Olanlar</h3>
+
+            @if (Model.HasMatchedIngredients)
+            {
+                <div class="tag-list matched">
+                    @foreach (var ingredient in Model.MatchedIngredients)
+                    {
+                        <span>@ingredient</span>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="empty-text">Eşleşen malzeme bilgisi bulunmuyor.</p>
+            }
+        </section>
+
+        <section class="detail-section">
+            <h3>Eksik Olabilecekler</h3>
+
+            @if (Model.HasMissingIngredients)
+            {
+                <div class="tag-list missing">
+                    @foreach (var ingredient in Model.MissingIngredients)
+                    {
+                        <span>@ingredient</span>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="empty-text">Eksik malzeme görünmüyor.</p>
+            }
+        </section>
+
+        <section class="detail-section">
+            <h3>Malzemeler</h3>
+
+            @if (ingredientLines.Any())
+            {
+                <ul class="detail-list">
+                    @foreach (var ingredientLine in ingredientLines)
+                    {
+                        <li>@ingredientLine</li>
+                    }
+                </ul>
+            }
+            else if (Model.Ingredients != null && Model.Ingredients.Any())
+            {
+                <ul class="detail-list">
+                    @foreach (var ingredient in Model.Ingredients)
+                    {
+                        <li>
+                            @ingredient.ProductName
+
+                            @if (ingredient.Quantity.HasValue)
+                            {
+                                <strong>
+                                    @ingredient.Quantity.Value.ToString("0.##")
+                                    @DisplayTextHelper.GetUnitText(ingredient.UnitName)
+                                </strong>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="empty-text">Malzeme bilgisi bulunmuyor.</p>
+            }
+        </section>
+
+        <section class="detail-section">
+            <h3>Yapılış</h3>
+
+            @if (instructionLines.Any())
+            {
+                <ol class="instruction-list">
+                    @foreach (var step in instructionLines)
+                    {
+                        <li>@step</li>
+                    }
+                </ol>
+            }
+            else
+            {
+                <p class="empty-text">Yapılış bilgisi bulunmuyor.</p>
+            }
+        </section>
+    </article>
+</section>
+
+@section Styles {
+    <style>
+        .recipe-detail-page {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        .recipe-detail-card {
+            background: white;
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            border-top: 5px solid #dcfce7;
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .detail-label {
+            color: #238636;
+            font-weight: 900;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .detail-header h2 {
+            color: #145c24;
+            font-size: 34px;
+            margin: 0 0 10px;
+        }
+
+        .detail-header p {
+            color: #526b7a;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .score-badge {
+            background: #fef9c3;
+            color: #854d0e;
+            border-radius: 999px;
+            padding: 10px 14px;
+            font-size: 14px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .detail-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+            .detail-meta div,
+            .detail-section {
+                background: #f8faf8;
+                border-radius: 16px;
+                padding: 16px;
+            }
+
+            .detail-meta span {
+                display: block;
+                color: #6b7280;
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+
+            .detail-meta strong {
+                color: #1f2937;
+                font-size: 16px;
+            }
+
+        .recipe-actions {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+            .recipe-actions form {
+                margin: 0;
+            }
+
+        .recipe-action-btn {
+            width: 100%;
+            border: none;
+            border-radius: 13px;
+            padding: 11px 10px;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: 0.2s ease;
+        }
+
+            .recipe-action-btn:hover {
+                transform: translateY(-1px);
+            }
+
+            .recipe-action-btn.like {
+                background: #dcfce7;
+                color: #166534;
+            }
+
+            .recipe-action-btn.save {
+                background: #e0f2fe;
+                color: #0369a1;
+            }
+
+            .recipe-action-btn.cooked {
+                background: #fef9c3;
+                color: #854d0e;
+            }
+
+            .recipe-action-btn.dislike {
+                background: #fee2e2;
+                color: #991b1b;
+            }
+
+        .detail-section {
+            margin-top: 14px;
+        }
+
+            .detail-section h3 {
+                color: #145c24;
+                margin: 0 0 12px;
+                font-size: 20px;
+            }
+
+            .detail-section p,
+            .empty-text {
+                color: #526b7a;
+                line-height: 1.6;
+                margin: 0;
+            }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+            .tag-list span {
+                border-radius: 999px;
+                padding: 7px 11px;
+                font-size: 13px;
+                font-weight: 900;
+            }
+
+            .tag-list.matched span {
+                background: #dcfce7;
+                color: #166534;
+            }
+
+            .tag-list.missing span {
+                background: #fef3c7;
+                color: #92400e;
+            }
+
+        .detail-list,
+        .instruction-list {
+            margin: 0;
+            padding-left: 20px;
+            display: grid;
+            gap: 10px;
+            color: #405a68;
+            line-height: 1.6;
+        }
+
+            .detail-list strong {
+                margin-left: 8px;
+                color: #1f2937;
+            }
+
+        @@media (max-width: 900px) {
+            .recipe-actions {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @@media (max-width: 760px) {
+            .recipe-detail-card {
+                padding: 22px;
+            }
+
+            .detail-header {
+                flex-direction: column;
+            }
+
+            .detail-meta,
+            .recipe-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-header h2 {
+                font-size: 28px;
+            }
+        }
+    </style>
+}

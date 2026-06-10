@@ -1,5 +1,5 @@
 ﻿// Bu servis, FoodWise.Web ile FoodWise.API arasındaki paylaşım ilanı bağlantısını yönetir.
-// JWT token ile korunan Sharing API endpointlerine istek gönderir.
+// JWT token ile korunan Sharing ve DeliveryPoint API endpointlerine istek gönderir.
 
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -132,6 +132,7 @@ public class SharingWebService : ISharingWebService
 
         return true;
     }
+
     public async Task<bool> CancelRequestAsync(int requestId, string token)
     {
         SetBearerToken(token);
@@ -140,6 +141,27 @@ public class SharingWebService : ISharingWebService
 
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<List<DeliveryPointViewModel>> GetDeliveryPointsAsync(string token, string? search = null)
+    {
+        SetBearerToken(token);
+
+        // Kullanıcının kayıtlı konumuna göre yakın teslim noktaları öncelikli gelir.
+        // Search doluysa API tarafında teslim noktası adı, açıklama ve konum bilgilerine göre arama yapılır.
+        var endpoint = string.IsNullOrWhiteSpace(search)
+            ? "api/DeliveryPoint/nearby"
+            : $"api/DeliveryPoint/nearby?search={Uri.EscapeDataString(search.Trim())}";
+
+        var response = await _httpClient.GetAsync(endpoint);
+
+        if (!response.IsSuccessStatusCode)
+            return new List<DeliveryPointViewModel>();
+
+        var result = await response.Content.ReadFromJsonAsync<List<DeliveryPointViewModel>>(GetJsonOptions());
+
+        return result ?? new List<DeliveryPointViewModel>();
+    }
+
     private void SetBearerToken(string token)
     {
         _httpClient.DefaultRequestHeaders.Authorization =

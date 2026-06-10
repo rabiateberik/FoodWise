@@ -1,11 +1,11 @@
 ﻿// SharingController, Web arayüzünde paylaşım ilanı oluşturma,
 // ilan listeleme, talep yönetimi ve ilan iptal işlemlerini yönetir.
 // API ile doğrudan değil, ISharingWebService üzerinden haberleşir.
+// Teslim noktaları kullanıcının kayıtlı konumuna göre yakınlık bilgisiyle API'den alınır.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Sharing;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace FoodWise.Web.Controllers;
 
@@ -34,7 +34,7 @@ public class SharingController : Controller
     }
 
     [HttpGet]
-    public IActionResult Create(int stockItemId, string? productName)
+    public async Task<IActionResult> Create(int stockItemId, string? productName)
     {
         var token = HttpContext.Session.GetString("JWToken");
 
@@ -52,7 +52,7 @@ public class SharingController : Controller
             PickupEndTime = DateTime.Now.AddHours(24)
         };
 
-        FillDeliveryPoints(model);
+        await FillDeliveryPointsAsync(model, token);
 
         return View(model);
     }
@@ -67,11 +67,15 @@ public class SharingController : Controller
             return RedirectToAction("Login", "Auth");
 
         if (model.PickupEndTime <= model.PickupStartTime)
-            ModelState.AddModelError(nameof(model.PickupEndTime), "Teslim bitiş zamanı başlangıç zamanından sonra olmalıdır.");
+        {
+            ModelState.AddModelError(
+                nameof(model.PickupEndTime),
+                "Teslim bitiş zamanı başlangıç zamanından sonra olmalıdır.");
+        }
 
         if (!ModelState.IsValid)
         {
-            FillDeliveryPoints(model);
+            await FillDeliveryPointsAsync(model, token);
             return View(model);
         }
 
@@ -79,8 +83,11 @@ public class SharingController : Controller
 
         if (!result)
         {
-            ModelState.AddModelError(string.Empty, "Paylaşım ilanı oluşturulamadı. Ürün zaten aktif bir paylaşım ilanında olabilir veya miktar/teslim noktası bilgilerini kontrol etmelisin.");
-            FillDeliveryPoints(model);
+            ModelState.AddModelError(
+                string.Empty,
+                "Paylaşım ilanı oluşturulamadı. Ürün zaten aktif bir paylaşım ilanında olabilir veya miktar/teslim noktası bilgilerini kontrol etmelisin.");
+
+            await FillDeliveryPointsAsync(model, token);
             return View(model);
         }
 
@@ -209,6 +216,7 @@ public class SharingController : Controller
 
         return RedirectToAction(nameof(MyListings));
     }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelRequest(int requestId)
@@ -223,21 +231,20 @@ public class SharingController : Controller
         if (!result)
         {
             TempData["ErrorMessage"] = "Talep iptal edilemedi.";
-            return RedirectToAction("Available");
+            return RedirectToAction(nameof(Available));
         }
 
         TempData["SuccessMessage"] = "Talep başarıyla iptal edildi.";
-        return RedirectToAction("Available");
+        return RedirectToAction(nameof(Available));
     }
-    private static void FillDeliveryPoints(CreateShareListingViewModel model)
+
+    private async Task FillDeliveryPointsAsync(CreateShareListingViewModel model, string token)
     {
-        // Teslim noktaları şu an seed data ile sabit tutulur.
-        // İleride DeliveryPoint API eklenirse bu liste API'den dinamik alınabilir.
-        model.DeliveryPoints = new List<SelectListItem>
-        {
-            new("Kampüs Kütüphane Girişi", "1"),
-            new("Yurt Danışma Noktası", "2"),
-            new("Kafeterya Önü", "3")
-        };
+        // Teslim noktaları artık sabit dropdown yerine API'den alınır.
+        // API, kullanıcının şehir/ilçe/mahalle bilgisine göre yakın noktaları öncelikli döndürür.
+        model.DeliveryPoints = await _sharingWebService.GetDeliveryPointsAsync(
+            token,
+            model.DeliveryPointSearch
+        );
     }
 }
