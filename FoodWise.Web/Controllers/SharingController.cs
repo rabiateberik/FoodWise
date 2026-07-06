@@ -1,7 +1,8 @@
-﻿// SharingController, Web arayüzünde paylaşım ilanı oluşturma,
-// ilan listeleme, talep yönetimi ve ilan iptal işlemlerini yönetir.
-// API ile doğrudan değil, ISharingWebService üzerinden haberleşir.
-// Teslim noktaları kullanıcının kayıtlı konumuna göre yakınlık bilgisiyle API'den alınır.
+﻿
+// SharingController, Web arayüzünde paylaşım ilanı işlemlerini yönetir.
+// Kullanıcı kendi stok ürününü paylaşım ilanına dönüştürebilir, mevcut ilanları görebilir,
+// ilanlara talep gönderebilir ve kendi ilanlarına gelen talepleri onaylayıp reddedebilir.
+// Controller API'ye doğrudan gitmez; tüm işlemleri ISharingWebService üzerinden FoodWise.API'ye gönderir.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Sharing;
@@ -18,6 +19,7 @@ public class SharingController : Controller
         _sharingWebService = sharingWebService;
     }
 
+    // Kullanıcının oluşturduğu paylaşım ilanlarını listeler.
     [HttpGet]
     public async Task<IActionResult> MyListings(int? highlightListingId)
     {
@@ -28,11 +30,13 @@ public class SharingController : Controller
 
         var listings = await _sharingWebService.GetMyListingsAsync(token);
 
+        // Yeni işlem yapılan ilanın sayfada vurgulanması için kullanılır.
         ViewBag.HighlightListingId = highlightListingId;
 
         return View(listings);
     }
 
+    // Stok ürününden paylaşım ilanı oluşturma formunu açar.
     [HttpGet]
     public async Task<IActionResult> Create(int stockItemId, string? productName)
     {
@@ -41,6 +45,7 @@ public class SharingController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
+        // Form ilk açıldığında ürün adı, başlık ve teslim zamanları varsayılan olarak hazırlanır.
         var model = new CreateShareListingViewModel
         {
             StockItemId = stockItemId,
@@ -52,11 +57,13 @@ public class SharingController : Controller
             PickupEndTime = DateTime.Now.AddHours(24)
         };
 
+        // Kullanıcının konumuna göre uygun teslim noktaları API'den alınır.
         await FillDeliveryPointsAsync(model, token);
 
         return View(model);
     }
 
+    // Paylaşım ilanı oluşturma formundan gelen bilgileri API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateShareListingViewModel model)
@@ -66,6 +73,7 @@ public class SharingController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
+        // Teslim bitiş zamanı başlangıç zamanından önce olamaz.
         if (model.PickupEndTime <= model.PickupStartTime)
         {
             ModelState.AddModelError(
@@ -75,6 +83,8 @@ public class SharingController : Controller
 
         if (!ModelState.IsValid)
         {
+            // Form hatalıysa teslim noktaları tekrar yüklenir.
+            // Aksi halde sayfa tekrar açıldığında dropdown/list alanı boş kalabilir.
             await FillDeliveryPointsAsync(model, token);
             return View(model);
         }
@@ -95,6 +105,7 @@ public class SharingController : Controller
         return RedirectToAction(nameof(MyListings));
     }
 
+    // Kullanıcının talep gönderebileceği aktif paylaşım ilanlarını listeler.
     [HttpGet]
     public async Task<IActionResult> Available()
     {
@@ -108,6 +119,7 @@ public class SharingController : Controller
         return View(listings);
     }
 
+    // Seçilen paylaşım ilanına talep gönderme isteğini API'ye iletir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateRequest(int listingId)
@@ -131,6 +143,7 @@ public class SharingController : Controller
         return RedirectToAction(nameof(Available));
     }
 
+    // İlan sahibinin kendi ilanına gelen talepleri görüntülemesini sağlar.
     [HttpGet]
     public async Task<IActionResult> Requests(int listingId)
     {
@@ -146,6 +159,7 @@ public class SharingController : Controller
         return View(requests);
     }
 
+    // İlan sahibinin gelen paylaşım talebini onaylama isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ApproveRequest(int requestId, int listingId)
@@ -169,6 +183,7 @@ public class SharingController : Controller
         return RedirectToAction(nameof(Requests), new { listingId });
     }
 
+    // İlan sahibinin gelen paylaşım talebini reddetme isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RejectRequest(int requestId, int listingId)
@@ -192,6 +207,7 @@ public class SharingController : Controller
         return RedirectToAction(nameof(Requests), new { listingId });
     }
 
+    // Kullanıcının kendi paylaşım ilanını iptal etme isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Cancel(int listingId)
@@ -201,8 +217,7 @@ public class SharingController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
-        // Kullanıcı kendi paylaşım ilanını iptal eder.
-        // Teslimat sürecine geçmiş ilanlar API tarafında iptal edilmez.
+        // Teslimat sürecine geçmiş ilanların iptal edilip edilmeyeceği API tarafında kontrol edilir.
         var result = await _sharingWebService.CancelListingAsync(listingId, token);
 
         if (result)
@@ -217,6 +232,7 @@ public class SharingController : Controller
         return RedirectToAction(nameof(MyListings));
     }
 
+    // Talep sahibinin kendi gönderdiği paylaşım talebini iptal etmesini sağlar.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelRequest(int requestId)
@@ -238,13 +254,15 @@ public class SharingController : Controller
         return RedirectToAction(nameof(Available));
     }
 
+    // Paylaşım ilanı formunda gösterilecek teslim noktalarını hazırlar.
     private async Task FillDeliveryPointsAsync(CreateShareListingViewModel model, string token)
     {
-        // Teslim noktaları artık sabit dropdown yerine API'den alınır.
-        // API, kullanıcının şehir/ilçe/mahalle bilgisine göre yakın noktaları öncelikli döndürür.
+        // Teslim noktaları sabit olarak tutulmaz; API'den alınır.
+        // API, kullanıcının şehir/ilçe/mahalle bilgisine göre yakın teslim noktalarını öncelikli döndürür.
         model.DeliveryPoints = await _sharingWebService.GetDeliveryPointsAsync(
             token,
             model.DeliveryPointSearch
         );
     }
 }
+

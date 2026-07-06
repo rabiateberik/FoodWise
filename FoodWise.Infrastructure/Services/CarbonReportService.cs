@@ -13,6 +13,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FoodWise.Infrastructure.Services;
 
+// CarbonReportService, kullanıcının aylık karbon tasarrufu raporlarını oluşturur.
+// Tamamlanan teslimatlar üzerinden kurtarılan gıda miktarını ve tahmini karbon tasarrufunu hesaplar.
 public class CarbonReportService : ICarbonReportService
 {
     private readonly FoodWiseDbContext _context;
@@ -22,13 +24,14 @@ public class CarbonReportService : ICarbonReportService
         _context = context;
     }
 
+    // Kullanıcının seçilen ay ve yıl için karbon raporunu oluşturur veya mevcut raporu günceller.
     public async Task<CarbonReportDto> GenerateMonthlyReportAsync(string userId, int month, int year)
     {
         var startDate = new DateTime(year, month, 1);
         var endDate = startDate.AddMonths(1);
 
         // Kullanıcının bağışçı veya alıcı olarak dahil olduğu tamamlanmış teslimatlar alınır.
-        // Böylece kullanıcı hem ürün bağışladığında hem de başkasından ürün teslim aldığında karbon katkısı hesaplanır.
+        // Böylece kullanıcı hem ürün bağışladığında hem de ürün teslim aldığında karbon katkısı hesaplanır.
         var deliveredItems = await _context.Deliveries
             .Include(x => x.ShareListing)
                 .ThenInclude(x => x.StockItem)
@@ -48,6 +51,8 @@ public class CarbonReportService : ICarbonReportService
         decimal savedFoodKg = 0;
         decimal estimatedCarbonSaved = 0;
 
+        // Her teslimat için paylaşılan ürün miktarı kilograma çevrilir.
+        // Ürünün karbon katsayısı ile çarpılarak yaklaşık karbon tasarrufu hesaplanır.
         foreach (var delivery in deliveredItems)
         {
             var listing = delivery.ShareListing;
@@ -61,14 +66,13 @@ public class CarbonReportService : ICarbonReportService
             estimatedCarbonSaved += quantityKg * product.CarbonFactor;
         }
 
-        // Kullanıcının dahil olduğu teslimatı tamamlanan paylaşım sayısıdır.
-        // Bağışladığı veya teslim aldığı tamamlanmış ürünler bu sayıya dahil edilir.
+        // Kullanıcının dahil olduğu tamamlanmış paylaşım sayısı hesaplanır.
         var sharedProductCount = deliveredItems
             .Select(x => x.ShareListingId)
             .Distinct()
             .Count();
 
-        // Kullanıcının aynı ay içinde israf/son kullanımı geçmiş olarak işaretlenen ürünleri.
+        // Aynı ay içinde israf edilmiş veya son kullanımı geçmiş ürün sayısı hesaplanır.
         var wastedProductCount = await _context.StockItems
             .CountAsync(x =>
                 x.IsActive &&
@@ -77,7 +81,8 @@ public class CarbonReportService : ICarbonReportService
                 x.ExpirationDate >= startDate &&
                 x.ExpirationDate < endDate);
 
-        // Aynı ay için daha önce rapor varsa güncellenir, yoksa yeni rapor oluşturulur.
+        // Aynı ay ve yıl için daha önce rapor oluşturulmuşsa tekrar kayıt açılmaz.
+        // Mevcut rapor güncellenir, yoksa yeni rapor oluşturulur.
         var existingReport = await _context.CarbonReports
             .FirstOrDefaultAsync(x =>
                 x.UserId == userId &&
@@ -116,6 +121,7 @@ public class CarbonReportService : ICarbonReportService
         return MapToDto(existingReport);
     }
 
+    // Kullanıcının belirli ay ve yıla ait karbon raporunu getirir.
     public async Task<CarbonReportDto?> GetMonthlyReportAsync(string userId, int month, int year)
     {
         var report = await _context.CarbonReports
@@ -128,6 +134,7 @@ public class CarbonReportService : ICarbonReportService
         return report == null ? null : MapToDto(report);
     }
 
+    // Kullanıcının tüm aktif karbon raporlarını en güncelden eskiye doğru listeler.
     public async Task<List<CarbonReportDto>> GetMyReportsAsync(string userId)
     {
         var reports = await _context.CarbonReports
@@ -139,6 +146,7 @@ public class CarbonReportService : ICarbonReportService
         return reports.Select(MapToDto).ToList();
     }
 
+    // Kullanıcının tüm raporlarından genel karbon tasarrufu özetini hesaplar.
     public async Task<CarbonReportSummaryDto> GetSummaryAsync(string userId)
     {
         var reports = await _context.CarbonReports
@@ -155,6 +163,7 @@ public class CarbonReportService : ICarbonReportService
         };
     }
 
+    // CarbonReport entity'sini API tarafında kullanılacak DTO yapısına dönüştürür.
     private static CarbonReportDto MapToDto(CarbonReport report)
     {
         return new CarbonReportDto
@@ -171,10 +180,11 @@ public class CarbonReportService : ICarbonReportService
         };
     }
 
+    // Farklı birimlerdeki ürün miktarlarını raporlama için yaklaşık kilogram değerine çevirir.
     private static decimal ConvertToKg(decimal quantity, string unitShortName)
     {
         // Bu dönüşüm raporlama için yaklaşık değer üretir.
-        // İleride ürün bazlı ağırlık katsayısı eklenirse daha hassas hale getirilebilir.
+        // İleride ürün bazlı ağırlık katsayısı eklenirse daha hassas hesaplama yapılabilir.
         return unitShortName.ToLower() switch
         {
             "kg" => quantity,
@@ -187,3 +197,4 @@ public class CarbonReportService : ICarbonReportService
         };
     }
 }
+

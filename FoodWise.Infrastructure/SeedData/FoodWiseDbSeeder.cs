@@ -66,9 +66,12 @@ public static class FoodWiseDbSeeder
                 UserName = AdminEmail,
                 EmailConfirmed = true,
 
-                City = "Ankara",
-                District = "Çankaya",
-                Neighborhood = "Merkez",
+                City = "Kayseri",
+                District = "Talas",
+                Neighborhood = "Mevlana",
+
+                NeedScore = 0,
+                ReliabilityScore = 100,
 
                 IsActive = true,
                 CreatedAt = DateTime.Now
@@ -87,6 +90,7 @@ public static class FoodWiseDbSeeder
             adminUser.IsActive = true;
             adminUser.DeletedAt = null;
             adminUser.EmailConfirmed = true;
+            adminUser.ReliabilityScore = adminUser.ReliabilityScore <= 0 ? 100 : adminUser.ReliabilityScore;
             adminUser.UpdatedAt = DateTime.Now;
 
             await userManager.UpdateAsync(adminUser);
@@ -105,9 +109,6 @@ public static class FoodWiseDbSeeder
 
     private static async Task SeedCategoriesAsync(FoodWiseDbContext context)
     {
-        if (await context.Categories.AnyAsync())
-            return;
-
         var categories = new List<Category>
         {
             new() { Name = "Süt Ürünleri", Description = "Süt, yoğurt, peynir gibi ürünler" },
@@ -115,19 +116,27 @@ public static class FoodWiseDbSeeder
             new() { Name = "Meyve", Description = "Taze meyve ürünleri" },
             new() { Name = "Et ve Balık", Description = "Et, tavuk ve balık ürünleri" },
             new() { Name = "Bakliyat", Description = "Kuru gıda ve bakliyat ürünleri" },
-            new() { Name = "Unlu Mamuller", Description = "Ekmek, simit, hamur işi ürünleri" },
+            new() { Name = "Temel Gıda", Description = "Pirinç, bulgur, makarna, un gibi temel mutfak ürünleri" },
+            new() { Name = "Unlu Mamuller", Description = "Ekmek, lavaş, tost ekmeği ve benzeri ürünler" },
+            new() { Name = "İçecek", Description = "Ayran, meyve suyu ve benzeri içecekler" },
             new() { Name = "Diğer", Description = "Kullanıcı tarafından eklenen ve belirli kategoriye atanamayan ürünler" }
         };
 
-        await context.Categories.AddRangeAsync(categories);
+        foreach (var category in categories)
+        {
+            var exists = await context.Categories.AnyAsync(x => x.Name == category.Name);
+
+            if (!exists)
+            {
+                await context.Categories.AddAsync(category);
+            }
+        }
+
         await context.SaveChangesAsync();
     }
 
     private static async Task SeedUnitsAsync(FoodWiseDbContext context)
     {
-        if (await context.Units.AnyAsync())
-            return;
-
         var units = new List<Unit>
         {
             new() { Name = "Kilogram", ShortName = "kg" },
@@ -138,307 +147,571 @@ public static class FoodWiseDbSeeder
             new() { Name = "Paket", ShortName = "paket" }
         };
 
-        await context.Units.AddRangeAsync(units);
+        foreach (var unit in units)
+        {
+            var exists = await context.Units.AnyAsync(x => x.ShortName == unit.ShortName);
+
+            if (!exists)
+            {
+                await context.Units.AddAsync(unit);
+            }
+        }
+
         await context.SaveChangesAsync();
     }
 
     private static async Task SeedProductsAsync(FoodWiseDbContext context)
     {
-        if (await context.Products.AnyAsync())
-            return;
-
         var dairyCategory = await context.Categories.FirstAsync(x => x.Name == "Süt Ürünleri");
         var vegetableCategory = await context.Categories.FirstAsync(x => x.Name == "Sebze");
         var fruitCategory = await context.Categories.FirstAsync(x => x.Name == "Meyve");
+        var meatCategory = await context.Categories.FirstAsync(x => x.Name == "Et ve Balık");
         var bakeryCategory = await context.Categories.FirstAsync(x => x.Name == "Unlu Mamuller");
         var legumeCategory = await context.Categories.FirstAsync(x => x.Name == "Bakliyat");
+        var basicFoodCategory = await context.Categories.FirstAsync(x => x.Name == "Temel Gıda");
+        var drinkCategory = await context.Categories.FirstAsync(x => x.Name == "İçecek");
 
         var products = new List<Product>
         {
-            new()
-            {
-                Name = "Süt",
-                CategoryId = dairyCategory.Id,
-                DefaultShelfLifeDays = 7,
-                OpenedShelfLifeDays = 3,
-                CarbonFactor = 1.30m,
-                IsSensitiveFood = true,
-                IsSystemDefined = true,
-                IsApproved = true
-            },
-            new()
-            {
-                Name = "Yoğurt",
-                CategoryId = dairyCategory.Id,
-                DefaultShelfLifeDays = 14,
-                OpenedShelfLifeDays = 5,
-                CarbonFactor = 1.20m,
-                IsSensitiveFood = true,
-                IsSystemDefined = true,
-                IsApproved = true
-            },
-            new()
-            {
-                Name = "Peynir",
-                CategoryId = dairyCategory.Id,
-                DefaultShelfLifeDays = 30,
-                OpenedShelfLifeDays = 7,
-                CarbonFactor = 2.10m,
-                IsSensitiveFood = true,
-                IsSystemDefined = true,
-                IsApproved = true
-            },
-            new()
-            {
-                Name = "Yumurta",
-                CategoryId = dairyCategory.Id,
-                DefaultShelfLifeDays = 28,
-                OpenedShelfLifeDays = null,
-                CarbonFactor = 4.80m,
-                IsSensitiveFood = true,
-                IsSystemDefined = true,
-                IsApproved = true
-            },
-            new()
-            {
-                Name = "Domates",
-                CategoryId = vegetableCategory.Id,
-                DefaultShelfLifeDays = 7,
-                OpenedShelfLifeDays = null,
-                CarbonFactor = 0.40m,
-                IsSensitiveFood = false,
-                IsSystemDefined = true,
-                IsApproved = true
-            },
-            new()
-            {
-                Name = "Salatalık",
-                CategoryId = vegetableCategory.Id,
-                DefaultShelfLifeDays = 5,
-                OpenedShelfLifeDays = null,
-                CarbonFactor = 0.30m,
-                IsSensitiveFood = false,
-                IsSystemDefined = true,
-                IsApproved = true
-            },
-            new()
-            {
-                Name = "Muz",
-                CategoryId = fruitCategory.Id,
-                DefaultShelfLifeDays = 5,
-                OpenedShelfLifeDays = null,
-                CarbonFactor = 0.70m,
-                IsSensitiveFood = false,
-                IsSystemDefined = true,
-                IsApproved = true
-            },
-            new()
-            {
-                Name = "Ekmek",
-                CategoryId = bakeryCategory.Id,
-                DefaultShelfLifeDays = 3,
-                OpenedShelfLifeDays = null,
-                CarbonFactor = 0.60m,
-                IsSensitiveFood = false,
-                IsSystemDefined = true,
-                IsApproved = true
-            },
-            new()
-            {
-                Name = "Pirinç",
-                CategoryId = legumeCategory.Id,
-                DefaultShelfLifeDays = 365,
-                OpenedShelfLifeDays = null,
-                CarbonFactor = 2.70m,
-                IsSensitiveFood = false,
-                IsSystemDefined = true,
-                IsApproved = true
-            }
+            // Süt ürünleri
+            new() { Name = "Süt", CategoryId = dairyCategory.Id, DefaultShelfLifeDays = 7, OpenedShelfLifeDays = 3, CarbonFactor = 1.30m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Yoğurt", CategoryId = dairyCategory.Id, DefaultShelfLifeDays = 14, OpenedShelfLifeDays = 5, CarbonFactor = 1.20m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Peynir", CategoryId = dairyCategory.Id, DefaultShelfLifeDays = 30, OpenedShelfLifeDays = 7, CarbonFactor = 2.10m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Yumurta", CategoryId = dairyCategory.Id, DefaultShelfLifeDays = 28, OpenedShelfLifeDays = null, CarbonFactor = 4.80m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Tereyağı", CategoryId = dairyCategory.Id, DefaultShelfLifeDays = 45, OpenedShelfLifeDays = 15, CarbonFactor = 3.40m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Kaşar Peyniri", CategoryId = dairyCategory.Id, DefaultShelfLifeDays = 45, OpenedShelfLifeDays = 10, CarbonFactor = 2.80m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+
+            // Sebze
+            new() { Name = "Domates", CategoryId = vegetableCategory.Id, DefaultShelfLifeDays = 7, OpenedShelfLifeDays = null, CarbonFactor = 0.40m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Salatalık", CategoryId = vegetableCategory.Id, DefaultShelfLifeDays = 5, OpenedShelfLifeDays = null, CarbonFactor = 0.30m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Biber", CategoryId = vegetableCategory.Id, DefaultShelfLifeDays = 7, OpenedShelfLifeDays = null, CarbonFactor = 0.35m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Patates", CategoryId = vegetableCategory.Id, DefaultShelfLifeDays = 30, OpenedShelfLifeDays = null, CarbonFactor = 0.25m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Soğan", CategoryId = vegetableCategory.Id, DefaultShelfLifeDays = 45, OpenedShelfLifeDays = null, CarbonFactor = 0.20m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Havuç", CategoryId = vegetableCategory.Id, DefaultShelfLifeDays = 20, OpenedShelfLifeDays = null, CarbonFactor = 0.30m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Kabak", CategoryId = vegetableCategory.Id, DefaultShelfLifeDays = 10, OpenedShelfLifeDays = null, CarbonFactor = 0.28m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Marul", CategoryId = vegetableCategory.Id, DefaultShelfLifeDays = 5, OpenedShelfLifeDays = null, CarbonFactor = 0.25m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Ispanak", CategoryId = vegetableCategory.Id, DefaultShelfLifeDays = 4, OpenedShelfLifeDays = null, CarbonFactor = 0.35m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+
+            // Meyve
+            new() { Name = "Elma", CategoryId = fruitCategory.Id, DefaultShelfLifeDays = 20, OpenedShelfLifeDays = null, CarbonFactor = 0.35m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Muz", CategoryId = fruitCategory.Id, DefaultShelfLifeDays = 5, OpenedShelfLifeDays = null, CarbonFactor = 0.70m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Portakal", CategoryId = fruitCategory.Id, DefaultShelfLifeDays = 14, OpenedShelfLifeDays = null, CarbonFactor = 0.45m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Çilek", CategoryId = fruitCategory.Id, DefaultShelfLifeDays = 4, OpenedShelfLifeDays = null, CarbonFactor = 0.55m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Üzüm", CategoryId = fruitCategory.Id, DefaultShelfLifeDays = 7, OpenedShelfLifeDays = null, CarbonFactor = 0.50m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+
+            // Et ve balık
+            new() { Name = "Tavuk Göğsü", CategoryId = meatCategory.Id, DefaultShelfLifeDays = 3, OpenedShelfLifeDays = 1, CarbonFactor = 6.90m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Kıyma", CategoryId = meatCategory.Id, DefaultShelfLifeDays = 2, OpenedShelfLifeDays = 1, CarbonFactor = 12.00m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Balık", CategoryId = meatCategory.Id, DefaultShelfLifeDays = 2, OpenedShelfLifeDays = 1, CarbonFactor = 5.40m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+
+            // Bakliyat
+            new() { Name = "Mercimek", CategoryId = legumeCategory.Id, DefaultShelfLifeDays = 365, OpenedShelfLifeDays = null, CarbonFactor = 0.90m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Nohut", CategoryId = legumeCategory.Id, DefaultShelfLifeDays = 365, OpenedShelfLifeDays = null, CarbonFactor = 1.00m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Kuru Fasulye", CategoryId = legumeCategory.Id, DefaultShelfLifeDays = 365, OpenedShelfLifeDays = null, CarbonFactor = 1.10m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+
+            // Temel gıda
+            new() { Name = "Pirinç", CategoryId = basicFoodCategory.Id, DefaultShelfLifeDays = 365, OpenedShelfLifeDays = null, CarbonFactor = 2.70m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Bulgur", CategoryId = basicFoodCategory.Id, DefaultShelfLifeDays = 365, OpenedShelfLifeDays = null, CarbonFactor = 1.20m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Makarna", CategoryId = basicFoodCategory.Id, DefaultShelfLifeDays = 365, OpenedShelfLifeDays = null, CarbonFactor = 1.10m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Un", CategoryId = basicFoodCategory.Id, DefaultShelfLifeDays = 365, OpenedShelfLifeDays = null, CarbonFactor = 0.80m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+
+            // Unlu mamuller
+            new() { Name = "Ekmek", CategoryId = bakeryCategory.Id, DefaultShelfLifeDays = 3, OpenedShelfLifeDays = null, CarbonFactor = 0.60m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Lavaş", CategoryId = bakeryCategory.Id, DefaultShelfLifeDays = 7, OpenedShelfLifeDays = 3, CarbonFactor = 0.70m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Tost Ekmeği", CategoryId = bakeryCategory.Id, DefaultShelfLifeDays = 10, OpenedShelfLifeDays = 4, CarbonFactor = 0.75m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true },
+
+            // İçecek
+            new() { Name = "Ayran", CategoryId = drinkCategory.Id, DefaultShelfLifeDays = 10, OpenedShelfLifeDays = 2, CarbonFactor = 0.90m, IsSensitiveFood = true, IsSystemDefined = true, IsApproved = true },
+            new() { Name = "Meyve Suyu", CategoryId = drinkCategory.Id, DefaultShelfLifeDays = 180, OpenedShelfLifeDays = 5, CarbonFactor = 0.80m, IsSensitiveFood = false, IsSystemDefined = true, IsApproved = true }
         };
 
-        await context.Products.AddRangeAsync(products);
+        foreach (var product in products)
+        {
+            var exists = await context.Products.AnyAsync(x => x.Name == product.Name);
+
+            if (!exists)
+            {
+                await context.Products.AddAsync(product);
+            }
+        }
+
         await context.SaveChangesAsync();
     }
 
     private static async Task SeedDeliveryPointsAsync(FoodWiseDbContext context)
     {
-        if (await context.DeliveryPoints.AnyAsync())
-            return;
-
         var deliveryPoints = new List<DeliveryPoint>
-{
-    new()
-    {
-        Name = "Kampüs Kütüphane Girişi",
-        Description = "Kampüs içinde güvenli teslim noktası",
-        City = "Kayseri",
-        District = "Talas",
-        Neighborhood = "Kampüs",
-        WorkingHours = "09:00 - 18:00",
-        StorageType = "Oda sıcaklığı"
-    },
-    new()
-    {
-        Name = "Yurt Danışma Noktası",
-        Description = "Öğrenci yurdu danışma alanı",
-        City = "Kayseri",
-        District = "Talas",
-        Neighborhood = "Yurt Bölgesi",
-        WorkingHours = "08:00 - 22:00",
-        StorageType = "Oda sıcaklığı"
-    },
-    new()
-    {
-        Name = "Kafeterya Önü",
-        Description = "Kampüs kafeteryası önündeki teslim noktası",
-        City = "Kayseri",
-        District = "Talas",
-        Neighborhood = "Kampüs",
-        WorkingHours = "10:00 - 17:00",
-        StorageType = "Oda sıcaklığı"
-    }
-};
+        {
+            // Talas
+            new()
+            {
+                Name = "Mevlana Mahallesi Öğrenci Yaşam Merkezi A Blok",
+                Description = "Mevlana Mahallesi içinde öğrenci kullanımına uygun demo teslim noktası",
+                City = "Kayseri",
+                District = "Talas",
+                Neighborhood = "Mevlana",
+                WorkingHours = "09:00 - 22:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "Bahçelievler Site Girişi B Blok",
+                Description = "Bahçelievler Mahallesi site girişinde demo teslim noktası",
+                City = "Kayseri",
+                District = "Talas",
+                Neighborhood = "Bahçelievler",
+                WorkingHours = "08:00 - 21:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "Yenidoğan Yurt Danışma C Blok",
+                Description = "Yenidoğan Mahallesi yurt danışma alanında demo teslim noktası",
+                City = "Kayseri",
+                District = "Talas",
+                Neighborhood = "Yenidoğan",
+                WorkingHours = "08:00 - 23:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "Kiçiköy Mahalle Evi A Blok",
+                Description = "Kiçiköy Mahallesi mahalle evi girişinde demo teslim noktası",
+                City = "Kayseri",
+                District = "Talas",
+                Neighborhood = "Kiçiköy",
+                WorkingHours = "10:00 - 18:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "Harman Apartmanları B Blok",
+                Description = "Harman Mahallesi apartmanlar bölgesinde demo teslim noktası",
+                City = "Kayseri",
+                District = "Talas",
+                Neighborhood = "Harman",
+                WorkingHours = "09:00 - 20:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "Tablakaya Sosyal Tesis C Blok",
+                Description = "Tablakaya Mahallesi sosyal tesis çevresinde demo teslim noktası",
+                City = "Kayseri",
+                District = "Talas",
+                Neighborhood = "Tablakaya",
+                WorkingHours = "09:00 - 19:00",
+                StorageType = "Oda sıcaklığı"
+            },
 
-        await context.DeliveryPoints.AddRangeAsync(deliveryPoints);
+            // Melikgazi
+            new()
+            {
+                Name = "Köşk Mahallesi Site Girişi A Blok",
+                Description = "Köşk Mahallesi site girişinde demo teslim noktası",
+                City = "Kayseri",
+                District = "Melikgazi",
+                Neighborhood = "Köşk",
+                WorkingHours = "09:00 - 21:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "Selçuklu Yaşam Merkezi B Blok",
+                Description = "Selçuklu Mahallesi yaşam merkezi girişinde demo teslim noktası",
+                City = "Kayseri",
+                District = "Melikgazi",
+                Neighborhood = "Selçuklu",
+                WorkingHours = "09:00 - 20:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "İldem Cumhuriyet Toplu Konut C Blok",
+                Description = "İldem Cumhuriyet Mahallesi toplu konut alanında demo teslim noktası",
+                City = "Kayseri",
+                District = "Melikgazi",
+                Neighborhood = "İldem Cumhuriyet",
+                WorkingHours = "08:00 - 22:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "Yıldırım Beyazıt Mahalle Evi A Blok",
+                Description = "Yıldırım Beyazıt Mahallesi mahalle evi girişinde demo teslim noktası",
+                City = "Kayseri",
+                District = "Melikgazi",
+                Neighborhood = "Yıldırım Beyazıt",
+                WorkingHours = "10:00 - 18:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "Esenyurt Apartmanları B Blok",
+                Description = "Esenyurt Mahallesi apartmanlar bölgesinde demo teslim noktası",
+                City = "Kayseri",
+                District = "Melikgazi",
+                Neighborhood = "Esenyurt",
+                WorkingHours = "09:00 - 20:00",
+                StorageType = "Oda sıcaklığı"
+            },
+            new()
+            {
+                Name = "Gesi Fatih Kültür Evi C Blok",
+                Description = "Gesi Fatih Mahallesi kültür evi çevresinde demo teslim noktası",
+                City = "Kayseri",
+                District = "Melikgazi",
+                Neighborhood = "Gesi Fatih",
+                WorkingHours = "09:00 - 18:00",
+                StorageType = "Oda sıcaklığı"
+            }
+        };
+
+        foreach (var deliveryPoint in deliveryPoints)
+        {
+            var exists = await context.DeliveryPoints.AnyAsync(x => x.Name == deliveryPoint.Name);
+
+            if (!exists)
+            {
+                await context.DeliveryPoints.AddAsync(deliveryPoint);
+            }
+        }
+
         await context.SaveChangesAsync();
     }
 
     private static async Task SeedDeliveryBoxesAsync(FoodWiseDbContext context)
     {
-        if (await context.DeliveryBoxes.AnyAsync())
-            return;
-
-        var libraryPoint = await context.DeliveryPoints
-            .FirstAsync(x => x.Name == "Kampüs Kütüphane Girişi");
-
-        var dormPoint = await context.DeliveryPoints
-            .FirstAsync(x => x.Name == "Yurt Danışma Noktası");
-
-        var cafeteriaPoint = await context.DeliveryPoints
-            .FirstAsync(x => x.Name == "Kafeterya Önü");
-
-        var boxes = new List<DeliveryBox>
+        async Task AddBoxIfNotExistsAsync(
+            string pointName,
+            string boxCode,
+            string qrCodeValue,
+            string description)
         {
-            new()
-            {
-                DeliveryPointId = libraryPoint.Id,
-                BoxCode = "B-01",
-                QrCodeValue = "FW-DP-LIB-B01",
-                Description = "Kampüs kütüphane girişindeki birinci teslim kutusu",
-                IsOccupied = false
-            },
-            new()
-            {
-                DeliveryPointId = libraryPoint.Id,
-                BoxCode = "B-02",
-                QrCodeValue = "FW-DP-LIB-B02",
-                Description = "Kampüs kütüphane girişindeki ikinci teslim kutusu",
-                IsOccupied = false
-            },
-            new()
-            {
-                DeliveryPointId = dormPoint.Id,
-                BoxCode = "Y-01",
-                QrCodeValue = "FW-DP-DORM-Y01",
-                Description = "Yurt danışma noktasındaki birinci teslim kutusu",
-                IsOccupied = false
-            },
-            new()
-            {
-                DeliveryPointId = cafeteriaPoint.Id,
-                BoxCode = "K-01",
-                QrCodeValue = "FW-DP-CAF-K01",
-                Description = "Kafeterya önündeki birinci teslim kutusu",
-                IsOccupied = false
-            }
-        };
+            var deliveryPoint = await context.DeliveryPoints
+                .FirstOrDefaultAsync(x => x.Name == pointName);
 
-        await context.DeliveryBoxes.AddRangeAsync(boxes);
+            if (deliveryPoint == null)
+                return;
+
+            var exists = await context.DeliveryBoxes
+                .AnyAsync(x => x.QrCodeValue == qrCodeValue);
+
+            if (exists)
+                return;
+
+            await context.DeliveryBoxes.AddAsync(new DeliveryBox
+            {
+                DeliveryPointId = deliveryPoint.Id,
+                BoxCode = boxCode,
+                QrCodeValue = qrCodeValue,
+                Description = description,
+                IsOccupied = false
+            });
+        }
+
+        await AddBoxIfNotExistsAsync(
+            "Mevlana Mahallesi Öğrenci Yaşam Merkezi A Blok",
+            "M-A01",
+            "FW-TAL-MEV-A01",
+            "Mevlana Mahallesi Öğrenci Yaşam Merkezi A Blok birinci teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Mevlana Mahallesi Öğrenci Yaşam Merkezi A Blok",
+            "M-A02",
+            "FW-TAL-MEV-A02",
+            "Mevlana Mahallesi Öğrenci Yaşam Merkezi A Blok ikinci teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Bahçelievler Site Girişi B Blok",
+            "B-B01",
+            "FW-TAL-BAH-B01",
+            "Bahçelievler Site Girişi B Blok teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Yenidoğan Yurt Danışma C Blok",
+            "Y-C01",
+            "FW-TAL-YEN-C01",
+            "Yenidoğan Yurt Danışma C Blok teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Kiçiköy Mahalle Evi A Blok",
+            "K-A01",
+            "FW-TAL-KIC-A01",
+            "Kiçiköy Mahalle Evi A Blok teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Harman Apartmanları B Blok",
+            "H-B01",
+            "FW-TAL-HAR-B01",
+            "Harman Apartmanları B Blok teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Tablakaya Sosyal Tesis C Blok",
+            "T-C01",
+            "FW-TAL-TAB-C01",
+            "Tablakaya Sosyal Tesis C Blok teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Köşk Mahallesi Site Girişi A Blok",
+            "KOS-A01",
+            "FW-MEL-KOS-A01",
+            "Köşk Mahallesi Site Girişi A Blok teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Selçuklu Yaşam Merkezi B Blok",
+            "S-B01",
+            "FW-MEL-SEL-B01",
+            "Selçuklu Yaşam Merkezi B Blok birinci teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Selçuklu Yaşam Merkezi B Blok",
+            "S-B02",
+            "FW-MEL-SEL-B02",
+            "Selçuklu Yaşam Merkezi B Blok ikinci teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "İldem Cumhuriyet Toplu Konut C Blok",
+            "I-C01",
+            "FW-MEL-ILD-C01",
+            "İldem Cumhuriyet Toplu Konut C Blok teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Yıldırım Beyazıt Mahalle Evi A Blok",
+            "YB-A01",
+            "FW-MEL-YIL-A01",
+            "Yıldırım Beyazıt Mahalle Evi A Blok teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Esenyurt Apartmanları B Blok",
+            "E-B01",
+            "FW-MEL-ESE-B01",
+            "Esenyurt Apartmanları B Blok teslim kutusu");
+
+        await AddBoxIfNotExistsAsync(
+            "Gesi Fatih Kültür Evi C Blok",
+            "GF-C01",
+            "FW-MEL-GF-C01",
+            "Gesi Fatih Kültür Evi C Blok teslim kutusu");
+
         await context.SaveChangesAsync();
     }
 
     private static async Task SeedRecipesAsync(FoodWiseDbContext context)
     {
-        if (await context.Recipes.AnyAsync())
-            return;
-
         var adetUnit = await context.Units.FirstAsync(x => x.ShortName == "adet");
         var mlUnit = await context.Units.FirstAsync(x => x.ShortName == "ml");
         var grUnit = await context.Units.FirstAsync(x => x.ShortName == "gr");
 
-        var yumurta = await context.Products.FirstAsync(x => x.Name == "Yumurta");
-        var domates = await context.Products.FirstAsync(x => x.Name == "Domates");
-        var sut = await context.Products.FirstAsync(x => x.Name == "Süt");
-        var yogurt = await context.Products.FirstAsync(x => x.Name == "Yoğurt");
-        var salatalik = await context.Products.FirstAsync(x => x.Name == "Salatalık");
-        var ekmek = await context.Products.FirstAsync(x => x.Name == "Ekmek");
-
-        var menemen = new Recipe
+        async Task<Product> ProductAsync(string name)
         {
-            Name = "Menemen",
-            Description = "Domates ve yumurta ile hazırlanan pratik yemek",
-            Instructions = "Domatesleri doğrayın. Tavada pişirin. Yumurtaları ekleyip karıştırarak pişirin.",
-            PreparationTimeMinutes = 15,
-            SourceType = RecipeSourceType.Local
-        };
+            return await context.Products.FirstAsync(x => x.Name == name);
+        }
 
-        var omlet = new Recipe
+        async Task AddRecipeIfNotExistsAsync(
+            string name,
+            string description,
+            string instructions,
+            int preparationTimeMinutes,
+            List<(string ProductName, int UnitId, decimal Quantity, bool IsRequired)> ingredients)
         {
-            Name = "Omlet",
-            Description = "Yumurta ile hazırlanan hızlı kahvaltılık",
-            Instructions = "Yumurtaları çırpın. Tavaya ekleyip pişirin. İsteğe göre peynir veya sebze ekleyin.",
-            PreparationTimeMinutes = 10,
-            SourceType = RecipeSourceType.Local
-        };
+            var recipeExists = await context.Recipes.AnyAsync(x => x.Name == name);
 
-        var krep = new Recipe
-        {
-            Name = "Krep",
-            Description = "Süt ve yumurta ile hazırlanan pratik tarif",
-            Instructions = "Süt, yumurta ve unu karıştırın. Tavada ince şekilde pişirin.",
-            PreparationTimeMinutes = 20,
-            SourceType = RecipeSourceType.Local
-        };
+            if (recipeExists)
+                return;
 
-        var cacik = new Recipe
-        {
-            Name = "Cacık",
-            Description = "Yoğurt ve salatalık ile hazırlanan ferahlatıcı tarif",
-            Instructions = "Yoğurdu çırpın. Salatalığı doğrayın veya rendeleyin. Karıştırıp servis edin.",
-            PreparationTimeMinutes = 10,
-            SourceType = RecipeSourceType.Local
-        };
+            var recipe = new Recipe
+            {
+                Name = name,
+                Description = description,
+                Instructions = instructions,
+                PreparationTimeMinutes = preparationTimeMinutes,
+                SourceType = RecipeSourceType.Local
+            };
 
-        var yumurtaliEkmek = new Recipe
-        {
-            Name = "Yumurtalı Ekmek",
-            Description = "Bayat ekmekleri değerlendirmek için pratik tarif",
-            Instructions = "Yumurtaları çırpın. Ekmekleri yumurtaya bulayıp tavada kızartın.",
-            PreparationTimeMinutes = 15,
-            SourceType = RecipeSourceType.Local
-        };
+            await context.Recipes.AddAsync(recipe);
+            await context.SaveChangesAsync();
 
-        await context.Recipes.AddRangeAsync(menemen, omlet, krep, cacik, yumurtaliEkmek);
-        await context.SaveChangesAsync();
+            var recipeIngredients = new List<RecipeIngredient>();
 
-        var recipeIngredients = new List<RecipeIngredient>
-        {
-            new() { RecipeId = menemen.Id, ProductId = yumurta.Id, UnitId = adetUnit.Id, Quantity = 2, IsRequired = true },
-            new() { RecipeId = menemen.Id, ProductId = domates.Id, UnitId = adetUnit.Id, Quantity = 2, IsRequired = true },
+            foreach (var ingredient in ingredients)
+            {
+                var product = await ProductAsync(ingredient.ProductName);
 
-            new() { RecipeId = omlet.Id, ProductId = yumurta.Id, UnitId = adetUnit.Id, Quantity = 2, IsRequired = true },
+                recipeIngredients.Add(new RecipeIngredient
+                {
+                    RecipeId = recipe.Id,
+                    ProductId = product.Id,
+                    UnitId = ingredient.UnitId,
+                    Quantity = ingredient.Quantity,
+                    IsRequired = ingredient.IsRequired
+                });
+            }
 
-            new() { RecipeId = krep.Id, ProductId = sut.Id, UnitId = mlUnit.Id, Quantity = 250, IsRequired = true },
-            new() { RecipeId = krep.Id, ProductId = yumurta.Id, UnitId = adetUnit.Id, Quantity = 1, IsRequired = true },
+            await context.RecipeIngredients.AddRangeAsync(recipeIngredients);
+            await context.SaveChangesAsync();
+        }
 
-            new() { RecipeId = cacik.Id, ProductId = yogurt.Id, UnitId = grUnit.Id, Quantity = 250, IsRequired = true },
-            new() { RecipeId = cacik.Id, ProductId = salatalik.Id, UnitId = adetUnit.Id, Quantity = 1, IsRequired = true },
+        await AddRecipeIfNotExistsAsync(
+            "Menemen",
+            "Domates, biber ve yumurta ile hazırlanan pratik kahvaltılık",
+            "Domates ve biberleri doğrayın. Tavada pişirin. Yumurtaları ekleyip karıştırarak pişirin.",
+            15,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Yumurta", adetUnit.Id, 2, true),
+                ("Domates", adetUnit.Id, 2, true),
+                ("Biber", adetUnit.Id, 1, false)
+            });
 
-            new() { RecipeId = yumurtaliEkmek.Id, ProductId = yumurta.Id, UnitId = adetUnit.Id, Quantity = 2, IsRequired = true },
-            new() { RecipeId = yumurtaliEkmek.Id, ProductId = ekmek.Id, UnitId = adetUnit.Id, Quantity = 4, IsRequired = true }
-        };
+        await AddRecipeIfNotExistsAsync(
+            "Omlet",
+            "Yumurta ve peynir ile hazırlanan hızlı kahvaltılık",
+            "Yumurtaları çırpın. Tavaya ekleyip pişirin. İsteğe göre peynir ekleyerek servis edin.",
+            10,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Yumurta", adetUnit.Id, 2, true),
+                ("Peynir", grUnit.Id, 50, false)
+            });
 
-        await context.RecipeIngredients.AddRangeAsync(recipeIngredients);
-        await context.SaveChangesAsync();
+        await AddRecipeIfNotExistsAsync(
+            "Krep",
+            "Süt, yumurta ve un ile hazırlanan pratik tarif",
+            "Süt, yumurta ve unu karıştırın. Tavada ince şekilde pişirin.",
+            20,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Süt", mlUnit.Id, 250, true),
+                ("Yumurta", adetUnit.Id, 1, true),
+                ("Un", grUnit.Id, 150, true)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Cacık",
+            "Yoğurt ve salatalık ile hazırlanan ferahlatıcı tarif",
+            "Yoğurdu çırpın. Salatalığı doğrayın veya rendeleyin. Karıştırıp servis edin.",
+            10,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Yoğurt", grUnit.Id, 250, true),
+                ("Salatalık", adetUnit.Id, 1, true)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Yumurtalı Ekmek",
+            "Bayat ekmekleri değerlendirmek için pratik tarif",
+            "Yumurtaları çırpın. Ekmekleri yumurtaya bulayıp tavada kızartın.",
+            15,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Yumurta", adetUnit.Id, 2, true),
+                ("Ekmek", adetUnit.Id, 4, true)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Mercimek Çorbası",
+            "Mercimek, soğan ve havuç ile hazırlanan besleyici çorba",
+            "Mercimekleri yıkayın. Soğan ve havuçla birlikte haşlayın. Blenderdan geçirip servis edin.",
+            35,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Mercimek", grUnit.Id, 200, true),
+                ("Soğan", adetUnit.Id, 1, true),
+                ("Havuç", adetUnit.Id, 1, false)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Sebzeli Omlet",
+            "Yumurta, domates ve biber ile hazırlanan sebzeli omlet",
+            "Sebzeleri doğrayıp tavada hafif pişirin. Yumurtayı ekleyip omlet kıvamında pişirin.",
+            15,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Yumurta", adetUnit.Id, 2, true),
+                ("Domates", adetUnit.Id, 1, false),
+                ("Biber", adetUnit.Id, 1, false)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Tavuklu Pilav",
+            "Tavuk ve pirinç ile hazırlanan doyurucu ana yemek",
+            "Tavuğu haşlayın. Pirinci kavurup su ekleyerek pişirin. Tavuk parçalarıyla servis edin.",
+            45,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Tavuk Göğsü", grUnit.Id, 250, true),
+                ("Pirinç", grUnit.Id, 200, true)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Sebzeli Makarna",
+            "Makarna, domates ve biber ile hazırlanan pratik yemek",
+            "Makarnayı haşlayın. Domates ve biberle sos hazırlayıp makarna ile karıştırın.",
+            25,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Makarna", grUnit.Id, 200, true),
+                ("Domates", adetUnit.Id, 2, false),
+                ("Biber", adetUnit.Id, 1, false)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Yoğurtlu Kabak",
+            "Kabak ve yoğurt ile hazırlanan hafif yemek",
+            "Kabakları doğrayıp pişirin. Soğuduktan sonra yoğurt ile karıştırıp servis edin.",
+            25,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Kabak", adetUnit.Id, 2, true),
+                ("Yoğurt", grUnit.Id, 200, true)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Patatesli Yumurta",
+            "Patates ve yumurta ile hazırlanan ekonomik tarif",
+            "Patatesleri doğrayıp tavada pişirin. Üzerine yumurta ekleyerek servis edin.",
+            20,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Patates", adetUnit.Id, 2, true),
+                ("Yumurta", adetUnit.Id, 2, true)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Ayranlı Pratik Öğün",
+            "Ayran, ekmek ve peynir ile hazırlanabilen hızlı öğün önerisi",
+            "Peynir ve ekmeği porsiyonlayın. Ayran ile birlikte servis edin.",
+            5,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Ayran", mlUnit.Id, 250, true),
+                ("Ekmek", adetUnit.Id, 2, false),
+                ("Peynir", grUnit.Id, 50, false)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Ispanaklı Yumurta",
+            "Ispanak ve yumurta ile hazırlanan besleyici tarif",
+            "Ispanağı yıkayıp doğrayın. Tavada hafif pişirdikten sonra yumurta ekleyin.",
+            20,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Ispanak", grUnit.Id, 250, true),
+                ("Yumurta", adetUnit.Id, 2, true)
+            });
+
+        await AddRecipeIfNotExistsAsync(
+            "Tavuklu Lavaş",
+            "Tavuk, lavaş ve sebzelerle hazırlanan pratik öğün",
+            "Tavuğu pişirin. Lavaşın içine tavuk ve sebzeleri ekleyerek sarın.",
+            30,
+            new List<(string, int, decimal, bool)>
+            {
+                ("Tavuk Göğsü", grUnit.Id, 200, true),
+                ("Lavaş", adetUnit.Id, 2, true),
+                ("Marul", adetUnit.Id, 2, false),
+                ("Domates", adetUnit.Id, 1, false)
+            });
     }
 }

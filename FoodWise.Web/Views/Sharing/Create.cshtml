@@ -1,15 +1,18 @@
-﻿@model FoodWise.Web.ViewModels.Sharing.CreateShareListingViewModel
+﻿
+@model FoodWise.Web.ViewModels.Sharing.CreateShareListingViewModel
 
 @{
     Layout = "_FoodWiseLayout";
 
     ViewData["Title"] = "Paylaşıma Aç";
     ViewData["PageDescription"] = "Stokundaki ürünü güvenli teslim noktası üzerinden başka kullanıcılarla paylaşabilirsin.";
+
+    var selectedPoint = Model.DeliveryPoints?.FirstOrDefault(x => x.Id == Model.DeliveryPointId);
 }
 
 @section TopbarActions {
     <a asp-controller="Stock" asp-action="Index" class="btn-secondary">
-        Stoklara Dön
+        ← Stoklara Dön
     </a>
 
     <a asp-controller="Sharing" asp-action="MyListings" class="btn-secondary">
@@ -57,118 +60,113 @@
 
                     <span asp-validation-for="Title"></span>
                 </div>
+
                 <div class="form-group delivery-point-group">
                     <label asp-for="DeliveryPointId"></label>
-                <div class="delivery-point-selector">
-                    <button type="button" class="delivery-dropdown-button" id="deliveryDropdownButton">
-                        <div>
-                            <strong id="selectedDeliveryPointName">
-                                @{
-                                    var selectedPoint = Model.DeliveryPoints?.FirstOrDefault(x => x.Id == Model.DeliveryPointId);
-                                }
 
-                                @(selectedPoint != null ? selectedPoint.Name : "Teslim noktası seç")
-                            </strong>
+                    <div class="delivery-point-selector">
+                        <button type="button"
+                                class="delivery-dropdown-button"
+                                id="deliveryDropdownButton"
+                                aria-expanded="false"
+                                aria-controls="deliveryDropdownPanel">
+                            <div class="selected-delivery-text">
+                                <strong id="selectedDeliveryPointName">
+                                    @(selectedPoint != null ? selectedPoint.Name : "Teslim noktası seç")
+                                </strong>
 
-                            <span id="selectedDeliveryPointDetail">
-                                @(selectedPoint != null
-                                                                ? $"{selectedPoint.LocationMatchText} • {selectedPoint.LocationText}"
-                                                                : "Sana yakın teslim noktaları öncelikli listelenir.")
-                            </span>
-                        </div>
+                                <span id="selectedDeliveryPointDetail">
+                                    @(selectedPoint != null
+                                                                        ? $"{selectedPoint.LocationMatchText} • {selectedPoint.LocationText}"
+                                                                        : "Sana yakın teslim noktaları öncelikli listelenir.")
+                                </span>
+                            </div>
 
-                        <span class="dropdown-arrow">⌄</span>
-                    </button>
+                            <span class="dropdown-arrow">⌄</span>
+                        </button>
 
-                    <div class="delivery-dropdown-panel" id="deliveryDropdownPanel">
-                        <div class="delivery-search-box">
-                            <input asp-for="DeliveryPointSearch"
-                                   id="deliveryPointSearchInput"
-                                   type="text"
-                                   placeholder="Teslim noktası ara: kampüs, yurt, kafeterya..." />
+                        <div class="delivery-dropdown-panel" id="deliveryDropdownPanel">
+                            <div class="delivery-search-box">
+                                <input asp-for="DeliveryPointSearch"
+                                       id="deliveryPointSearchInput"
+                                       type="text"
+                                       autocomplete="off"
+                                       placeholder="Teslim noktası ara: kampüs, yurt, kafeterya..." />
 
-                            <span class="search-icon">🔍</span>
-                        </div>
+                                <span class="search-icon">🔍</span>
+                            </div>
 
-                        <small class="field-hint">
-                            Sana yakın teslim noktaları öncelikli listelenir. Aynı mahalle / aynı ilçe / aynı şehir bilgisine göre seçim yapabilirsin.
-                        </small>
+                            <small class="field-hint delivery-hint">
+                                Sana yakın teslim noktaları öncelikli listelenir. Aynı mahalle / aynı ilçe / aynı şehir bilgisine göre seçim yapabilirsin.
+                            </small>
 
-                        <div class="delivery-point-list" id="deliveryPointList">
-                            @if (Model.DeliveryPoints == null || !Model.DeliveryPoints.Any())
-                            {
-                                <div class="delivery-empty">
-                                    Teslim noktası bulunamadı.
-                                </div>
-                            }
-                            else
-                            {
-                                @foreach (var point in Model.DeliveryPoints)
+                            <div class="delivery-point-list" id="deliveryPointList">
+                                @if (Model.DeliveryPoints == null || !Model.DeliveryPoints.Any())
                                 {
-                                    var isSelected = Model.DeliveryPointId == point.Id;
-
-                                    var priorityClass = point.LocationPriority switch
+                                    <div class="delivery-empty">
+                                        Teslim noktası bulunamadı.
+                                    </div>
+                                }
+                                else
+                                {
+                                    @foreach (var point in Model.DeliveryPoints)
                                     {
-                                        1 => "same-neighborhood",
-                                        2 => "same-district",
-                                        3 => "same-city",
-                                        _ => "other-region"
-                                    };
+                                        var isSelected = Model.DeliveryPointId == point.Id;
 
-                                    var searchText = $"{point.Name} {point.Description} {point.City} {point.District} {point.Neighborhood} {point.LocationMatchText} {point.WorkingHours} {point.StorageType}".ToLower();
-
-                                    <label class="delivery-point-card @(isSelected ? "selected" : "")"
-                                           data-search="@searchText"
-                                           data-name="@point.Name"
-                                           data-detail="@($"{point.LocationMatchText} • {point.LocationText}")">
-
-                                        @if (isSelected)
+                                        var priorityClass = point.LocationPriority switch
                                         {
+                                            1 => "same-neighborhood",
+                                            2 => "same-district",
+                                            3 => "same-city",
+                                            _ => "other-region"
+                                        };
+
+                                        var searchText = $"{point.Name} {point.Description} {point.City} {point.District} {point.Neighborhood} {point.LocationMatchText} {point.WorkingHours} {point.StorageType}".ToLower();
+
+                                        <label class="delivery-point-card @(isSelected ? "selected" : "")"
+                                               data-search="@searchText"
+                                               data-name="@point.Name"
+                                               data-detail="@($"{point.LocationMatchText} • {point.LocationText}")">
                                             <input type="radio"
                                                    name="DeliveryPointId"
                                                    value="@point.Id"
                                                    required
-                                                   checked />
-                                        }
-                                        else
-                                        {
-                                            <input type="radio"
-                                                   name="DeliveryPointId"
-                                                   value="@point.Id"
-                                                   required />
-                                        }
+                                                   @(isSelected ? "checked" : "") />
 
-                                        <div class="delivery-radio-dot"></div>
+                                            <div class="delivery-radio-dot"></div>
 
-                                        <div class="delivery-point-content">
-                                            <div class="delivery-point-top">
-                                                <strong>@point.Name</strong>
+                                            <div class="delivery-point-content">
+                                                <div class="delivery-point-top">
+                                                    <strong>@point.Name</strong>
 
-                                                <span class="location-badge @priorityClass">
-                                                    @point.LocationMatchText
-                                                </span>
+                                                    <span class="location-badge @priorityClass">
+                                                        @point.LocationMatchText
+                                                    </span>
+                                                </div>
+
+                                                @if (!string.IsNullOrWhiteSpace(point.Description))
+                                                {
+                                                    <p class="delivery-description">
+                                                        @point.Description
+                                                    </p>
+                                                }
+
+                                                <div class="delivery-location">
+                                                    📍 @point.LocationText
+                                                </div>
+
+                                                <div class="delivery-detail">
+                                                    @point.DetailText
+                                                </div>
                                             </div>
-
-                                            @if (!string.IsNullOrWhiteSpace(point.Description))
-                                            {
-                                                <p class="delivery-description">
-                                                    @point.Description
-                                                </p>
-                                            }
-
-                                            <div class="delivery-location">
-                                                📍 @point.LocationText
-                                            </div>
-
-                                            <div class="delivery-detail">
-                                                @point.DetailText
-                                            </div>
-                                        </div>
-                                    </label>
+                                        </label>
+                                    }
                                 }
-                            }
+                            </div>
                         </div>
                     </div>
+
+                    <span asp-validation-for="DeliveryPointId"></span>
                 </div>
 
                 <div class="form-group">
@@ -209,9 +207,8 @@
 
                     <span asp-validation-for="PickupEndTime"></span>
                 </div>
-                    <span asp-validation-for="DeliveryPointId"></span>
             </div>
-            
+
             <div class="form-group full">
                 <label asp-for="Description"></label>
 
@@ -261,56 +258,78 @@
 
 @section Styles {
     <style>
+        .topbar + .share-create-layout {
+            margin-top: 94px !important;
+        }
+
+        .share-create-layout,
+        .share-create-layout *,
+        .share-create-layout *::before,
+        .share-create-layout *::after {
+            box-sizing: border-box;
+        }
+
+        .share-create-layout,
+        .form-card,
+        .form-grid,
+        .delivery-point-group {
+            overflow: visible !important;
+        }
+
         .share-create-layout {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 340px;
-            gap: 24px;
+            grid-template-columns: minmax(0, 1fr) 320px;
+            gap: 22px;
             align-items: start;
         }
 
         .form-card,
         .helper-card {
-            background: white;
-            border-radius: 22px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.055);
         }
 
         .form-card {
-            padding: 32px;
+            padding: 24px;
+            position: relative;
+            z-index: 5;
         }
 
         .form-header {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 14px;
             background: #f0f8f2;
-            border-radius: 18px;
-            padding: 18px 20px;
-            margin-bottom: 28px;
+            border-radius: 17px;
+            padding: 16px 18px;
+            margin-bottom: 22px;
         }
 
         .form-icon {
-            width: 54px;
-            height: 54px;
+            width: 50px;
+            height: 50px;
             border-radius: 16px;
             background: #dcfce7;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
+            font-size: 26px;
             flex-shrink: 0;
         }
 
         .form-header h3 {
-            margin: 0 0 6px;
+            margin: 0 0 5px;
             color: #145c24;
-            font-size: 24px;
+            font-size: 22px;
+            font-weight: 900;
         }
 
         .form-header p {
             margin: 0;
             color: #526b7a;
-            line-height: 1.5;
+            line-height: 1.45;
+            font-size: 14px;
         }
 
         .form-header strong {
@@ -320,18 +339,18 @@
         .form-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 20px;
+            gap: 16px;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            margin-bottom: 20px;
+            gap: 7px;
+            margin-bottom: 16px;
         }
 
             .form-group.full {
-                margin-top: 4px;
+                margin-top: 2px;
             }
 
         .title-group,
@@ -340,22 +359,21 @@
         }
 
         label {
-            font-weight: 800;
+            font-weight: 850;
             color: #1f2937;
-            font-size: 14px;
+            font-size: 13.5px;
         }
 
         input,
         textarea {
+            width: 100%;
             border: 1px solid #d1d5db;
             background: #ffffff;
             border-radius: 12px;
-            padding: 14px 15px;
-            font-size: 15px;
+            padding: 12px 14px;
+            font-size: 14px;
             outline: none;
-            box-sizing: border-box;
-            width: 100%;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
 
             input:focus,
@@ -367,26 +385,26 @@
 
         textarea {
             resize: vertical;
-            min-height: 110px;
+            min-height: 100px;
         }
 
         .field-hint {
             color: #6b7280;
-            font-size: 13px;
+            font-size: 12.5px;
             line-height: 1.4;
         }
 
         .form-group span {
             color: #dc2626;
-            font-size: 13px;
+            font-size: 12.5px;
         }
 
         .validation-summary {
             background: #fee2e2;
             color: #991b1b;
-            padding: 14px 18px;
+            padding: 13px 16px;
             border-radius: 14px;
-            margin-bottom: 22px;
+            margin-bottom: 18px;
             border-left: 5px solid #dc2626;
         }
 
@@ -394,12 +412,22 @@
                 display: none;
             }
 
+        .delivery-point-selector {
+            position: relative;
+            background: #f8faf8;
+            border: 1px solid #e5eee7;
+            border-radius: 17px;
+            padding: 12px;
+            overflow: visible;
+            z-index: 1000;
+        }
+
         .delivery-dropdown-button {
             width: 100%;
             border: 1px solid #d1d5db;
             background: #ffffff;
             border-radius: 14px;
-            padding: 14px 16px;
+            padding: 13px 15px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -408,86 +436,100 @@
             text-align: left;
         }
 
-            .delivery-dropdown-button strong {
-                display: block;
-                color: #145c24;
-                font-size: 15px;
-                font-weight: 900;
-                margin-bottom: 4px;
-            }
+        .selected-delivery-text {
+            min-width: 0;
+        }
 
-            .delivery-dropdown-button span {
-                color: #607d8b;
-                font-size: 13px;
-                font-weight: 700;
-            }
+        .delivery-dropdown-button strong {
+            display: block;
+            color: #145c24;
+            font-size: 15px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+
+        .delivery-dropdown-button span {
+            color: #607d8b;
+            font-size: 13px;
+            font-weight: 750;
+        }
 
         .dropdown-arrow {
             font-size: 22px !important;
             color: #238636 !important;
-            transition: 0.2s ease;
+            transition: transform 0.15s ease;
+            flex-shrink: 0;
         }
 
         .delivery-dropdown-button.open .dropdown-arrow {
             transform: rotate(180deg);
         }
 
+        /*
+                    Gerçek dropdown:
+                    Panel artık normal akışta yer kaplamaz.
+                    Sayfayı aşağı itmez.
+                */
         .delivery-dropdown-panel {
             display: none;
-            margin-top: 12px;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 12px;
+            right: 12px;
+            z-index: 9999;
+            background: #ffffff;
+            border: 1px solid #dfe7e2;
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: 0 18px 42px rgba(0, 0, 0, 0.14);
         }
 
             .delivery-dropdown-panel.show {
                 display: block;
             }
-        .delivery-point-selector {
-            background: #f8faf8;
-            border: 1px solid #e5eee7;
-            border-radius: 18px;
-            padding: 16px;
-        }
 
         .delivery-search-box {
             position: relative;
-            margin-bottom: 10px;
+            margin-bottom: 9px;
         }
 
             .delivery-search-box input {
-                padding-right: 48px;
-                background: white;
+                padding-right: 44px;
+                background: #ffffff;
             }
 
         .search-icon {
             position: absolute;
             top: 50%;
-            right: 16px;
+            right: 15px;
             transform: translateY(-50%);
-            color: #607d8b;
-            font-size: 16px;
+            color: #607d8b !important;
+            font-size: 15px !important;
         }
 
-        .delivery-point-group {
-            grid-column: 1 / -1;
+        .delivery-hint {
+            display: block;
+            margin-bottom: 10px;
         }
+
         .delivery-point-list {
             display: grid;
-            gap: 12px;
-            margin-top: 14px;
-            max-height: 430px;
+            gap: 10px;
+            max-height: 300px;
             overflow-y: auto;
             padding-right: 4px;
         }
 
         .delivery-point-card {
             display: flex;
-            gap: 12px;
+            gap: 11px;
             align-items: flex-start;
             background: #ffffff;
             border: 1px solid #e5eee7;
-            border-radius: 16px;
-            padding: 14px;
+            border-radius: 15px;
+            padding: 12px;
             cursor: pointer;
-            transition: 0.2s ease;
+            transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
         }
 
             .delivery-point-card:hover {
@@ -500,7 +542,7 @@
             .delivery-point-card:has(input:checked) {
                 border-color: #238636;
                 background: #effdf3;
-                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.10);
+                box-shadow: 0 0 0 3px rgba(35, 134, 54, 0.10);
             }
 
             .delivery-point-card input[type="radio"] {
@@ -508,8 +550,8 @@
             }
 
         .delivery-radio-dot {
-            width: 19px;
-            height: 19px;
+            width: 18px;
+            height: 18px;
             border-radius: 999px;
             border: 2px solid #94a3b8;
             flex-shrink: 0;
@@ -524,8 +566,8 @@
             .delivery-point-card input[type="radio"]:checked + .delivery-radio-dot::after {
                 content: "";
                 position: absolute;
-                width: 9px;
-                height: 9px;
+                width: 8px;
+                height: 8px;
                 border-radius: 999px;
                 background: #238636;
                 top: 3px;
@@ -541,22 +583,23 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 10px;
-            margin-bottom: 6px;
+            gap: 9px;
+            margin-bottom: 5px;
         }
 
             .delivery-point-top strong {
                 color: #145c24;
-                font-size: 15px;
-                line-height: 1.35;
+                font-size: 14.5px;
+                line-height: 1.3;
             }
 
         .location-badge {
             border-radius: 999px;
-            padding: 6px 9px;
+            padding: 5px 8px;
             font-size: 11px;
             font-weight: 900;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
             .location-badge.same-neighborhood {
@@ -581,30 +624,30 @@
 
         .delivery-description {
             color: #607d8b;
-            font-size: 13px;
-            line-height: 1.4;
-            margin: 0 0 7px;
+            font-size: 12.5px;
+            line-height: 1.35;
+            margin: 0 0 6px;
         }
 
         .delivery-location {
             color: #405a68;
-            font-size: 13px;
-            font-weight: 800;
-            margin-bottom: 5px;
+            font-size: 12.5px;
+            font-weight: 850;
+            margin-bottom: 4px;
         }
 
         .delivery-detail {
             color: #78909c;
-            font-size: 12.5px;
-            font-weight: 700;
+            font-size: 12px;
+            font-weight: 750;
         }
 
         .delivery-empty {
-            background: white;
+            background: #f8faf8;
             border-radius: 14px;
-            padding: 16px;
+            padding: 15px;
             color: #607d8b;
-            font-weight: 800;
+            font-weight: 850;
             text-align: center;
         }
 
@@ -617,31 +660,32 @@
             justify-content: flex-end;
             align-items: center;
             gap: 12px;
-            margin-top: 10px;
+            margin-top: 8px;
         }
 
         .btn-save,
         .btn-cancel {
             border: none;
             border-radius: 12px;
-            padding: 13px 20px;
-            font-weight: 800;
+            padding: 12px 18px;
+            font-size: 13.5px;
+            font-weight: 850;
             text-decoration: none;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 160px;
-            box-sizing: border-box;
+            min-width: 155px;
         }
 
         .btn-save {
             background: #238636;
-            color: white;
+            color: #ffffff;
         }
 
             .btn-save:hover {
                 background: #1f7a30;
+                color: #ffffff;
             }
 
         .btn-cancel {
@@ -651,38 +695,42 @@
 
             .btn-cancel:hover {
                 background: #e2e8ec;
+                color: #405a68;
             }
 
         .helper-card {
-            padding: 26px;
+            padding: 22px;
             position: sticky;
-            top: 24px;
+            top: 110px;
+            z-index: 1;
         }
 
             .helper-card h3 {
                 color: #145c24;
-                font-size: 22px;
-                margin: 0 0 18px;
+                font-size: 20px;
+                font-weight: 900;
+                margin: 0 0 16px;
             }
 
         .helper-item {
             background: #f8faf8;
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 14px;
+            border-radius: 15px;
+            padding: 14px;
+            margin-bottom: 12px;
         }
 
             .helper-item strong {
                 display: block;
                 color: #1f2937;
-                margin-bottom: 6px;
+                margin-bottom: 5px;
+                font-size: 14px;
             }
 
             .helper-item p {
                 color: #526b7a;
-                line-height: 1.5;
+                line-height: 1.45;
                 margin: 0;
-                font-size: 14px;
+                font-size: 13px;
             }
 
         @@media (max-width: 1100px) {
@@ -696,8 +744,12 @@
         }
 
         @@media (max-width: 800px) {
+            .topbar + .share-create-layout {
+                margin-top: 0 !important;
+            }
+
             .form-card {
-                padding: 22px;
+                padding: 20px;
             }
 
             .form-header {
@@ -715,6 +767,15 @@
 
             .delivery-point-top {
                 flex-direction: column;
+            }
+
+            .delivery-dropdown-panel {
+                left: 8px;
+                right: 8px;
+            }
+
+            .delivery-point-list {
+                max-height: 280px;
             }
 
             .form-actions {
@@ -737,7 +798,6 @@
             const dropdownPanel = document.getElementById("deliveryDropdownPanel");
             const selectedName = document.getElementById("selectedDeliveryPointName");
             const selectedDetail = document.getElementById("selectedDeliveryPointDetail");
-
             const searchInput = document.getElementById("deliveryPointSearchInput");
             const cards = document.querySelectorAll(".delivery-point-card");
 
@@ -745,9 +805,46 @@
                 return;
             }
 
-            dropdownButton.addEventListener("click", function () {
-                dropdownPanel.classList.toggle("show");
-                dropdownButton.classList.toggle("open");
+            function closeDropdown() {
+                dropdownPanel.classList.remove("show");
+                dropdownButton.classList.remove("open");
+                dropdownButton.setAttribute("aria-expanded", "false");
+            }
+
+            function openDropdown() {
+                dropdownPanel.classList.add("show");
+                dropdownButton.classList.add("open");
+                dropdownButton.setAttribute("aria-expanded", "true");
+
+                if (searchInput) {
+                    setTimeout(function () {
+                        searchInput.focus();
+                    }, 80);
+                }
+            }
+
+            dropdownButton.addEventListener("click", function (event) {
+                event.stopPropagation();
+
+                if (dropdownPanel.classList.contains("show")) {
+                    closeDropdown();
+                } else {
+                    openDropdown();
+                }
+            });
+
+            dropdownPanel.addEventListener("click", function (event) {
+                event.stopPropagation();
+            });
+
+            document.addEventListener("click", function () {
+                closeDropdown();
+            });
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape") {
+                    closeDropdown();
+                }
             });
 
             function normalizeText(value) {
@@ -800,10 +897,10 @@
                         selectedDetail.textContent = card.dataset.detail || "";
                     }
 
-                    dropdownPanel.classList.remove("show");
-                    dropdownButton.classList.remove("open");
+                    closeDropdown();
                 });
             });
         });
     </script>
 }
+

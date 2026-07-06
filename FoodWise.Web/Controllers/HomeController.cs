@@ -1,5 +1,7 @@
-﻿// HomeController, giriş yapan kullanıcıyı Dashboard ekranına yönlendirir.
-// Dashboard kartları, eco puan ve karbon özeti için gerekli verileri API servislerinden alır.
+﻿
+// HomeController, giriş yapan kullanıcı için Dashboard ekranını yönetir.
+// Dashboard kartlarında gösterilecek stok, riskli ürün, karbon tasarrufu ve eco puan bilgileri
+// ilgili Web servisleri üzerinden FoodWise.API'den alınır.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Home;
@@ -23,19 +25,23 @@ public class HomeController : Controller
         _ecoPointWebService = ecoPointWebService;
     }
 
+    // Giriş yapan kullanıcının Dashboard sayfasını açar.
     [HttpGet]
     public async Task<IActionResult> Index()
     {
         var token = HttpContext.Session.GetString("JWToken");
 
+        // Token yoksa kullanıcı giriş yapmamış kabul edilir ve login sayfasına yönlendirilir.
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
+        // Dashboard kartlarında gösterilecek veriler API servislerinden alınır.
         var stockItems = await _stockWebService.GetMyStockAsync(token);
         var riskyStockItems = await _stockWebService.GetRiskyStockAsync(token);
         var carbonSummary = await _carbonReportWebService.GetSummaryAsync(token);
         var ecoPointSummary = await _ecoPointWebService.GetSummaryAsync(token);
 
+        // Farklı servislerden gelen veriler tek DashboardViewModel içinde birleştirilir.
         var model = new DashboardViewModel
         {
             FullName = HttpContext.Session.GetString("FullName") ?? "Kullanıcı",

@@ -5,7 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 // NotificationService, kullanıcı bildirimlerini yönetir.
-// Bildirim listeleme, okundu yapma, okunmamış sayısı ve test bildirimi oluşturma işlemleri burada yapılır.
+// Bildirim listeleme, okundu yapma, okunmamış sayısı ve bildirim oluşturma işlemleri burada yapılır.
+
 using FoodWise.Application.DTOs.Notification;
 using FoodWise.Application.Interfaces;
 using FoodWise.Domain.Entities;
@@ -23,9 +24,10 @@ public class NotificationService : INotificationService
         _context = context;
     }
 
+    // Kullanıcının tüm aktif bildirimlerini getirir.
+    // Bildirimler en yeni kayıt en üstte olacak şekilde sıralanır.
     public async Task<List<NotificationDto>> GetUserNotificationsAsync(string userId)
     {
-        // Kullanıcının aktif bildirimleri en yeni bildirim üstte olacak şekilde listelenir.
         var notifications = await _context.Notifications
             .Where(x => x.UserId == userId && x.IsActive)
             .OrderByDescending(x => x.CreatedAt)
@@ -34,9 +36,9 @@ public class NotificationService : INotificationService
         return notifications.Select(MapToDto).ToList();
     }
 
+    // Kullanıcının sadece okunmamış aktif bildirimlerini listeler.
     public async Task<List<NotificationDto>> GetUnreadNotificationsAsync(string userId)
     {
-        // Sadece okunmamış aktif bildirimler getirilir.
         var notifications = await _context.Notifications
             .Where(x => x.UserId == userId && x.IsActive && !x.IsRead)
             .OrderByDescending(x => x.CreatedAt)
@@ -45,17 +47,17 @@ public class NotificationService : INotificationService
         return notifications.Select(MapToDto).ToList();
     }
 
+    // Bildirim rozeti veya dashboard için okunmamış bildirim sayısını döndürür.
     public async Task<int> GetUnreadCountAsync(string userId)
     {
-        // Dashboard veya bildirim ikonu için okunmamış bildirim sayısı döndürülür.
         return await _context.Notifications
             .CountAsync(x => x.UserId == userId && x.IsActive && !x.IsRead);
     }
 
+    // Kullanıcıya yeni bildirim oluşturur.
+    // Risk, paylaşım ve teslimat servisleri bu metodu kullanarak bildirim üretebilir.
     public async Task<NotificationDto> CreateAsync(string userId, CreateNotificationDto model)
     {
-        // Yeni bildirim oluşturulur.
-        // İleride risk, paylaşım ve teslimat servisleri de bu metodu kullanabilir.
         var notification = new Notification
         {
             UserId = userId,
@@ -74,9 +76,10 @@ public class NotificationService : INotificationService
         return MapToDto(notification);
     }
 
+    // Belirli bir bildirimi okundu olarak işaretler.
+    // Kullanıcı sadece kendi bildirimleri üzerinde işlem yapabilir.
     public async Task<NotificationDto?> MarkAsReadAsync(string userId, int notificationId)
     {
-        // Kullanıcı sadece kendi bildirimini okundu yapabilir.
         var notification = await _context.Notifications
             .FirstOrDefaultAsync(x =>
                 x.Id == notificationId &&
@@ -94,9 +97,9 @@ public class NotificationService : INotificationService
         return MapToDto(notification);
     }
 
+    // Kullanıcının tüm okunmamış aktif bildirimlerini okundu hale getirir.
     public async Task<bool> MarkAllAsReadAsync(string userId)
     {
-        // Kullanıcının tüm okunmamış bildirimleri okundu yapılır.
         var notifications = await _context.Notifications
             .Where(x => x.UserId == userId && x.IsActive && !x.IsRead)
             .ToListAsync();
@@ -115,10 +118,10 @@ public class NotificationService : INotificationService
         return true;
     }
 
+    // Bildirimi fiziksel olarak silmek yerine pasif hale getirir.
+    // Böylece veri tamamen kaybolmaz ve gerektiğinde geçmiş kayıt olarak tutulabilir.
     public async Task<bool> DeleteAsync(string userId, int notificationId)
     {
-        // Bildirim fiziksel olarak silinmez, pasif yapılır.
-        // Böylece ileride raporlama veya loglama için veri korunabilir.
         var notification = await _context.Notifications
             .FirstOrDefaultAsync(x =>
                 x.Id == notificationId &&
@@ -136,9 +139,9 @@ public class NotificationService : INotificationService
         return true;
     }
 
+    // Notification entity'sini API cevabında kullanılacak NotificationDto modeline dönüştürür.
     private static NotificationDto MapToDto(Notification notification)
     {
-        // Entity, API cevabında kullanılacak DTO modeline dönüştürülür.
         return new NotificationDto
         {
             Id = notification.Id,
@@ -151,3 +154,4 @@ public class NotificationService : INotificationService
         };
     }
 }
+

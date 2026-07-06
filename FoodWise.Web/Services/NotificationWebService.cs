@@ -1,5 +1,6 @@
-﻿// Bu servis, FoodWise.Web ile FoodWise.API arasındaki bildirim işlemleri bağlantısını yönetir.
-// JWT token ile korunan Notification API endpointlerine istek gönderir.
+﻿
+// NotificationWebService, FoodWise.Web ile FoodWise.API arasındaki bildirim işlemleri bağlantısını yönetir.
+// Web tarafındaki bildirim ekranları, bildirim listeleme, okundu yapma ve silme işlemlerini bu servis üzerinden API'ye gönderir.
 
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -16,14 +17,17 @@ public class NotificationWebService : INotificationWebService
     {
         _httpClient = httpClient;
 
+        // Backend API adresi appsettings.json içindeki ApiSettings:BaseUrl değerinden okunur.
         var apiBaseUrl = configuration["ApiSettings:BaseUrl"];
 
         if (string.IsNullOrWhiteSpace(apiBaseUrl))
             throw new InvalidOperationException("ApiSettings:BaseUrl appsettings.json içinde tanımlı olmalıdır.");
 
+        // HttpClient isteklerinin FoodWise.API adresine gönderilmesi sağlanır.
         _httpClient.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
     }
 
+    // Kullanıcının tüm bildirimlerini API'den getirir.
     public async Task<List<NotificationViewModel>> GetMyNotificationsAsync(string token)
     {
         SetBearerToken(token);
@@ -38,6 +42,7 @@ public class NotificationWebService : INotificationWebService
         return result ?? new List<NotificationViewModel>();
     }
 
+    // Kullanıcının okunmamış bildirim sayısını API'den getirir.
     public async Task<int> GetUnreadCountAsync(string token)
     {
         SetBearerToken(token);
@@ -52,6 +57,7 @@ public class NotificationWebService : INotificationWebService
         return result?.UnreadCount ?? 0;
     }
 
+    // Seçilen bildirimi okundu olarak işaretlemek için API'ye PATCH isteği gönderir.
     public async Task<bool> MarkAsReadAsync(int notificationId, string token)
     {
         SetBearerToken(token);
@@ -61,6 +67,7 @@ public class NotificationWebService : INotificationWebService
         return response.IsSuccessStatusCode;
     }
 
+    // Kullanıcının tüm bildirimlerini okundu yapmak için API'ye PATCH isteği gönderir.
     public async Task<bool> MarkAllAsReadAsync(string token)
     {
         SetBearerToken(token);
@@ -70,6 +77,7 @@ public class NotificationWebService : INotificationWebService
         return response.IsSuccessStatusCode;
     }
 
+    // Seçilen bildirimi silmek/pasif hale getirmek için API'ye DELETE isteği gönderir.
     public async Task<bool> DeleteAsync(int notificationId, string token)
     {
         SetBearerToken(token);
@@ -79,6 +87,7 @@ public class NotificationWebService : INotificationWebService
         return response.IsSuccessStatusCode;
     }
 
+    // Test amaçlı bildirim oluşturmak için API'ye örnek bildirim verisi gönderir.
     public async Task<bool> CreateTestNotificationAsync(string token)
     {
         SetBearerToken(token);
@@ -95,12 +104,14 @@ public class NotificationWebService : INotificationWebService
         return response.IsSuccessStatusCode;
     }
 
+    // JWT token, korumalı Notification API endpointlerine erişebilmek için Authorization header içine eklenir.
     private void SetBearerToken(string token)
     {
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token);
     }
 
+    // API'den gelen JSON verilerinin ViewModel sınıflarına çevrilmesi için ortak JSON ayarıdır.
     private static JsonSerializerOptions GetJsonOptions()
     {
         return new JsonSerializerOptions
@@ -109,3 +120,4 @@ public class NotificationWebService : INotificationWebService
         };
     }
 }
+

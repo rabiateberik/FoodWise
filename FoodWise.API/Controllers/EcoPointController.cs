@@ -1,5 +1,5 @@
-﻿// EcoPointController, giriş yapan kullanıcının eco puan özetini ve puan geçmişini API üzerinden döner.
-// Eco puan kazanma işlemleri servis katmanında yönetilir; controller sadece kullanıcıya ait verileri sunar.
+﻿// EcoPointController, giriş yapan kullanıcının eco puan bilgilerini döner.
+// Puan hesaplama ve geçmiş kayıtları servis katmanında yönetilir.
 
 using System.Security.Claims;
 using FoodWise.Application.Interfaces;
@@ -20,6 +20,7 @@ public class EcoPointController : ControllerBase
         _ecoPointService = ecoPointService;
     }
 
+    // Kullanıcının toplam eco puanını ve genel puan özetini getirir.
     [HttpGet("summary")]
     public async Task<IActionResult> GetSummary()
     {
@@ -33,6 +34,7 @@ public class EcoPointController : ControllerBase
         return Ok(summary);
     }
 
+    // Kullanıcının eco puan kazanma geçmişini listeler.
     [HttpGet("history")]
     public async Task<IActionResult> GetHistory()
     {
@@ -46,11 +48,12 @@ public class EcoPointController : ControllerBase
         return Ok(history);
     }
 
-    // JWT içinden giriş yapan kullanıcının Id bilgisini alır.
-    // Projede token claim yapısına göre NameIdentifier veya sub alanı kullanılabilir.
+    // JWT token içinden giriş yapan kullanıcının Id bilgisini alır.
+    // Token yapısına göre NameIdentifier veya sub claim'i kullanılabilir.
     private string? GetUserId()
     {
         return User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub");
     }
 }
+

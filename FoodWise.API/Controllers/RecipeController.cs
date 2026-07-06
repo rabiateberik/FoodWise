@@ -1,6 +1,5 @@
-﻿// RecipeController, tarif listeleme ve stok ürününe göre tarif önerme endpointlerini içerir.
-// Riskli ürünler için önerilen tarifler bu controller üzerinden alınır.
-// Kullanıcı tarif etkileşimleri ve AI eğitim verisi dışa aktarımı da bu controller üzerinden yönetilir.
+﻿// RecipeController, tarif listeleme ve tarif öneri işlemlerini yöneten endpointleri içerir.
+// Kullanıcı stoklarına göre tarif önerileri, tarif etkileşimleri ve AI eğitim verisi işlemleri buradan yürütülür.
 
 using FoodWise.Application.DTOs.Recipe;
 using FoodWise.Application.Interfaces;
@@ -32,6 +31,7 @@ public class RecipeController : ControllerBase
         _environment = environment;
     }
 
+    // Sistemde kayıtlı olan genel tarif listesini getirir.
     [HttpGet]
     public async Task<IActionResult> GetAllRecipes()
     {
@@ -40,6 +40,7 @@ public class RecipeController : ControllerBase
         return Ok(result);
     }
 
+    // Belirli bir ürüne göre uygun tarifleri listeler.
     [HttpGet("by-product/{productId}")]
     public async Task<IActionResult> GetRecipesByProduct(int productId)
     {
@@ -48,6 +49,8 @@ public class RecipeController : ControllerBase
         return Ok(result);
     }
 
+    // Seçilen stok ürünü için tarif önerileri üretir.
+    // Genellikle son tüketim tarihi yaklaşan veya riskli ürünler için kullanılır.
     [HttpGet("recommendations/{stockItemId}")]
     public async Task<IActionResult> GetRecommendationsByStockItem(int stockItemId)
     {
@@ -58,6 +61,7 @@ public class RecipeController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının tüm stoklarına göre genel tarif önerilerini getirir.
     [HttpGet("recommendations")]
     public async Task<IActionResult> GetGeneralRecommendations()
     {
@@ -68,6 +72,8 @@ public class RecipeController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının tarifle ilgili etkileşimini kaydeder.
+    // Beğenme, kaydetme, yaptım veya görüntüleme gibi işlemler bu endpoint üzerinden işlenir.
     [HttpPost("interactions")]
     public async Task<IActionResult> CreateInteraction([FromBody] CreateRecipeInteractionDto dto)
     {
@@ -89,6 +95,7 @@ public class RecipeController : ControllerBase
         });
     }
 
+    // Kullanıcının kaydettiği tarifleri listeler.
     [HttpGet("interactions/saved")]
     public async Task<IActionResult> GetSavedRecipes()
     {
@@ -102,6 +109,7 @@ public class RecipeController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının daha önce yaptım olarak işaretlediği tarifleri listeler.
     [HttpGet("interactions/cooked")]
     public async Task<IActionResult> GetCookedRecipes()
     {
@@ -115,6 +123,7 @@ public class RecipeController : ControllerBase
         return Ok(result);
     }
 
+    // Tarif etkileşimlerinden AI modeli için kullanılabilecek CSV eğitim verisi oluşturur.
     [HttpGet("ai-training-data")]
     public async Task<IActionResult> ExportAiTrainingData()
     {
@@ -158,6 +167,7 @@ public class RecipeController : ControllerBase
         );
     }
 
+    // Proje içinde bulunan temizlenmiş tarif veri setini veritabanına aktarır.
     [HttpPost("import-dataset")]
     public async Task<IActionResult> ImportDataset()
     {
@@ -179,11 +189,13 @@ public class RecipeController : ControllerBase
         });
     }
 
+    // JWT token içindeki kullanıcı Id bilgisini alır.
     private string GetUserId()
     {
         return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     }
 
+    // CSV oluştururken virgül, çift tırnak ve satır sonu içeren değerleri güvenli hale getirir.
     private static string EscapeCsv(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -195,3 +207,4 @@ public class RecipeController : ControllerBase
         return value;
     }
 }
+

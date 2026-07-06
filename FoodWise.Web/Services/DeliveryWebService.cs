@@ -1,5 +1,6 @@
-﻿// Bu servis, FoodWise.Web ile FoodWise.API arasındaki teslimat ve QR işlemleri bağlantısını yönetir.
-// JWT token ile korunan Delivery API endpointlerine istek gönderir.
+﻿
+// DeliveryWebService, FoodWise.Web ile FoodWise.API arasındaki teslimat ve QR işlemleri bağlantısını yönetir.
+// Web tarafındaki teslimat ekranları, teslimat oluşturma, kutuya bırakma, QR okutma ve teslimatı tamamlama işlemlerini bu servis üzerinden API'ye gönderir.
 
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -16,14 +17,17 @@ public class DeliveryWebService : IDeliveryWebService
     {
         _httpClient = httpClient;
 
+        // Backend API adresi appsettings.json içindeki ApiSettings:BaseUrl değerinden okunur.
         var apiBaseUrl = configuration["ApiSettings:BaseUrl"];
 
         if (string.IsNullOrWhiteSpace(apiBaseUrl))
             throw new InvalidOperationException("ApiSettings:BaseUrl appsettings.json içinde tanımlı olmalıdır.");
 
+        // HttpClient isteklerinin FoodWise.API adresine gönderilmesi sağlanır.
         _httpClient.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
     }
 
+    // Onaylanmış paylaşım talebi için teslimat oluşturma isteğini API'ye gönderir.
     public async Task<DeliveryViewModel?> CreateDeliveryAsync(int shareRequestId, string token)
     {
         SetBearerToken(token);
@@ -36,6 +40,7 @@ public class DeliveryWebService : IDeliveryWebService
         return await response.Content.ReadFromJsonAsync<DeliveryViewModel>(GetJsonOptions());
     }
 
+    // Kullanıcının bağışladığı ürünlere ait teslimatları API'den getirir.
     public async Task<List<DeliveryViewModel>> GetMyDonatedDeliveriesAsync(string token)
     {
         SetBearerToken(token);
@@ -50,6 +55,7 @@ public class DeliveryWebService : IDeliveryWebService
         return result ?? new List<DeliveryViewModel>();
     }
 
+    // Kullanıcının teslim alacağı veya teslim aldığı ürünlere ait teslimatları API'den getirir.
     public async Task<List<DeliveryViewModel>> GetMyReceivedDeliveriesAsync(string token)
     {
         SetBearerToken(token);
@@ -64,16 +70,20 @@ public class DeliveryWebService : IDeliveryWebService
         return result ?? new List<DeliveryViewModel>();
     }
 
+    // Bağışçının ürünü teslimat kutusuna bıraktığını API'ye bildirir.
     public async Task<DeliveryViewModel?> MarkAsDroppedOffAsync(DropOffDeliveryViewModel model, string token)
     {
         SetBearerToken(token);
 
+        // API tarafına yalnızca teslim bırakma görseli gönderilir.
         var requestModel = new
         {
             model.DropOffImageUrl
         };
 
-        var response = await _httpClient.PostAsJsonAsync($"api/delivery/{model.DeliveryId}/drop-off", requestModel);
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/delivery/{model.DeliveryId}/drop-off",
+            requestModel);
 
         if (!response.IsSuccessStatusCode)
             return null;
@@ -81,6 +91,7 @@ public class DeliveryWebService : IDeliveryWebService
         return await response.Content.ReadFromJsonAsync<DeliveryViewModel>(GetJsonOptions());
     }
 
+    // Alıcının teslimat kutusu QR kodunu okutarak doğrulama yapmasını sağlar.
     public async Task<DeliveryViewModel?> ScanBoxQrAsync(ScanDeliveryBoxViewModel model, string token)
     {
         SetBearerToken(token);
@@ -93,6 +104,7 @@ public class DeliveryWebService : IDeliveryWebService
         return await response.Content.ReadFromJsonAsync<DeliveryViewModel>(GetJsonOptions());
     }
 
+    // QR doğrulaması tamamlanan teslimatı API üzerinden tamamlar.
     public async Task<DeliveryViewModel?> CompleteDeliveryAsync(int deliveryId, string token)
     {
         SetBearerToken(token);
@@ -105,12 +117,14 @@ public class DeliveryWebService : IDeliveryWebService
         return await response.Content.ReadFromJsonAsync<DeliveryViewModel>(GetJsonOptions());
     }
 
+    // JWT token, korumalı Delivery API endpointlerine erişebilmek için Authorization header içine eklenir.
     private void SetBearerToken(string token)
     {
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token);
     }
 
+    // API'den gelen JSON verilerinin ViewModel sınıflarına çevrilmesi için ortak JSON ayarıdır.
     private static JsonSerializerOptions GetJsonOptions()
     {
         return new JsonSerializerOptions
@@ -119,3 +133,4 @@ public class DeliveryWebService : IDeliveryWebService
         };
     }
 }
+

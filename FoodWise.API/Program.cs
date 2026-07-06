@@ -1,3 +1,4 @@
+
 using FoodWise.Application.Interfaces;
 using FoodWise.Infrastructure.Data;
 using FoodWise.Infrastructure.Identity;
@@ -12,63 +13,74 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// API controller servisleri eklenir.
+// API controller yapýsý projeye eklenir.
 builder.Services.AddControllers();
 
+// Swagger/OpenAPI servisleri eklenir.
+// Geliþtirme ortamýnda endpointlerin test edilmesini kolaylaþtýrýr.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// MSSQL baðlantýsý yapýlýr.
+// SQL Server veritabaný baðlantýsý appsettings.json içindeki DefaultConnection üzerinden kurulur.
 builder.Services.AddDbContext<FoodWiseDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ASP.NET Identity kullanýcý ve rol sistemi eklenir.
-// Admin paneli için IdentityRole kullanýlýr.
+// ApplicationUser özel kullanýcý sýnýfý, IdentityRole ise rol yönetimi için kullanýlýr.
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<FoodWiseDbContext>()
     .AddDefaultTokenProviders();
 
-// AuthService, IAuthService üzerinden API tarafýna dependency injection ile eklenir.
+// Auth iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<IAuthService, AuthService>();
 
-// StockService, stok yönetimi iþlemleri için dependency injection container'a eklenir.
+// Stok yönetimi iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<IStockService, StockService>();
 
-// RecipeService, tarif öneri iþlemleri için dependency injection container'a eklenir.
+// Tarif listeleme, öneri ve etkileþim iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<IRecipeService, RecipeService>();
 
-// SharingService, paylaþým ilaný ve paylaþým talebi iþlemleri için sisteme eklenir.
+// Paylaþým ilaný ve paylaþým talebi iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<ISharingService, SharingService>();
 
-// DeliveryService, QR destekli teslim kutusu iþlemleri için sisteme eklenir.
+// QR destekli teslimat ve teslim kutusu iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<IDeliveryService, DeliveryService>();
 
-// NotificationService, kullanýcý bildirim iþlemleri için sisteme eklenir.
+// Kullanýcý bildirim iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
-// Karbon raporu iþlemleri için servis kaydý.
+// Karbon raporu oluþturma ve rapor görüntüleme iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<ICarbonReportService, CarbonReportService>();
 
-// Profil bilgilerini yöneten servis burada Dependency Injection container'a eklenir.
+// Kullanýcý profil iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<IProfileService, ProfileService>();
-//Tarif ai için servis
+
+// Tarif önerilerinde kiþiselleþtirilmiþ skor hesaplama iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<IRecipeAiScoringService, RecipeAiScoringService>();
-// Eco puan geçmiþi ve toplam puan hesaplama iþlemleri için servis kaydý.
+
+// Eco puan geçmiþi ve toplam eco puan hesaplama iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<IEcoPointService, EcoPointService>();
-//paylaþým ai için
+
+// Paylaþým talebi oluþturulurken kullanýcý-ilan eþleþme skoru hesaplamak için servis kaydý yapýlýr.
 builder.Services.AddScoped<IShareRequestMatchingService, ShareRequestMatchingService>();
-// Tarif veri setini veritabanýna aktarmak için kullanýlan servis burada Dependency Injection container'a eklenir.
+
+// JSON tarif veri setini veritabanýna aktarmak için servis kaydý yapýlýr.
 builder.Services.AddScoped<IRecipeDatasetImportService, RecipeDatasetImportService>();
-//Admin iþlemleri için servis kaydý yapýlýr. Bu servis, admin kullanýcýlarýn yönetimi ve raporlama iþlemleri için kullanýlabilir.
+
+// Admin panelindeki kategori, ürün, kullanýcý, teslim noktasý ve raporlama iþlemleri için servis kaydý yapýlýr.
 builder.Services.AddScoped<IAdminService, AdminService>();
-// ML risk tahmin servisi için HttpClient ile servis kaydý yapýlýr.
+
+// Python FastAPI risk tahmin servisiyle haberleþmek için HttpClient kaydý yapýlýr.
 builder.Services.AddHttpClient<IMlRiskPredictionService, MlRiskPredictionService>();
-// ML tarif öneri servisi için HttpClient ile servis kaydý yapýlýr.
+
+// Python FastAPI tarif öneri modeliyle haberleþmek için HttpClient kaydý yapýlýr.
 builder.Services.AddHttpClient<IMlRecipeRecommendationService, MlRecipeRecommendationService>();
-// ML paylaþým eþleþtirme servisi için HttpClient ile servis kaydý yapýlýr.
+
+// Python FastAPI paylaþým eþleþtirme modeliyle haberleþmek için HttpClient kaydý yapýlýr.
 builder.Services.AddHttpClient<IMlShareMatchingService, MlShareMatchingService>();
+
 // JWT Authentication ayarlarý yapýlýr.
-// Böylece [Authorize] kullanýlan endpointler token ile korunabilir.
+// [Authorize] kullanýlan endpointlerin token ile korunmasýný saðlar.
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -78,6 +90,7 @@ builder.Services.AddAuthentication(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
+        // Token içerisindeki issuer, audience, süre ve imza bilgileri doðrulanýr.
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
@@ -85,6 +98,8 @@ builder.Services.AddAuthentication(options =>
 
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
+
+        // JWT imzasýný doðrulamak için appsettings.json içindeki gizli anahtar kullanýlýr.
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
         ),
@@ -94,13 +109,13 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Rol bazlý yetkilendirme için authorization servisi eklenir.
+// Rol bazlý yetkilendirme sistemi eklenir.
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Uygulama ilk açýldýðýnda migration ve baþlangýç seed verileri çalýþtýrýlýr.
-// Admin/User rolleri ve admin kullanýcý bu aþamada oluþturulur.
+// Uygulama ilk açýldýðýnda baþlangýç verileri oluþturulur.
+// Admin/User rolleri ve varsayýlan admin kullanýcýsý bu aþamada eklenir.
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<FoodWiseDbContext>();
@@ -110,18 +125,24 @@ using (var scope = app.Services.CreateScope())
     await FoodWiseDbSeeder.SeedAsync(context, userManager, roleManager);
 }
 
-// Configure the HTTP request pipeline.
+// Geliþtirme ortamýnda Swagger arayüzü aktif edilir.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// HTTP istekleri HTTPS'e yönlendirilir.
 app.UseHttpsRedirection();
 
+// Önce authentication çalýþýr, kullanýcýnýn kimliði doðrulanýr.
 app.UseAuthentication();
+
+// Sonra authorization çalýþýr, kullanýcýnýn yetkisi kontrol edilir.
 app.UseAuthorization();
 
+// Controller endpointleri uygulamaya baðlanýr.
 app.MapControllers();
 
 app.Run();
+

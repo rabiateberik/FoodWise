@@ -1,5 +1,6 @@
 ﻿// SharingController, ürün paylaşım ilanları ve paylaşım taleplerini yöneten endpointleri içerir.
-// Bu controller token ile korunur; işlemler giriş yapan kullanıcıya göre yapılır.
+// İlan oluşturma, talep gönderme, onaylama, reddetme ve iptal işlemleri burada karşılanır.
+
 using System.Security.Claims;
 using FoodWise.Application.DTOs.Sharing;
 using FoodWise.Application.Interfaces;
@@ -20,10 +21,10 @@ public class SharingController : ControllerBase
         _sharingService = sharingService;
     }
 
+    // Kullanıcının stokundaki bir ürünü paylaşım ilanı olarak oluşturur.
     [HttpPost("listings")]
     public async Task<IActionResult> CreateListing(CreateShareListingDto model)
     {
-        // Giriş yapan kullanıcının stokundaki ürün paylaşıma açılır.
         var userId = GetUserId();
 
         var result = await _sharingService.CreateListingAsync(userId, model);
@@ -34,10 +35,10 @@ public class SharingController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının kendi ilanları hariç aktif paylaşım ilanlarını listeler.
     [HttpGet("listings/available")]
     public async Task<IActionResult> GetAvailableListings()
     {
-        // Kullanıcının kendi ilanları hariç aktif paylaşım ilanları listelenir.
         var userId = GetUserId();
 
         var result = await _sharingService.GetAvailableListingsAsync(userId);
@@ -45,10 +46,10 @@ public class SharingController : ControllerBase
         return Ok(result);
     }
 
+    // Giriş yapan kullanıcının oluşturduğu paylaşım ilanlarını getirir.
     [HttpGet("listings/my")]
     public async Task<IActionResult> GetMyListings()
     {
-        // Giriş yapan kullanıcının oluşturduğu paylaşım ilanları listelenir.
         var userId = GetUserId();
 
         var result = await _sharingService.GetMyListingsAsync(userId);
@@ -56,6 +57,7 @@ public class SharingController : ControllerBase
         return Ok(result);
     }
 
+    // Seçilen paylaşım ilanının detay bilgilerini getirir.
     [HttpGet("listings/{listingId}")]
     public async Task<IActionResult> GetListingById(int listingId)
     {
@@ -67,10 +69,10 @@ public class SharingController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcı başka bir kullanıcının paylaşım ilanına talep gönderir.
     [HttpPost("listings/{listingId}/request")]
     public async Task<IActionResult> CreateRequest(int listingId)
     {
-        // Giriş yapan kullanıcı başka bir kullanıcının ilanına talep oluşturur.
         var userId = GetUserId();
 
         var result = await _sharingService.CreateRequestAsync(userId, listingId);
@@ -81,10 +83,10 @@ public class SharingController : ControllerBase
         return Ok(result);
     }
 
+    // İlan sahibi, kendi ilanına gelen talepleri görüntüler.
     [HttpGet("listings/{listingId}/requests")]
     public async Task<IActionResult> GetRequestsForMyListing(int listingId)
     {
-        // İlan sahibi, kendi ilanına gelen talepleri görüntüler.
         var userId = GetUserId();
 
         var result = await _sharingService.GetRequestsForMyListingAsync(userId, listingId);
@@ -92,10 +94,11 @@ public class SharingController : ControllerBase
         return Ok(result);
     }
 
+    // İlan sahibi gelen paylaşım talebini onaylar.
+    // Talep onaylandığında teslimat süreci için uygun hale gelir.
     [HttpPost("requests/{requestId}/approve")]
     public async Task<IActionResult> ApproveRequest(int requestId)
     {
-        // İlan sahibi, gelen paylaşım talebini onaylar.
         var userId = GetUserId();
 
         var result = await _sharingService.ApproveRequestAsync(userId, requestId);
@@ -106,10 +109,10 @@ public class SharingController : ControllerBase
         return Ok(result);
     }
 
+    // İlan sahibi gelen paylaşım talebini reddeder.
     [HttpPost("requests/{requestId}/reject")]
     public async Task<IActionResult> RejectRequest(int requestId)
     {
-        // İlan sahibi, gelen paylaşım talebini reddeder.
         var userId = GetUserId();
 
         var result = await _sharingService.RejectRequestAsync(userId, requestId);
@@ -120,23 +123,25 @@ public class SharingController : ControllerBase
         return Ok(result);
     }
 
+    // İlan sahibi kendi paylaşım ilanını iptal eder.
+    // Teslimat sürecine geçmiş ilanların iptali servis tarafında engellenir.
     [HttpDelete("listings/{listingId}")]
     public async Task<IActionResult> CancelListing(int listingId)
     {
-        // İlan sahibi, kendi paylaşım ilanını iptal eder.
         var userId = GetUserId();
 
         var result = await _sharingService.CancelListingAsync(userId, listingId);
 
-        if(!result)
-    return BadRequest("Paylaşım ilanı iptal edilemedi. İlan teslimat sürecine geçmiş olabilir veya bu işlem için yetkiniz olmayabilir.");
+        if (!result)
+            return BadRequest("Paylaşım ilanı iptal edilemedi. İlan teslimat sürecine geçmiş olabilir veya bu işlem için yetkiniz olmayabilir.");
 
         return Ok("Paylaşım ilanı başarıyla iptal edildi.");
     }
+
+    // Talebi oluşturan kullanıcı, kendi bekleyen talebini iptal eder.
     [HttpPost("requests/{requestId}/cancel")]
     public async Task<IActionResult> CancelRequest(int requestId)
     {
-        // Talebi oluşturan kullanıcı kendi bekleyen talebini iptal eder.
         var userId = GetUserId();
 
         var result = await _sharingService.CancelRequestAsync(userId, requestId);
@@ -146,9 +151,11 @@ public class SharingController : ControllerBase
 
         return Ok("Talep başarıyla iptal edildi.");
     }
+
+    // JWT token içindeki kullanıcı Id bilgisini alır.
     private string GetUserId()
     {
-        // JWT token içindeki NameIdentifier claim'i Identity kullanıcı Id bilgisini taşır.
         return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     }
 }
+

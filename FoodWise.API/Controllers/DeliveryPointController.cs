@@ -1,6 +1,5 @@
-﻿// DeliveryPointController, kullanıcıların paylaşım ilanı oluştururken
-// aktif teslim noktalarını listeleyebilmesi için kullanılır.
-// Kullanıcının kayıtlı şehir/ilçe/mahalle bilgisine göre yakın teslim noktaları öncelikli sıralanır.
+﻿// DeliveryPointController, kullanıcıların aktif teslim noktalarını görüntüleyebilmesi için kullanılır.
+// Paylaşım ilanı oluştururken kullanıcıya yakın teslim noktaları öncelikli gösterilir.
 
 using FoodWise.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -23,10 +22,10 @@ public class DeliveryPointController : ControllerBase
         _context = context;
     }
 
+    // Sistemde aktif olan tüm teslim noktalarını listeler.
     [HttpGet]
     public async Task<IActionResult> GetActiveDeliveryPoints()
     {
-        // Sadece aktif teslim noktaları listelenir.
         var deliveryPoints = await _context.DeliveryPoints
             .Where(x => x.IsActive)
             .OrderBy(x => x.City)
@@ -49,6 +48,8 @@ public class DeliveryPointController : ControllerBase
         return Ok(deliveryPoints);
     }
 
+    // Kullanıcının konum bilgisine göre teslim noktalarını yakınlık önceliğiyle listeler.
+    // Arama metni gönderilirse teslim noktaları isim, açıklama ve adres bilgisine göre filtrelenir.
     [HttpGet("nearby")]
     public async Task<IActionResult> GetNearbyDeliveryPoints([FromQuery] string? search)
     {
@@ -68,6 +69,7 @@ public class DeliveryPointController : ControllerBase
 
         var normalizedSearch = NormalizeText(search);
 
+        // Arama yapılmışsa teslim noktaları normalize edilmiş metne göre filtrelenir.
         if (!string.IsNullOrWhiteSpace(normalizedSearch))
         {
             deliveryPoints = deliveryPoints
@@ -83,6 +85,7 @@ public class DeliveryPointController : ControllerBase
         var result = deliveryPoints
             .Select(x =>
             {
+                // Kullanıcının adresi ile teslim noktasının adresi karşılaştırılır.
                 var locationPriority = CalculateLocationPriority(
                     user.City,
                     user.District,
@@ -118,11 +121,13 @@ public class DeliveryPointController : ControllerBase
         return Ok(result);
     }
 
+    // JWT token içerisindeki kullanıcı Id bilgisini alır.
     private string GetUserId()
     {
         return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     }
 
+    // Kullanıcı adresi ile teslim noktası adresini karşılaştırarak yakınlık önceliği hesaplar.
     private static int CalculateLocationPriority(
         string? userCity,
         string? userDistrict,
@@ -165,6 +170,7 @@ public class DeliveryPointController : ControllerBase
         return 99;
     }
 
+    // Konum önceliğine göre kullanıcıya gösterilecek açıklama metnini üretir.
     private static string GetLocationMatchText(int locationPriority)
     {
         return locationPriority switch
@@ -176,6 +182,7 @@ public class DeliveryPointController : ControllerBase
         };
     }
 
+    // Arama metninin ilgili alan içinde geçip geçmediğini kontrol eder.
     private static bool ContainsSearchText(string? value, string normalizedSearch)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -184,6 +191,7 @@ public class DeliveryPointController : ControllerBase
         return NormalizeText(value).Contains(normalizedSearch);
     }
 
+    // Türkçe karakterleri sadeleştirerek arama ve konum karşılaştırmalarını kolaylaştırır.
     private static string NormalizeText(string? input)
     {
         if (string.IsNullOrWhiteSpace(input))
@@ -205,3 +213,4 @@ public class DeliveryPointController : ControllerBase
         return text;
     }
 }
+

@@ -1,4 +1,5 @@
-﻿@using FoodWise.Web.Helpers
+﻿
+@using FoodWise.Web.Helpers
 @model List<FoodWise.Web.ViewModels.Notification.NotificationViewModel>
 
 @{
@@ -36,72 +37,79 @@
     </form>
 }
 
-<section class="notification-list">
-    @if (Model == null || !Model.Any())
-    {
-        <div class="empty-state">
-            <h3>Henüz bildirim yok.</h3>
-            <p>Test bildirimi oluşturarak ekranın çalışmasını kontrol edebilirsin.</p>
-        </div>
-    }
-    else
-    {
-        @foreach (var notification in Model)
+<section class="notifications-page">
+    <div class="notification-list">
+        @if (Model == null || !Model.Any())
         {
-            var readClass = notification.IsRead ? "read" : "unread";
+            <div class="empty-state">
+                <h3>Henüz bildirim yok.</h3>
+                <p>Test bildirimi oluşturarak ekranın çalışmasını kontrol edebilirsin.</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var notification in Model)
+            {
+                var readClass = notification.IsRead ? "read" : "unread";
 
-            <article class="notification-card @readClass">
-                <div class="notification-main">
-                    <div class="notification-header">
-                        <div>
-                            <h3>@notification.Title</h3>
+                <article class="notification-card @readClass">
+                    <div class="notification-main">
+                        <div class="notification-title-row">
+                            <div>
+                                <h3>@notification.Title</h3>
 
-                            <span class="type-badge">
-                                @DisplayTextHelper.GetNotificationTypeText(notification.Type)
+                                <span class="type-badge">
+                                    @DisplayTextHelper.GetNotificationTypeText(notification.Type)
+                                </span>
+                            </div>
+
+                            <span class="date">
+                                @notification.CreatedAt.ToString("dd.MM.yyyy HH:mm")
                             </span>
                         </div>
 
-                        <span class="date">
-                            @notification.CreatedAt.ToString("dd.MM.yyyy HH:mm")
-                        </span>
+                        <p>@notification.Message</p>
                     </div>
 
-                    <p>@notification.Message</p>
-                </div>
+                    <div class="notification-actions">
+                        @if (!notification.IsRead)
+                        {
+                            <form asp-controller="Notification" asp-action="MarkAsRead" method="post" class="action-form">
+                                @Html.AntiForgeryToken()
 
-                <div class="notification-actions">
-                    @* Okunmamış bildirimler kullanıcı isterse tek tek okundu yapılabilir. *@
-                    @if (!notification.IsRead)
-                    {
-                        <form asp-controller="Notification" asp-action="MarkAsRead" method="post" class="action-form">
+                                <input type="hidden" name="id" value="@notification.Id" />
+
+                                <button type="submit" class="btn-small">
+                                    Okundu Yap
+                                </button>
+                            </form>
+                        }
+
+                        <form asp-controller="Notification" asp-action="Delete" method="post" class="action-form">
                             @Html.AntiForgeryToken()
 
                             <input type="hidden" name="id" value="@notification.Id" />
 
-                            <button type="submit" class="btn-small">
-                                Okundu Yap
+                            <button type="submit" class="btn-small danger">
+                                Sil
                             </button>
                         </form>
-                    }
-
-                    @* Kullanıcı istemediği bildirimi silebilir. *@
-                    <form asp-controller="Notification" asp-action="Delete" method="post" class="action-form">
-                        @Html.AntiForgeryToken()
-
-                        <input type="hidden" name="id" value="@notification.Id" />
-
-                        <button type="submit" class="btn-small danger">
-                            Sil
-                        </button>
-                    </form>
-                </div>
-            </article>
+                    </div>
+                </article>
+            }
         }
-    }
+    </div>
 </section>
 
 @section Styles {
     <style>
+        .notifications-page {
+            padding-top: 26px;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
         .action-form {
             margin: 0;
         }
@@ -109,97 +117,121 @@
         .unread-badge {
             background: #fff7ed;
             color: #9a3412;
-            padding: 10px 14px;
+            padding: 9px 13px;
             border-radius: 999px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 800;
             white-space: nowrap;
         }
 
         .notification-list {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 15px;
+            width: 100%;
+            max-width: 1080px;
+            margin: 0 auto;
         }
 
         .notification-card {
-            background: white;
-            border-radius: 20px;
-            padding: 22px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
-            border-left: 6px solid #d1d5db;
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 20px 22px;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.055);
+            border-left: 5px solid #d1d5db;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 132px;
+            gap: 18px;
+            align-items: center;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
         }
+
+            .notification-card:hover {
+                background: #fbfdfb;
+                transform: translateY(-1px);
+                box-shadow: 0 14px 30px rgba(0, 0, 0, 0.065);
+            }
 
             .notification-card.unread {
                 border-left-color: #238636;
             }
 
             .notification-card.read {
-                opacity: 0.78;
+                opacity: 0.84;
             }
 
         .notification-main {
-            flex: 1;
+            min-width: 0;
         }
 
-        .notification-header {
-            display: flex;
-            justify-content: space-between;
+        .notification-title-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
             gap: 18px;
-            align-items: flex-start;
-            margin-bottom: 12px;
+            align-items: start;
+            margin-bottom: 10px;
         }
 
-            .notification-header h3 {
+            .notification-title-row h3 {
                 color: #145c24;
-                font-size: 22px;
-                margin: 0 0 8px;
+                font-size: 19px;
+                font-weight: 850;
+                margin: 0 0 7px;
+                line-height: 1.2;
             }
 
         .notification-card p {
             color: #405a68;
-            line-height: 1.5;
+            line-height: 1.45;
             margin: 0;
+            font-size: 14px;
         }
 
         .type-badge {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             background: #dcfce7;
             color: #166534;
             border-radius: 999px;
-            padding: 6px 10px;
-            font-size: 13px;
-            font-weight: 700;
+            padding: 5px 10px;
+            font-size: 12.5px;
+            font-weight: 800;
+            line-height: 1;
         }
 
         .date {
             color: #6b7280;
-            font-size: 13px;
+            font-size: 12.5px;
             white-space: nowrap;
+            padding-top: 2px;
         }
 
         .notification-actions {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            min-width: 120px;
+            gap: 9px;
+            width: 132px;
         }
 
         .btn-small {
+            width: 100%;
+            min-height: 36px;
             border: none;
             border-radius: 10px;
-            padding: 12px 16px;
-            font-weight: 700;
+            padding: 10px 13px;
+            font-size: 12.5px;
+            font-weight: 800;
             cursor: pointer;
             background: #e8f5e9;
             color: #166534;
-            width: 100%;
+            transition: all 0.18s ease;
         }
 
             .btn-small:hover {
                 background: #d7edd9;
+                transform: translateY(-1px);
             }
 
             .btn-small.danger {
@@ -209,38 +241,77 @@
 
                 .btn-small.danger:hover {
                     background: #fecaca;
+                    transform: translateY(-1px);
                 }
 
         .empty-state {
-            background: white;
-            border-radius: 20px;
-            padding: 50px 24px;
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 44px 22px;
             text-align: center;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.055);
         }
 
             .empty-state h3 {
                 color: #145c24;
-                font-size: 26px;
-                margin-bottom: 10px;
+                font-size: 21px;
+                font-weight: 850;
+                margin-bottom: 9px;
             }
 
             .empty-state p {
                 color: #526b7a;
+                font-size: 14px;
                 margin-bottom: 0;
             }
 
+        @@media (max-width: 1100px) {
+            .notifications-page {
+                padding-top: 22px;
+                display: block;
+            }
+
+            .notification-list {
+                max-width: none;
+            }
+        }
+
         @@media (max-width: 900px) {
-            .notification-card,
-            .notification-header {
-                flex-direction: column;
-                align-items: flex-start;
+            .notifications-page {
+                padding-top: 18px;
+            }
+
+            .notification-card {
+                grid-template-columns: 1fr;
+                gap: 14px;
+                padding: 18px;
+            }
+
+            .notification-title-row {
+                grid-template-columns: 1fr;
+                gap: 8px;
             }
 
             .notification-actions {
                 width: 100%;
-                min-width: 0;
+                flex-direction: row;
+            }
+
+                .notification-actions .action-form {
+                    flex: 1;
+                }
+        }
+
+        @@media (max-width: 560px) {
+            .notification-actions {
+                flex-direction: column;
+            }
+
+            .notification-title-row h3 {
+                font-size: 17px;
             }
         }
     </style>
 }
+
+

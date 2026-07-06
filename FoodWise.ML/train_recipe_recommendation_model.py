@@ -1,8 +1,12 @@
+
 # -*- coding: utf-8 -*-
 
 # FoodWise tarif öneri modeli eğitimi.
 # Bu dosya recipe_recommendation_dataset.csv veri setini kullanarak
 # tariflere 0-100 arası RecommendationScore tahmini yapan model eğitir.
+#
+# Bu sürümde RandomForestRegressor yerine GradientBoostingRegressor kullanılmıştır.
+# Amaç, tarif öneri skorunu farklı bir regresyon algoritmasıyla tahmin etmektir.
 
 import json
 import joblib
@@ -11,7 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -40,7 +44,8 @@ def load_dataset():
 
 def prepare_features(dataset):
     # RecommendationLabel ve RecommendationScore aynı öneri mantığından üretildiği için
-    # RecommendationLabel modele girdi olarak verilmez. Hedef değişken RecommendationScore'dur.
+    # RecommendationLabel modele girdi olarak verilmez.
+    # Hedef değişken RecommendationScore'dur.
 
     feature_columns = [
         "RecipeName",
@@ -90,6 +95,7 @@ def prepare_features(dataset):
         "ViewedSimilarRecipes",
     ]
 
+    # Boolean alanı 0/1 formatına çeviriyoruz.
     X["HasSensitiveIngredient"] = X["HasSensitiveIngredient"].astype(int)
 
     return X, y, categorical_features, numeric_features
@@ -111,11 +117,13 @@ def build_model(categorical_features, numeric_features):
         ]
     )
 
-    model = RandomForestRegressor(
-        n_estimators=250,
-        max_depth=14,
-        random_state=42,
+    model = GradientBoostingRegressor(
+        n_estimators=180,
+        learning_rate=0.06,
+        max_depth=3,
         min_samples_leaf=2,
+        subsample=0.9,
+        random_state=42,
     )
 
     pipeline = Pipeline(
@@ -182,7 +190,7 @@ def save_feature_importance(pipeline, categorical_features, numeric_features):
 def save_model_info(dataset, mae, rmse, r2):
     info = {
         "model_name": "FoodWise Recipe Recommendation Score Model",
-        "algorithm": "RandomForestRegressor",
+        "algorithm": "GradientBoostingRegressor",
         "dataset_file": DATASET_PATH,
         "row_count": int(len(dataset)),
         "target_column": "RecommendationScore",
@@ -190,7 +198,7 @@ def save_model_info(dataset, mae, rmse, r2):
         "mae": round(float(mae), 4),
         "rmse": round(float(rmse), 4),
         "r2_score": round(float(r2), 4),
-        "note": "Bu model sentetik FoodWise tarif öneri veri seti ile eğitilmiştir."
+        "note": "Bu model sentetik FoodWise tarif öneri veri seti ile Gradient Boosting Regressor algoritması kullanılarak eğitilmiştir."
     }
 
     with open(MODEL_INFO_PATH, "w", encoding="utf-8") as file:
@@ -211,7 +219,7 @@ def train_model():
 
     pipeline = build_model(categorical_features, numeric_features)
 
-    print("Tarif öneri modeli eğitiliyor...")
+    print("Tarif öneri modeli GradientBoostingRegressor ile eğitiliyor...")
     pipeline.fit(X_train, y_train)
 
     y_pred = pipeline.predict(X_test)
@@ -223,6 +231,7 @@ def train_model():
 
     print()
     print("Tarif öneri modeli eğitimi tamamlandı.")
+    print("Kullanılan algoritma: GradientBoostingRegressor")
     print(f"MAE: {mae:.4f}")
     print(f"RMSE: {rmse:.4f}")
     print(f"R2 Score: {r2:.4f}")
@@ -230,13 +239,18 @@ def train_model():
     with open(METRICS_OUTPUT_PATH, "w", encoding="utf-8") as file:
         file.write("FoodWise Recipe Recommendation Model Metrics\n")
         file.write("============================================\n\n")
+        file.write("Algorithm: GradientBoostingRegressor\n\n")
         file.write(f"MAE: {mae:.4f}\n")
         file.write(f"RMSE: {rmse:.4f}\n")
         file.write(f"R2 Score: {r2:.4f}\n\n")
         file.write("Açıklama:\n")
         file.write("MAE, tahmin edilen skorun gerçek skordan ortalama kaç puan saptığını gösterir.\n")
         file.write("RMSE, büyük hataları daha fazla cezalandıran hata metriğidir.\n")
-        file.write("R2 Score, modelin hedef değişkendeki varyansı ne kadar açıkladığını gösterir.\n")
+        file.write("R2 Score, modelin hedef değişkendeki varyansı ne kadar açıkladığını gösterir.\n\n")
+        file.write("Model açıklaması:\n")
+        file.write("Gradient Boosting Regressor, karar ağaçlarını ardışık şekilde eğitir.\n")
+        file.write("Her yeni ağaç, önceki ağaçların yaptığı hataları azaltmaya çalışır.\n")
+        file.write("Bu nedenle 0-100 arası tarif öneri skoru gibi regresyon problemlerinde kullanılabilir.\n")
 
     save_prediction_plot(y_test, y_pred)
     save_feature_importance(pipeline, categorical_features, numeric_features)
@@ -289,3 +303,4 @@ def train_model():
 
 if __name__ == "__main__":
     train_model()
+

@@ -1,10 +1,11 @@
+
 # -*- coding: utf-8 -*-
 
 # FoodWise ML tahmin API servisidir.
 # Eğitilen risk, tarif öneri ve akıllı eşleştirme modellerini yükler.
 # ASP.NET Core API bu servis üzerinden ML tahminleri alır.
 
-from typing import Dict
+from typing import Dict, List
 
 import joblib
 import numpy as np
@@ -21,10 +22,12 @@ SHARE_MATCHING_MODEL_PATH = "foodwise_share_matching_model.pkl"
 app = FastAPI(
     title="FoodWise ML Prediction API",
     description="FoodWise için gıda israf riski, tarif öneri skoru ve akıllı eşleştirme tahmini yapan ML servisidir.",
-    version="1.0.0",
+    version="1.1.0",
 )
 
 
+# Modeller uygulama açılırken bir kere yüklenir.
+# Böylece her tahmin isteğinde tekrar .pkl dosyası okunmaz.
 risk_model = joblib.load(RISK_MODEL_PATH)
 recipe_model = joblib.load(RECIPE_MODEL_PATH)
 share_matching_model = joblib.load(SHARE_MATCHING_MODEL_PATH)
@@ -74,6 +77,20 @@ class RecipeScorePredictionResponse(BaseModel):
     recommendationLabel: str
 
 
+class RecipeScoreBatchPredictionRequest(BaseModel):
+    items: List[RecipeScorePredictionRequest]
+
+
+class RecipeScoreBatchPredictionItemResponse(BaseModel):
+    recipeName: str
+    recommendationScore: float
+    recommendationLabel: str
+
+
+class RecipeScoreBatchPredictionResponse(BaseModel):
+    items: List[RecipeScoreBatchPredictionItemResponse]
+
+
 class ShareMatchPredictionRequest(BaseModel):
     sameCity: bool
     sameDistrict: bool
@@ -106,7 +123,8 @@ def index():
         "endpoints": [
             "/predict-risk",
             "/predict-recipe-score",
-            "/predict-match-score"
+            "/predict-recipe-scores-batch",
+            "/predict-match-score",
         ],
         "docs": "/docs",
     }
@@ -146,10 +164,11 @@ def predict_risk(request: RiskPredictionRequest):
     )
 
 
-@app.post("/predict-recipe-score", response_model=RecipeScorePredictionResponse)
-def predict_recipe_score(request: RecipeScorePredictionRequest):
-    input_data = pd.DataFrame(
-        [
+def create_recipe_input_dataframe(items: List[RecipeScorePredictionRequest]):
+    rows = []
+
+    for request in items:
+        rows.append(
             {
                 "RecipeName": request.recipeName,
                 "RecipeCategory": request.recipeCategory,
@@ -169,8 +188,14 @@ def predict_recipe_score(request: RecipeScorePredictionRequest):
                 "ViewedSimilarRecipes": request.viewedSimilarRecipes,
                 "Season": request.season,
             }
-        ]
-    )
+        )
+
+    return pd.DataFrame(rows)
+
+
+@app.post("/predict-recipe-score", response_model=RecipeScorePredictionResponse)
+def predict_recipe_score(request: RecipeScorePredictionRequest):
+    input_data = create_recipe_input_dataframe([request])
 
     predicted_score = recipe_model.predict(input_data)[0]
     predicted_score = float(np.clip(predicted_score, 0, 100))
@@ -182,6 +207,32 @@ def predict_recipe_score(request: RecipeScorePredictionRequest):
         recommendationScore=predicted_score,
         recommendationLabel=recommendation_label,
     )
+
+
+@app.post("/predict-recipe-scores-batch", response_model=RecipeScoreBatchPredictionResponse)
+def predict_recipe_scores_batch(request: RecipeScoreBatchPredictionRequest):
+    if not request.items:
+        return RecipeScoreBatchPredictionResponse(items=[])
+
+    input_data = create_recipe_input_dataframe(request.items)
+
+    predicted_scores = recipe_model.predict(input_data)
+    predicted_scores = np.clip(predicted_scores, 0, 100)
+
+    response_items = []
+
+    for item, score in zip(request.items, predicted_scores):
+        score = round(float(score), 2)
+
+        response_items.append(
+            RecipeScoreBatchPredictionItemResponse(
+                recipeName=item.recipeName,
+                recommendationScore=score,
+                recommendationLabel=get_recommendation_label(score),
+            )
+        )
+
+    return RecipeScoreBatchPredictionResponse(items=response_items)
 
 
 @app.post("/predict-match-score", response_model=ShareMatchPredictionResponse)

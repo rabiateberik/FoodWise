@@ -1,5 +1,6 @@
-﻿// ProfileController, giriş yapan kullanıcının profil bilgilerini yönetir.
-// Kullanıcı profil bilgilerini görüntüleyebilir, güncelleyebilir ve şifresini değiştirebilir.
+﻿
+// ProfileController, giriş yapan kullanıcının profil işlemlerini yönetir.
+// Profil görüntüleme, profil güncelleme, şifre değiştirme ve hesap silme işlemleri burada karşılanır.
 
 using System.Security.Claims;
 using FoodWise.Application.DTOs.Profile;
@@ -21,6 +22,7 @@ public class ProfileController : ControllerBase
         _profileService = profileService;
     }
 
+    // Giriş yapan kullanıcının profil bilgilerini getirir.
     [HttpGet("me")]
     public async Task<IActionResult> GetMyProfile()
     {
@@ -34,6 +36,7 @@ public class ProfileController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının profil bilgilerini günceller.
     [HttpPut("me")]
     public async Task<IActionResult> UpdateMyProfile(UpdateProfileDto model)
     {
@@ -50,6 +53,7 @@ public class ProfileController : ControllerBase
         return Ok("Profil bilgileri başarıyla güncellendi.");
     }
 
+    // Kullanıcının mevcut şifresini kontrol ederek yeni şifre belirlemesini sağlar.
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordDto model)
     {
@@ -66,10 +70,7 @@ public class ProfileController : ControllerBase
         return Ok("Şifre başarıyla değiştirildi.");
     }
 
-    private string GetUserId()
-    {
-        return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-    }
+    // Kullanıcının hesabını tamamen silmek yerine pasif hale getirir.
     [HttpPost("delete-account")]
     public async Task<IActionResult> DeleteAccount(DeleteAccountDto model)
     {
@@ -85,4 +86,11 @@ public class ProfileController : ControllerBase
 
         return Ok("Hesap başarıyla pasif hale getirildi.");
     }
+
+    // JWT token içindeki kullanıcı Id bilgisini alır.
+    private string GetUserId()
+    {
+        return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    }
 }
+

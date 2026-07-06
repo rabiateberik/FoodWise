@@ -1,11 +1,14 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 // SharingService, ürün paylaşım ilanlarını ve paylaşım taleplerini yönetir.
-// Bu servis sayesinde kullanıcı stokundaki ürünü güvenli teslim noktası üzerinden paylaşıma açabilir.
+// Kullanıcı stokundaki ürünü güvenli teslim noktası üzerinden paylaşıma açabilir.
+// Talep oluşturma, onaylama, reddetme ve iptal işlemleri bu servis içinde yürütülür.
+
 using FoodWise.Application.DTOs.Sharing;
 using FoodWise.Application.Interfaces;
 using FoodWise.Domain.Entities;
@@ -13,6 +16,7 @@ using FoodWise.Domain.Enums;
 using FoodWise.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using FoodWise.Application.DTOs.Notification;
+
 namespace FoodWise.Infrastructure.Services;
 
 public class SharingService : ISharingService
@@ -20,6 +24,7 @@ public class SharingService : ISharingService
     private readonly FoodWiseDbContext _context;
     private readonly INotificationService _notificationService;
     private readonly IShareRequestMatchingService _shareRequestMatchingService;
+
     public SharingService(
         FoodWiseDbContext context,
         INotificationService notificationService,
@@ -30,6 +35,7 @@ public class SharingService : ISharingService
         _shareRequestMatchingService = shareRequestMatchingService;
     }
 
+    // Kullanıcının stokundaki aktif bir ürünü paylaşım ilanı olarak oluşturur.
     public async Task<ShareListingDto?> CreateListingAsync(string userId, CreateShareListingDto model)
     {
         var now = DateTime.Now;
@@ -48,8 +54,8 @@ public class SharingService : ISharingService
         if (stockItem == null)
             return null;
 
-        // Aynı stok ürünü aktif bir paylaşım ilanında kullanılıyorsa tekrar paylaşım ilanı oluşturulmaz.
-        // İptal edilmiş, süresi dolmuş veya teslim edilmiş ilanlardan sonra ürün tekrar paylaşıma açılabilir.
+        // Aynı stok ürünü aktif bir paylaşım ilanında kullanılıyorsa tekrar ilan oluşturulmaz.
+        // İptal edilmiş, süresi dolmuş veya teslim edilmiş ilanlardan sonra ürün tekrar paylaşılabilir.
         var hasActiveListing = await _context.ShareListings
             .AnyAsync(x =>
                 x.StockItemId == model.StockItemId &&
@@ -73,14 +79,14 @@ public class SharingService : ISharingService
         if (!deliveryPointExists)
             return null;
 
-        // Teslim bitiş zamanı başlangıçtan önce olamaz.
+        // Teslim bitiş zamanı başlangıçtan önce veya geçmiş bir zaman olamaz.
         if (model.PickupEndTime <= model.PickupStartTime)
             return null;
 
-        // Teslim bitiş zamanı geçmiş bir tarih olamaz.
         if (model.PickupEndTime <= now)
             return null;
 
+        // Tüm kontroller geçerse yeni paylaşım ilanı oluşturulur.
         var shareListing = new ShareListing
         {
             StockItemId = model.StockItemId,
@@ -104,6 +110,7 @@ public class SharingService : ISharingService
         return createdListing == null ? null : MapToListingDto(createdListing);
     }
 
+    // Kullanıcının kendi ilanları hariç görüntüleyebileceği aktif paylaşım ilanlarını listeler.
     public async Task<List<ShareListingDto>> GetAvailableListingsAsync(string userId)
     {
         var now = DateTime.Now;
@@ -156,6 +163,7 @@ public class SharingService : ISharingService
                 currentUser?.Neighborhood
             );
 
+            // Kullanıcının bu ilana ait bekleyen veya onaylanan bir talebi varsa DTO üzerinde işaretlenir.
             var currentUserRequest = listing.ShareRequests
                 .OrderByDescending(x => x.RequestedAt)
                 .FirstOrDefault(x =>
@@ -172,9 +180,10 @@ public class SharingService : ISharingService
 
         return result;
     }
+
+    // Giriş yapan kullanıcının kendi oluşturduğu aktif paylaşım ilanlarını listeler.
     public async Task<List<ShareListingDto>> GetMyListingsAsync(string userId)
     {
-        // Giriş yapan kullanıcının kayıtlı konumu alınır.
         // Kendi ilanlarında da seçilen teslim noktasının kullanıcıya yakınlığı gösterilir.
         var currentUser = await _context.Users
             .AsNoTracking()
@@ -206,6 +215,8 @@ public class SharingService : ISharingService
             ))
             .ToList();
     }
+
+    // Seçilen paylaşım ilanının detay bilgisini getirir.
     public async Task<ShareListingDto?> GetListingByIdAsync(int listingId)
     {
         var listing = await GetListingEntityByIdAsync(listingId);
@@ -213,15 +224,16 @@ public class SharingService : ISharingService
         return listing == null ? null : MapToListingDto(listing);
     }
 
+    // Kullanıcının aktif bir paylaşım ilanına talep göndermesini sağlar.
     public async Task<ShareRequestDto?> CreateRequestAsync(string requesterUserId, int shareListingId)
     {
         // Talep oluşturulacak ilan aktif, alınabilir ve süresi geçmemiş durumda olmalıdır.
         var listing = await _context.ShareListings
-     .Include(x => x.StockItem)
-         .ThenInclude(x => x.Product)
-     .Include(x => x.DeliveryPoint)
-     .FirstOrDefaultAsync(x =>
-                 x.Id == shareListingId &&
+            .Include(x => x.StockItem)
+                .ThenInclude(x => x.Product)
+            .Include(x => x.DeliveryPoint)
+            .FirstOrDefaultAsync(x =>
+                x.Id == shareListingId &&
                 x.IsActive &&
                 x.Status == ShareListingStatus.Available &&
                 x.PickupEndTime > DateTime.Now);
@@ -244,10 +256,12 @@ public class SharingService : ISharingService
 
         if (alreadyRequested)
             return null;
+
+        // Talep için kullanıcı-ilan uygunluk skoru hesaplanır.
         var matchScore = await _shareRequestMatchingService.CalculateMatchScoreAsync(
-    requesterUserId,
-    listing
-);
+            requesterUserId,
+            listing
+        );
 
         var request = new ShareRequest
         {
@@ -261,6 +275,8 @@ public class SharingService : ISharingService
 
         await _context.ShareRequests.AddAsync(request);
         await _context.SaveChangesAsync();
+
+        // Yeni talep oluştuğunda ilan sahibine bildirim gönderilir.
         await _notificationService.CreateAsync(listing.DonorUserId, new CreateNotificationDto
         {
             Title = "Yeni paylaşım talebi",
@@ -274,6 +290,7 @@ public class SharingService : ISharingService
         return createdRequest == null ? null : MapToRequestDto(createdRequest);
     }
 
+    // İlan sahibinin kendi ilanına gelen aktif talepleri görmesini sağlar.
     public async Task<List<ShareRequestDto>> GetRequestsForMyListingAsync(string userId, int shareListingId)
     {
         // İlanın giriş yapan kullanıcıya ait olup olmadığı kontrol edilir.
@@ -288,8 +305,7 @@ public class SharingService : ISharingService
             return new List<ShareRequestDto>();
 
         // İlan talepleri sayfasında sadece aktif talepler gösterilir.
-        // İptal edilen veya reddedilen talepler geçmiş kayıt olarak veritabanında kalır,
-        // fakat kullanıcı arayüzünde kalabalık oluşturmaması için listelenmez.
+        // İptal edilen veya reddedilen talepler veritabanında kalır ama arayüzde listelenmez.
         var requests = await _context.ShareRequests
             .Include(x => x.ShareListing)
                 .ThenInclude(x => x.StockItem)
@@ -316,10 +332,11 @@ public class SharingService : ISharingService
             })
             .ToListAsync();
 
+        // Talep eden kullanıcıların isimleri ayrıca alınır.
         var requesterIds = requests
-    .Select(x => x.RequesterUserId)
-    .Distinct()
-    .ToList();
+            .Select(x => x.RequesterUserId)
+            .Distinct()
+            .ToList();
 
         var requesterNames = await _context.Users
             .AsNoTracking()
@@ -352,6 +369,7 @@ public class SharingService : ISharingService
         return result;
     }
 
+    // İlan sahibinin gelen bir paylaşım talebini onaylamasını sağlar.
     public async Task<ShareRequestDto?> ApproveRequestAsync(string donorUserId, int requestId)
     {
         // Onaylanacak talep ve bağlı olduğu ilan birlikte alınır.
@@ -368,6 +386,7 @@ public class SharingService : ISharingService
         if (request.ShareListing.DonorUserId != donorUserId)
             return null;
 
+        // Seçilen talep onaylanır ve ilan durumu Approved yapılır.
         request.Status = ShareRequestStatus.Approved;
         request.RespondedAt = DateTime.Now;
         request.UpdatedAt = DateTime.Now;
@@ -375,7 +394,7 @@ public class SharingService : ISharingService
         request.ShareListing.Status = ShareListingStatus.Approved;
         request.ShareListing.UpdatedAt = DateTime.Now;
 
-        // Aynı ilana gelen diğer bekleyen talepler reddedilir.
+        // Aynı ilana gelen diğer bekleyen talepler otomatik olarak reddedilir.
         var otherRequests = await _context.ShareRequests
             .Where(x =>
                 x.ShareListingId == request.ShareListingId &&
@@ -396,6 +415,7 @@ public class SharingService : ISharingService
 
         await _context.SaveChangesAsync();
 
+        // Talebi onaylanan kullanıcıya bildirim gönderilir.
         await _notificationService.CreateAsync(request.RequesterUserId, new CreateNotificationDto
         {
             Title = "Talebin onaylandı",
@@ -415,11 +435,13 @@ public class SharingService : ISharingService
                 TargetUrl = "/Sharing/Available"
             });
         }
+
         var approvedRequest = await GetRequestEntityByIdAsync(request.Id);
 
         return approvedRequest == null ? null : MapToRequestDto(approvedRequest);
     }
 
+    // İlan sahibinin gelen bir paylaşım talebini reddetmesini sağlar.
     public async Task<ShareRequestDto?> RejectRequestAsync(string donorUserId, int requestId)
     {
         var request = await _context.ShareRequests
@@ -440,6 +462,8 @@ public class SharingService : ISharingService
         request.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
+
+        // Talebi reddedilen kullanıcıya bildirim gönderilir.
         await _notificationService.CreateAsync(request.RequesterUserId, new CreateNotificationDto
         {
             Title = "Talebin reddedildi",
@@ -447,22 +471,24 @@ public class SharingService : ISharingService
             Type = NotificationType.RequestRejected,
             TargetUrl = "/Sharing/Available"
         });
+
         var rejectedRequest = await GetRequestEntityByIdAsync(request.Id);
 
         return rejectedRequest == null ? null : MapToRequestDto(rejectedRequest);
     }
 
+    // İlan sahibinin kendi paylaşım ilanını iptal etmesini sağlar.
     public async Task<bool> CancelListingAsync(string userId, int listingId)
     {
         // Sadece ilan sahibi kendi paylaşım ilanını iptal edebilir.
         var listing = await _context.ShareListings
-     .Include(x => x.StockItem)
-         .ThenInclude(x => x.Product)
-     .Include(x => x.ShareRequests)
-     .FirstOrDefaultAsync(x =>
-         x.Id == listingId &&
-         x.DonorUserId == userId &&
-         x.IsActive);
+            .Include(x => x.StockItem)
+                .ThenInclude(x => x.Product)
+            .Include(x => x.ShareRequests)
+            .FirstOrDefaultAsync(x =>
+                x.Id == listingId &&
+                x.DonorUserId == userId &&
+                x.IsActive);
 
         if (listing == null)
             return false;
@@ -508,6 +534,7 @@ public class SharingService : ISharingService
         return true;
     }
 
+    // ShareListing entity'sini ilişkili ürün, birim, teslim noktası ve taleplerle birlikte getirir.
     private async Task<ShareListing?> GetListingEntityByIdAsync(int listingId)
     {
         return await _context.ShareListings
@@ -520,6 +547,7 @@ public class SharingService : ISharingService
             .FirstOrDefaultAsync(x => x.Id == listingId);
     }
 
+    // ShareRequest entity'sini bağlı olduğu ilan ve ürün bilgileriyle birlikte getirir.
     private async Task<ShareRequest?> GetRequestEntityByIdAsync(int requestId)
     {
         return await _context.ShareRequests
@@ -528,6 +556,8 @@ public class SharingService : ISharingService
                     .ThenInclude(x => x.Product)
             .FirstOrDefaultAsync(x => x.Id == requestId);
     }
+
+    // Talebi oluşturan kullanıcının kendi bekleyen talebini iptal etmesini sağlar.
     public async Task<bool> CancelRequestAsync(string requesterUserId, int requestId)
     {
         // Sadece talebi oluşturan kullanıcı kendi bekleyen talebini iptal edebilir.
@@ -563,11 +593,13 @@ public class SharingService : ISharingService
 
         return true;
     }
+
+    // ShareListing entity'sini API tarafına döndürülecek DTO yapısına dönüştürür.
     private ShareListingDto MapToListingDto(
-     ShareListing listing,
-     string? userCity = null,
-     string? userDistrict = null,
-     string? userNeighborhood = null)
+        ShareListing listing,
+        string? userCity = null,
+        string? userDistrict = null,
+        string? userNeighborhood = null)
     {
         var locationPriority = CalculateLocationPriority(
             userCity,
@@ -603,13 +635,15 @@ public class SharingService : ISharingService
                 x.Status == ShareRequestStatus.Approved)
         };
     }
+
+    // Kullanıcı konumu ile teslim noktası konumunu karşılaştırarak yakınlık önceliği hesaplar.
     private static int CalculateLocationPriority(
-    string? userCity,
-    string? userDistrict,
-    string? userNeighborhood,
-    string? pointCity,
-    string? pointDistrict,
-    string? pointNeighborhood)
+        string? userCity,
+        string? userDistrict,
+        string? userNeighborhood,
+        string? pointCity,
+        string? pointDistrict,
+        string? pointNeighborhood)
     {
         var normalizedUserCity = NormalizeText(userCity);
         var normalizedUserDistrict = NormalizeText(userDistrict);
@@ -645,6 +679,7 @@ public class SharingService : ISharingService
         return 99;
     }
 
+    // Konum önceliğine göre kullanıcıya gösterilecek açıklama metnini üretir.
     private static string GetLocationMatchText(int locationPriority)
     {
         return locationPriority switch
@@ -656,6 +691,7 @@ public class SharingService : ISharingService
         };
     }
 
+    // Türkçe karakterleri sadeleştirerek konum karşılaştırmasını kolaylaştırır.
     private static string NormalizeText(string? input)
     {
         if (string.IsNullOrWhiteSpace(input))
@@ -671,6 +707,8 @@ public class SharingService : ISharingService
             .Replace("ş", "s")
             .Replace("ü", "u");
     }
+
+    // ShareRequest entity'sini API tarafına döndürülecek DTO yapısına dönüştürür.
     private ShareRequestDto MapToRequestDto(ShareRequest request)
     {
         return new ShareRequestDto
@@ -681,9 +719,10 @@ public class SharingService : ISharingService
             ProductName = request.ShareListing.StockItem.Product.Name,
             RequesterUserId = request.RequesterUserId,
             MatchScore = request.MatchScore,
-            Status = request.Status.ToString(), 
+            Status = request.Status.ToString(),
             RequestedAt = request.RequestedAt,
             RespondedAt = request.RespondedAt
         };
     }
 }
+

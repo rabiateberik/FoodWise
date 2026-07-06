@@ -24,8 +24,10 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         _mlShareMatchingService = mlShareMatchingService;
     }
 
+    // Paylaşım talebi oluşturan kullanıcı ile paylaşım ilanı arasındaki eşleşme skorunu hesaplar.
     public async Task<int> CalculateMatchScoreAsync(string requesterUserId, ShareListing listing)
     {
+        // Talebi oluşturan aktif kullanıcı bilgisi alınır.
         var requester = await _context.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == requesterUserId && x.IsActive);
@@ -33,6 +35,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         if (requester == null)
             return 40;
 
+        // İlan; teslim noktası, stok ürünü, ürün kategorisi ve risk tahmini bilgileriyle birlikte alınır.
         var listingDetail = await _context.ShareListings
             .AsNoTracking()
             .Include(x => x.DeliveryPoint)
@@ -46,6 +49,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         if (listingDetail == null)
             return 40;
 
+        // Kullanıcının adresi ile teslim noktasının adresi karşılaştırılır.
         var locationInfo = CalculateLocationInfo(
             requester.City,
             requester.District,
@@ -55,6 +59,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
             listingDetail.DeliveryPoint?.Neighborhood
         );
 
+        // Kural tabanlı skor için konum, ihtiyaç, güvenilirlik ve talep geçmişi ayrı ayrı hesaplanır.
         var locationScore = CalculateLocationScore(locationInfo.LocationPriority);
         var needScore = CalculateNeedScore(requester.NeedScore);
         var reliabilityScore = CalculateReliabilityScore(requester.ReliabilityScore);
@@ -65,6 +70,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         var ruleBasedScore = locationScore + needScore + reliabilityScore + historyScore;
         var roundedRuleBasedScore = (int)Math.Clamp(Math.Round(ruleBasedScore), 0, 100);
 
+        // Aynı bilgiler ML modelinin beklediği request DTO yapısına dönüştürülür.
         var mlRequest = await CreateMlShareMatchRequestAsync(
             requester,
             requesterUserId,
@@ -72,6 +78,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
             locationInfo,
             requestHistory);
 
+        // Python FastAPI tarafındaki ML modelinden eşleşme skoru alınır.
         var mlResult = await _mlShareMatchingService.PredictMatchScoreAsync(mlRequest);
 
         if (mlResult == null)
@@ -92,6 +99,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         return finalScore;
     }
 
+    // ML modeline gönderilecek paylaşım eşleştirme isteğini hazırlar.
     private async Task<MlShareMatchPredictionRequestDto> CreateMlShareMatchRequestAsync(
         dynamic requester,
         string requesterUserId,
@@ -99,12 +107,14 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         LocationMatchInfo locationInfo,
         RequestHistorySummary requestHistory)
     {
+        // Alıcının daha önce tamamladığı teslimat sayısı hesaplanır.
         var completedDeliveryCount = await _context.Deliveries
             .AsNoTracking()
             .CountAsync(x =>
                 x.ReceiverUserId == requesterUserId &&
                 x.DeliveredAt.HasValue);
 
+        // İlan sahibinin geçmiş başarılı paylaşım sayısı hesaplanır.
         var donorPastShareCount = await _context.Deliveries
             .AsNoTracking()
             .CountAsync(x =>
@@ -113,6 +123,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
 
         var requesterPastReceiveCount = completedDeliveryCount;
 
+        // Ürünün risk seviyesi ve son kullanma tarihine kalan gün bilgisi ML için hazırlanır.
         var productRiskLevel = GetProductRiskLevel(listing.StockItem);
         var daysUntilExpiration = (listing.StockItem.ExpirationDate.Date - DateTime.Now.Date).Days;
 
@@ -143,6 +154,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         };
     }
 
+    // Kullanıcı adresi ile teslim noktası adresini karşılaştırır.
     private static LocationMatchInfo CalculateLocationInfo(
         string? userCity,
         string? userDistrict,
@@ -191,6 +203,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         };
     }
 
+    // Konum yakınlığına göre skor üretir.
     private static decimal CalculateLocationScore(int locationPriority)
     {
         return locationPriority switch
@@ -202,6 +215,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         };
     }
 
+    // Kullanıcının ihtiyaç puanını 25 puanlık katkıya dönüştürür.
     private static decimal CalculateNeedScore(int needScore)
     {
         var normalizedNeedScore = Math.Clamp(needScore, 0, 100);
@@ -209,6 +223,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         return normalizedNeedScore / 100m * 25;
     }
 
+    // Kullanıcının güvenilirlik puanını 15 puanlık katkıya dönüştürür.
     private static decimal CalculateReliabilityScore(int reliabilityScore)
     {
         var normalizedReliabilityScore = Math.Clamp(reliabilityScore, 0, 100);
@@ -216,6 +231,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         return normalizedReliabilityScore / 100m * 15;
     }
 
+    // Kullanıcının geçmiş paylaşım talebi durumlarını özetler.
     private async Task<RequestHistorySummary> GetRequestHistorySummaryAsync(string requesterUserId)
     {
         var approvedCount = await _context.ShareRequests
@@ -245,6 +261,8 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         };
     }
 
+    // Talep geçmişine göre ek skor hesaplar.
+    // Başarılı talepler skoru artırırken, reddedilen/iptal edilen ve bekleyen talepler skoru düşürür.
     private static decimal CalculateRequestHistoryScore(RequestHistorySummary history)
     {
         decimal score = 5;
@@ -256,6 +274,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         return Math.Clamp(score, 0, 15);
     }
 
+    // Stok ürününün en güncel risk tahminine göre risk seviyesini döndürür.
     private static string GetProductRiskLevel(StockItem stockItem)
     {
         if (stockItem.WasteRiskPredictions == null ||
@@ -271,6 +290,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         return latestRisk?.RiskLevel.ToString() ?? "Low";
     }
 
+    // Türkçe karakterleri sadeleştirerek konum karşılaştırmasını daha sağlıklı yapar.
     private static string NormalizeText(string? input)
     {
         if (string.IsNullOrWhiteSpace(input))
@@ -287,6 +307,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
             .Replace("ü", "u");
     }
 
+    // Kullanıcı ile teslim noktası arasındaki konum eşleşme bilgisini tutar.
     private class LocationMatchInfo
     {
         public bool SameCity { get; set; }
@@ -298,6 +319,7 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         public int LocationPriority { get; set; }
     }
 
+    // Kullanıcının geçmiş paylaşım talebi sayılarını tutar.
     private class RequestHistorySummary
     {
         public int ApprovedRequestCount { get; set; }
@@ -307,3 +329,4 @@ public class ShareRequestMatchingService : IShareRequestMatchingService
         public int PendingRequestCount { get; set; }
     }
 }
+

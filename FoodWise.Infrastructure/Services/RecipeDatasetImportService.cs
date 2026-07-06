@@ -1,4 +1,5 @@
-﻿// RecipeDatasetImportService, Türkçe tarif veri setindeki JSON verilerini Recipe tablosuna aktarır.
+﻿
+// RecipeDatasetImportService, Türkçe tarif veri setindeki JSON verilerini Recipe tablosuna aktarır.
 // Dataset içindeki malzemeler metinsel olarak saklanır ve öneri algoritması için normalize edilir.
 
 using System.Globalization;
@@ -22,13 +23,16 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         _context = context;
     }
 
+    // JSON dosyasındaki tarifleri okuyarak veritabanındaki Recipe tablosuna aktarır.
     public async Task<int> ImportFromJsonAsync(string filePath)
     {
+        // Dosya bulunamazsa aktarım yapılmaz.
         if (!File.Exists(filePath))
             return 0;
 
         await using var stream = File.OpenRead(filePath);
 
+        // JSON dosyasındaki tarifler RecipeDatasetItem listesine çevrilir.
         var datasetRecipes = await JsonSerializer.DeserializeAsync<List<RecipeDatasetItem>>(
             stream,
             new JsonSerializerOptions
@@ -39,6 +43,8 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         if (datasetRecipes == null || !datasetRecipes.Any())
             return 0;
 
+        // Daha önce eklenmiş tariflerin ExternalApiId değerleri alınır.
+        // Böylece aynı tarif tekrar veritabanına eklenmez.
         var existingExternalIds = await _context.Recipes
             .Where(x => x.ExternalApiId != null)
             .Select(x => x.ExternalApiId!)
@@ -50,11 +56,13 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
 
         foreach (var item in datasetRecipes)
         {
+            // Tarif adı yoksa kayıt geçersiz kabul edilir.
             if (string.IsNullOrWhiteSpace(item.TarifAdi))
                 continue;
 
             var externalApiId = CreateExternalApiId(item);
 
+            // Aynı tarif daha önce eklenmişse tekrar eklenmez.
             if (existingExternalIdSet.Contains(externalApiId))
                 continue;
 
@@ -62,9 +70,11 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
             var normalizedIngredientsText = CreateNormalizedIngredientsText(item.Malzemeler);
             var instructions = CreateInstructionsText(item.YapilisAdimlari);
 
+            // Malzeme veya yapılış adımı olmayan tarifler öneri sistemi için uygun değildir.
             if (string.IsNullOrWhiteSpace(ingredientsText) || string.IsNullOrWhiteSpace(instructions))
                 continue;
 
+            // Dataset verisi sistemde kullanılan Recipe entity yapısına dönüştürülür.
             var recipe = new Recipe
             {
                 Name = item.TarifAdi.Trim(),
@@ -96,6 +106,8 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         return recipesToAdd.Count;
     }
 
+    // Tarif için benzersiz bir dış kaynak Id değeri üretir.
+    // Öncelik olarak content hash, sonra dataset index bilgisi kullanılır.
     private static string CreateExternalApiId(RecipeDatasetItem item)
     {
         if (!string.IsNullOrWhiteSpace(item.Source?.ContentHash))
@@ -107,6 +119,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         return $"turkish-recipe-{NormalizeText(item.TarifAdi ?? Guid.NewGuid().ToString())}";
     }
 
+    // Tarif açıklaması için kategori, zorluk ve pişirme yöntemi bilgilerini birleştirir.
     private static string CreateDescription(RecipeDatasetItem item)
     {
         var parts = new List<string>();
@@ -125,6 +138,8 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
             : "Türkçe tarif veri setinden aktarılmıştır.";
     }
 
+    // Hazırlık ve pişirme sürelerini toplayarak toplam süreyi hesaplar.
+    // Süre bilgisi yoksa varsayılan olarak 30 dakika kullanılır.
     private static int CalculateTotalPreparationTime(JsonElement? preparationMinute, JsonElement? cookingMinute)
     {
         var preparation = GetNumberValue(preparationMinute);
@@ -135,6 +150,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         return total > 0 ? Convert.ToInt32(Math.Round(total)) : 30;
     }
 
+    // JSON içindeki sayı veya metin olarak gelen süre/miktar değerlerini sayıya çevirir.
     private static double GetNumberValue(JsonElement? element)
     {
         if (element == null)
@@ -166,6 +182,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         return 0;
     }
 
+    // Malzeme listesini kullanıcıya gösterilecek metin formatına çevirir.
     private static string CreateIngredientsText(List<RecipeDatasetIngredient>? ingredients)
     {
         if (ingredients == null || !ingredients.Any())
@@ -179,6 +196,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         return string.Join(Environment.NewLine, ingredientLines);
     }
 
+    // Tek bir malzemeyi miktar, birim ve isim bilgileriyle okunabilir hale getirir.
     private static string FormatIngredient(RecipeDatasetIngredient ingredient)
     {
         var amountText = FormatAmount(ingredient.Miktar);
@@ -189,6 +207,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
 
         var name = ingredient.Isim?.Trim() ?? string.Empty;
 
+        // Miktar metninin içinde birim zaten geçiyorsa aynı birim tekrar yazılmaz.
         if (!string.IsNullOrWhiteSpace(amountText) &&
             !string.IsNullOrWhiteSpace(unitText) &&
             amountText.Contains(unitText, StringComparison.CurrentCultureIgnoreCase))
@@ -210,6 +229,8 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         return string.Join(" ", parts);
     }
 
+    // JSON içindeki miktar bilgisini metne çevirir.
+    // Miktar sayı veya metin olarak gelebileceği için iki durum da kontrol edilir.
     private static string FormatAmount(JsonElement? amountElement)
     {
         if (amountElement == null)
@@ -240,6 +261,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         return string.Empty;
     }
 
+    // Tam sayı miktarları küsüratsız, ondalıklı miktarları kısa formatta yazar.
     private static string FormatDecimal(decimal value)
     {
         return value % 1 == 0
@@ -247,6 +269,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
             : value.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
+    // Malzeme isimlerini tarif öneri algoritmasında kullanılacak sadeleştirilmiş metne çevirir.
     private static string CreateNormalizedIngredientsText(List<RecipeDatasetIngredient>? ingredients)
     {
         if (ingredients == null || !ingredients.Any())
@@ -262,6 +285,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         return string.Join(" ", normalizedIngredients);
     }
 
+    // Tarifin yapılış adımlarını tek metin alanı olarak birleştirir.
     private static string CreateInstructionsText(List<string>? steps)
     {
         if (steps == null || !steps.Any())
@@ -272,6 +296,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
             steps.Where(x => !string.IsNullOrWhiteSpace(x)));
     }
 
+    // Türkçe karakterleri sadeleştirir ve öneri algoritması için malzeme metnini normalize eder.
     private static string NormalizeText(string input)
     {
         var text = input.Trim().ToLower(new CultureInfo("tr-TR"));
@@ -286,6 +311,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
 
         text = Regex.Replace(text, @"[^a-z0-9\s]", " ");
 
+        // Malzeme eşleştirmesini bozabilecek ölçü, boyut ve belirsiz ifadeler temizlenir.
         text = Regex.Replace(
             text,
             @"\b(orta|buyuk|kucuk|boy|taze|ince|kalin|yagli|yagsiz|dolu|dolusu|yaklasik|biraz|bir|yarim)\b",
@@ -296,6 +322,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         return text;
     }
 
+    // JSON tarif verisindeki ana tarif alanlarını temsil eder.
     private class RecipeDatasetItem
     {
         [JsonPropertyName("tarif_adi")]
@@ -329,6 +356,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         public RecipeDatasetSource? Source { get; set; }
     }
 
+    // JSON tarif verisindeki malzeme alanlarını temsil eder.
     private class RecipeDatasetIngredient
     {
         [JsonPropertyName("isim")]
@@ -341,6 +369,7 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         public string? Birim { get; set; }
     }
 
+    // Dataset içindeki kaynak ve takip bilgilerini temsil eder.
     private class RecipeDatasetSource
     {
         [JsonPropertyName("raw_name")]
@@ -353,3 +382,4 @@ public class RecipeDatasetImportService : IRecipeDatasetImportService
         public string? ContentHash { get; set; }
     }
 }
+

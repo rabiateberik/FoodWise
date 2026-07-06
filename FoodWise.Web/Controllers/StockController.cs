@@ -1,5 +1,8 @@
-﻿// StockController, Web arayüzünde stok listeleme, stok ekleme, düzenleme ve silme işlemlerini yönetir.
-// API ile doğrudan değil, IStockWebService üzerinden haberleşir.
+﻿
+// StockController, Web arayüzünde stok yönetimi sayfalarını kontrol eder.
+// Kullanıcı stoklarını listeleme, riskli/geçmiş ürünleri gösterme,
+// stok ekleme, düzenleme ve silme işlemleri bu controller üzerinden yapılır.
+// Controller API'ye doğrudan gitmez; tüm stok işlemleri IStockWebService üzerinden FoodWise.API'ye gönderilir.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Stock;
@@ -17,6 +20,7 @@ public class StockController : Controller
         _stockWebService = stockWebService;
     }
 
+    // Kullanıcının stok listesini gösterir.
     [HttpGet]
     public async Task<IActionResult> Index()
     {
@@ -30,6 +34,7 @@ public class StockController : Controller
         return View(stockItems);
     }
 
+    // Son kullanma tarihi yaklaşan veya riskli kabul edilen stok ürünlerini gösterir.
     [HttpGet]
     public async Task<IActionResult> Risky()
     {
@@ -43,6 +48,7 @@ public class StockController : Controller
         return View(riskyItems);
     }
 
+    // Yeni stok ürünü ekleme formunu açar.
     [HttpGet]
     public IActionResult Create()
     {
@@ -53,11 +59,13 @@ public class StockController : Controller
 
         var model = new CreateStockItemViewModel();
 
+        // Ürün, birim ve saklama koşulu dropdown listeleri doldurulur.
         FillSelectLists(model);
 
         return View(model);
     }
 
+    // Yeni stok ürünü ekleme formundan gelen bilgileri API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateStockItemViewModel model)
@@ -69,6 +77,7 @@ public class StockController : Controller
 
         if (!ModelState.IsValid)
         {
+            // Form hatalıysa dropdown listelerinin boş kalmaması için tekrar doldurulur.
             FillSelectLists(model);
             return View(model);
         }
@@ -87,6 +96,7 @@ public class StockController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Stok ürünü düzenleme formunu mevcut bilgilerle açar.
     [HttpGet]
     public async Task<IActionResult> Edit(int id)
     {
@@ -104,8 +114,7 @@ public class StockController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        // ProductId ve UnitId artık ürün adından tahmin edilmez.
-        // API'den gelen gerçek Id değerleri doğrudan kullanılır.
+        // API'den gelen stok bilgileri düzenleme formunun ViewModel yapısına aktarılır.
         var model = new EditStockItemViewModel
         {
             Id = stockItem.Id,
@@ -124,6 +133,7 @@ public class StockController : Controller
         return View(model);
     }
 
+    // Stok ürünü düzenleme formundan gelen güncelleme bilgisini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(EditStockItemViewModel model)
@@ -153,6 +163,7 @@ public class StockController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Kullanıcının seçtiği stok ürününü silme isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
@@ -162,7 +173,6 @@ public class StockController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
-        // Kullanıcının seçtiği stok ürünü API üzerinden silinir.
         var result = await _stockWebService.DeleteAsync(id, token);
 
         if (!result)
@@ -175,23 +185,7 @@ public class StockController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private static void FillSelectLists(CreateStockItemViewModel model)
-    {
-        // Ürün ve birim listeleri seed data ile uyumlu olacak şekilde geçici olarak Web tarafında tutulur.
-        // İleride Product/ReferenceData API eklendiğinde bu listeler API'den dinamik alınabilir.
-        model.Products = GetProductSelectList();
-        model.Units = GetUnitSelectList();
-        model.StorageConditions = GetStorageConditionSelectList();
-    }
-
-    private static void FillSelectLists(EditStockItemViewModel model)
-    {
-        // Düzenleme formunda da aynı dropdown listeleri kullanılır.
-        // Seçili değerler modeldeki ProductId, UnitId ve StorageCondition değerlerine göre otomatik işaretlenir.
-        model.Products = GetProductSelectList();
-        model.Units = GetUnitSelectList();
-        model.StorageConditions = GetStorageConditionSelectList();
-    }
+    // Son kullanma tarihi geçmiş stok ürünlerini gösterir.
     [HttpGet]
     public async Task<IActionResult> Expired()
     {
@@ -204,6 +198,27 @@ public class StockController : Controller
 
         return View(expiredItems);
     }
+
+    // Stok ekleme formunda kullanılacak dropdown listelerini doldurur.
+    private static void FillSelectLists(CreateStockItemViewModel model)
+    {
+        // Ürün ve birim listeleri seed data ile uyumlu olacak şekilde geçici olarak Web tarafında tutulur.
+        // İleride Product/ReferenceData API eklendiğinde bu listeler API'den dinamik alınabilir.
+        model.Products = GetProductSelectList();
+        model.Units = GetUnitSelectList();
+        model.StorageConditions = GetStorageConditionSelectList();
+    }
+
+    // Stok düzenleme formunda kullanılacak dropdown listelerini doldurur.
+    private static void FillSelectLists(EditStockItemViewModel model)
+    {
+        // Seçili değerler modeldeki ProductId, UnitId ve StorageCondition değerlerine göre otomatik işaretlenir.
+        model.Products = GetProductSelectList();
+        model.Units = GetUnitSelectList();
+        model.StorageConditions = GetStorageConditionSelectList();
+    }
+
+    // Ürün dropdown listesinde gösterilecek ürünleri döndürür.
     private static List<SelectListItem> GetProductSelectList()
     {
         // Bu değerler Products tablosundaki gerçek Id değerleriyle aynı olmalıdır.
@@ -222,6 +237,7 @@ public class StockController : Controller
         };
     }
 
+    // Birim dropdown listesinde gösterilecek birimleri döndürür.
     private static List<SelectListItem> GetUnitSelectList()
     {
         // Bu değerler Units tablosundaki gerçek Id değerleriyle aynı olmalıdır.
@@ -232,10 +248,11 @@ public class StockController : Controller
             new("Litre", "3"),
             new("Mililitre", "4"),
             new("Adet", "5"),
-              new("Paket", "6")
+            new("Paket", "6")
         };
     }
 
+    // Saklama koşulu dropdown listesinde gösterilecek değerleri döndürür.
     private static List<SelectListItem> GetStorageConditionSelectList()
     {
         // Saklama koşulu değerleri API tarafındaki enum değerleriyle uyumlu olacak şekilde gönderilir.
@@ -249,9 +266,10 @@ public class StockController : Controller
         };
     }
 
+    // API'den gelen saklama koşulu bilgisini formdaki dropdown değerine çevirir.
     private static string GetStorageConditionValue(string? storageCondition)
     {
-        // API'den enum adı veya sayısal değer gelebileceği için form dropdown değeriyle eşleştirilir.
+        // API'den enum adı, Türkçe değer veya sayısal değer gelebileceği için hepsi aynı dropdown değeriyle eşleştirilir.
         return storageCondition switch
         {
             "RoomTemperature" or "Oda Sıcaklığı" or "1" => "1",

@@ -1,5 +1,6 @@
-﻿// DeliveryController, QR destekli teslim kutusu akışını yöneten endpointleri içerir.
-// Teslimat oluşturma, kutuya bırakma, QR okutma ve teslimatı tamamlama işlemleri buradan yapılır.
+﻿// DeliveryController, QR destekli teslimat sürecini yöneten endpointleri içerir.
+// Teslimat oluşturma, kutuya bırakma, QR okutma ve teslimatı tamamlama işlemleri burada karşılanır.
+
 using System.Security.Claims;
 using FoodWise.Application.DTOs.Delivery;
 using FoodWise.Application.Interfaces;
@@ -20,10 +21,11 @@ public class DeliveryController : ControllerBase
         _deliveryService = deliveryService;
     }
 
+    // Onaylanmış paylaşım talebi için yeni teslimat kaydı oluşturur.
+    // Uygun boş teslimat kutusu varsa servis tarafında teslimata atanır.
     [HttpPost("create/{shareRequestId}")]
     public async Task<IActionResult> CreateDelivery(int shareRequestId)
     {
-        // Onaylanan paylaşım talebi için teslimat oluşturulur ve boş kutu atanır.
         var userId = GetUserId();
 
         var result = await _deliveryService.CreateDeliveryAsync(userId, shareRequestId);
@@ -34,10 +36,10 @@ public class DeliveryController : ControllerBase
         return Ok(result);
     }
 
+    // Ürün sahibi, ürünü teslimat kutusuna bıraktığında bu endpoint kullanılır.
     [HttpPost("{deliveryId}/drop-off")]
     public async Task<IActionResult> MarkAsDroppedOff(int deliveryId, DropOffDeliveryDto model)
     {
-        // Ürün sahibi ürünü teslim kutusuna bıraktığını işaretler.
         var userId = GetUserId();
 
         var result = await _deliveryService.MarkAsDroppedOffAsync(userId, deliveryId, model);
@@ -48,10 +50,10 @@ public class DeliveryController : ControllerBase
         return Ok(result);
     }
 
+    // Alıcı QR kodu okuttuğunda ilgili kutuda kendisine ait aktif teslimat olup olmadığı kontrol edilir.
     [HttpPost("scan-box")]
     public async Task<IActionResult> ScanBoxQr(ScanDeliveryBoxDto model)
     {
-        // Alıcı kutudaki QR kodu okutur, sistem aktif teslimatı kontrol eder.
         var userId = GetUserId();
 
         var result = await _deliveryService.ScanBoxQrAsync(userId, model);
@@ -62,10 +64,10 @@ public class DeliveryController : ControllerBase
         return Ok(result);
     }
 
+    // Alıcı ürünü teslim aldıktan sonra teslimatı tamamlar.
     [HttpPost("{deliveryId}/complete")]
     public async Task<IActionResult> CompleteDelivery(int deliveryId)
     {
-        // Alıcı ürünü teslim aldığını onaylar.
         var userId = GetUserId();
 
         var result = await _deliveryService.CompleteDeliveryAsync(userId, deliveryId);
@@ -76,10 +78,10 @@ public class DeliveryController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının bağışladığı ürünlere ait teslimat kayıtlarını listeler.
     [HttpGet("my-donated")]
     public async Task<IActionResult> GetMyDonatedDeliveries()
     {
-        // Ürün sahibinin teslimatlarını listeler.
         var userId = GetUserId();
 
         var result = await _deliveryService.GetMyDonatedDeliveriesAsync(userId);
@@ -87,10 +89,10 @@ public class DeliveryController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının teslim alacağı veya teslim aldığı ürünlere ait kayıtları listeler.
     [HttpGet("my-received")]
     public async Task<IActionResult> GetMyReceivedDeliveries()
     {
-        // Alıcının teslim alacağı veya teslim aldığı ürünleri listeler.
         var userId = GetUserId();
 
         var result = await _deliveryService.GetMyReceivedDeliveriesAsync(userId);
@@ -98,9 +100,11 @@ public class DeliveryController : ControllerBase
         return Ok(result);
     }
 
+    // JWT token içindeki kullanıcı Id bilgisini alır.
+    // Böylece her kullanıcı sadece kendi teslimat işlemlerini gerçekleştirebilir.
     private string GetUserId()
     {
-        // JWT token içindeki NameIdentifier claim'i Identity kullanıcı Id bilgisini taşır.
         return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     }
 }
+

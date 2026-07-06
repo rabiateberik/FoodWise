@@ -1,5 +1,8 @@
-﻿// AdminController, FoodWise admin paneli giriş ve dashboard işlemlerini yönetir.
-// Admin paneline sadece Admin rolüne sahip kullanıcılar erişebilir.
+﻿
+// AdminController, FoodWise admin panelindeki sayfa işlemlerini yönetir.
+// Admin girişi, dashboard, kategori, ürün, teslim noktası, teslim kutusu,
+// kullanıcı ve paylaşım/teslimat izleme ekranları bu controller üzerinden çalışır.
+// Controller doğrudan API'ye gitmez; API işlemleri AdminWebService üzerinden yapılır.
 
 using FoodWise.Web.Helpers;
 using FoodWise.Web.Services;
@@ -22,6 +25,8 @@ public class AdminController : Controller
         _adminWebService = adminWebService;
     }
 
+    // Admin giriş sayfasını açar.
+    // Eğer Session içinde geçerli admin token varsa kullanıcı doğrudan dashboard sayfasına yönlendirilir.
     [HttpGet]
     public IActionResult Login()
     {
@@ -33,6 +38,8 @@ public class AdminController : Controller
         return View(new LoginViewModel());
     }
 
+    // Admin giriş formundan gelen bilgileri API'ye gönderir.
+    // Giriş başarılı olsa bile token içindeki rol Admin değilse panele erişim verilmez.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model)
@@ -48,12 +55,14 @@ public class AdminController : Controller
             return View(model);
         }
 
+        // Token içindeki rol bilgisi kontrol edilerek sadece Admin kullanıcıların giriş yapması sağlanır.
         if (!AdminAuthHelper.IsAdmin(response.Token))
         {
             ViewBag.ErrorMessage = "Bu alana erişim yetkiniz bulunmamaktadır.";
             return View(model);
         }
 
+        // Admin bilgileri Session içine kaydedilir.
         HttpContext.Session.SetString("JWToken", response.Token);
         HttpContext.Session.SetString("FullName", response.FullName ?? "Admin");
         HttpContext.Session.SetString("Email", response.Email ?? model.Email);
@@ -61,6 +70,8 @@ public class AdminController : Controller
         return RedirectToAction(nameof(Dashboard));
     }
 
+    // Admin panelinin ana dashboard sayfasını açar.
+    // Dashboard özet verileri Admin API üzerinden alınır.
     [HttpGet]
     public async Task<IActionResult> Dashboard()
     {
@@ -82,6 +93,7 @@ public class AdminController : Controller
         return View(dashboardSummary);
     }
 
+    // Admin oturumunu kapatır ve Session içindeki bilgileri temizler.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Logout()
@@ -90,6 +102,8 @@ public class AdminController : Controller
 
         return RedirectToAction(nameof(Login));
     }
+
+    // Kategori listesini admin panelinde gösterir.
     [HttpGet]
     public async Task<IActionResult> Categories()
     {
@@ -103,6 +117,7 @@ public class AdminController : Controller
         return View(categories);
     }
 
+    // Yeni kategori oluşturma formunu açar.
     [HttpGet]
     public IActionResult CreateCategory()
     {
@@ -114,6 +129,7 @@ public class AdminController : Controller
         return View(new CreateAdminCategoryViewModel());
     }
 
+    // Yeni kategori oluşturma isteğini Admin API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateCategory(CreateAdminCategoryViewModel model)
@@ -137,6 +153,7 @@ public class AdminController : Controller
             : View(model);
     }
 
+    // Kategori düzenleme formunu mevcut kategori bilgileriyle açar.
     [HttpGet]
     public async Task<IActionResult> EditCategory(int id)
     {
@@ -163,6 +180,7 @@ public class AdminController : Controller
         return View(model);
     }
 
+    // Kategori güncelleme isteğini Admin API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditCategory(UpdateAdminCategoryViewModel model)
@@ -186,6 +204,7 @@ public class AdminController : Controller
             : View(model);
     }
 
+    // Kategorinin aktif/pasif durumunu değiştirir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleCategoryStatus(int id)
@@ -204,6 +223,7 @@ public class AdminController : Controller
         return RedirectToAction(nameof(Categories));
     }
 
+    // Ürün listesini admin panelinde gösterir.
     [HttpGet]
     public async Task<IActionResult> Products()
     {
@@ -217,6 +237,8 @@ public class AdminController : Controller
         return View(products);
     }
 
+    // Yeni ürün oluşturma formunu açar.
+    // Formdaki kategori seçenekleri API'den alınan aktif kategorilerle doldurulur.
     [HttpGet]
     public async Task<IActionResult> CreateProduct()
     {
@@ -233,6 +255,7 @@ public class AdminController : Controller
         return View(model);
     }
 
+    // Yeni ürün oluşturma isteğini Admin API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateProduct(CreateAdminProductViewModel model)
@@ -244,6 +267,7 @@ public class AdminController : Controller
 
         if (!ModelState.IsValid)
         {
+            // Form tekrar açılırken kategori dropdown listesinin boş kalmaması için seçenekler yeniden yüklenir.
             model.CategoryOptions = await GetActiveCategoryOptionsAsync(token!);
             return View(model);
         }
@@ -263,6 +287,7 @@ public class AdminController : Controller
         return RedirectToAction(nameof(Products));
     }
 
+    // Ürün düzenleme formunu mevcut ürün bilgileriyle açar.
     [HttpGet]
     public async Task<IActionResult> EditProduct(int id)
     {
@@ -295,6 +320,7 @@ public class AdminController : Controller
         return View(model);
     }
 
+    // Ürün güncelleme isteğini Admin API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditProduct(UpdateAdminProductViewModel model)
@@ -325,6 +351,7 @@ public class AdminController : Controller
         return RedirectToAction(nameof(Products));
     }
 
+    // Ürünün aktif/pasif durumunu değiştirir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleProductStatus(int id)
@@ -343,6 +370,7 @@ public class AdminController : Controller
         return RedirectToAction(nameof(Products));
     }
 
+    // Ürünün admin onay durumunu değiştirir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleProductApproval(int id)
@@ -361,6 +389,7 @@ public class AdminController : Controller
         return RedirectToAction(nameof(Products));
     }
 
+    // Ürün oluşturma ve düzenleme formlarında kullanılacak kategori listesini hazırlar.
     private async Task<List<AdminCategoryViewModel>> GetActiveCategoryOptionsAsync(
         string token,
         int? selectedCategoryId = null)
@@ -374,7 +403,8 @@ public class AdminController : Controller
             .OrderBy(x => x.Name)
             .ToList();
     }
-    // DeliveryPoint yönetimi için gerekli actionlar
+
+    // Teslim noktalarını admin panelinde listeler.
     [HttpGet]
     public async Task<IActionResult> DeliveryPoints()
     {
@@ -388,6 +418,7 @@ public class AdminController : Controller
         return View(deliveryPoints);
     }
 
+    // Yeni teslim noktası oluşturma formunu açar.
     [HttpGet]
     public IActionResult CreateDeliveryPoint()
     {
@@ -399,6 +430,7 @@ public class AdminController : Controller
         return View(new CreateAdminDeliveryPointViewModel());
     }
 
+    // Yeni teslim noktası oluşturma isteğini Admin API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateDeliveryPoint(CreateAdminDeliveryPointViewModel model)
@@ -422,6 +454,7 @@ public class AdminController : Controller
             : View(model);
     }
 
+    // Teslim noktası düzenleme formunu mevcut bilgilerle açar.
     [HttpGet]
     public async Task<IActionResult> EditDeliveryPoint(int id)
     {
@@ -455,6 +488,7 @@ public class AdminController : Controller
         return View(model);
     }
 
+    // Teslim noktası güncelleme isteğini Admin API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditDeliveryPoint(UpdateAdminDeliveryPointViewModel model)
@@ -478,6 +512,7 @@ public class AdminController : Controller
             : View(model);
     }
 
+    // Teslim noktasının aktif/pasif durumunu değiştirir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleDeliveryPointStatus(int id)
@@ -496,6 +531,8 @@ public class AdminController : Controller
         return RedirectToAction(nameof(DeliveryPoints));
     }
 
+    // Teslim kutularını listeler.
+    // deliveryPointId gelirse sadece seçilen teslim noktasına ait kutular gösterilir.
     [HttpGet]
     public async Task<IActionResult> DeliveryBoxes(int? deliveryPointId)
     {
@@ -511,6 +548,7 @@ public class AdminController : Controller
         return View(deliveryBoxes);
     }
 
+    // Yeni teslim kutusu oluşturma formunu açar.
     [HttpGet]
     public async Task<IActionResult> CreateDeliveryBox(int? deliveryPointId)
     {
@@ -528,6 +566,7 @@ public class AdminController : Controller
         return View(model);
     }
 
+    // Yeni teslim kutusu oluşturma isteğini Admin API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateDeliveryBox(CreateAdminDeliveryBoxViewModel model)
@@ -558,6 +597,7 @@ public class AdminController : Controller
         return RedirectToAction(nameof(DeliveryBoxes), new { deliveryPointId = model.DeliveryPointId });
     }
 
+    // Teslim kutusu düzenleme formunu mevcut kutu bilgileriyle açar.
     [HttpGet]
     public async Task<IActionResult> EditDeliveryBox(int id)
     {
@@ -587,6 +627,7 @@ public class AdminController : Controller
         return View(model);
     }
 
+    // Teslim kutusu güncelleme isteğini Admin API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditDeliveryBox(UpdateAdminDeliveryBoxViewModel model)
@@ -617,6 +658,7 @@ public class AdminController : Controller
         return RedirectToAction(nameof(DeliveryBoxes), new { deliveryPointId = model.DeliveryPointId });
     }
 
+    // Teslim kutusunun aktif/pasif durumunu değiştirir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleDeliveryBoxStatus(int id, int? deliveryPointId)
@@ -635,6 +677,7 @@ public class AdminController : Controller
         return RedirectToAction(nameof(DeliveryBoxes), new { deliveryPointId });
     }
 
+    // Teslim kutusu formlarında kullanılacak teslim noktası listesini hazırlar.
     private async Task<List<AdminDeliveryPointViewModel>> GetActiveDeliveryPointOptionsAsync(
         string token,
         int? selectedDeliveryPointId = null)
@@ -650,6 +693,8 @@ public class AdminController : Controller
             .ThenBy(x => x.Name)
             .ToList();
     }
+
+    // Sistemdeki kullanıcıları admin panelinde listeler.
     [HttpGet]
     public async Task<IActionResult> Users()
     {
@@ -663,6 +708,7 @@ public class AdminController : Controller
         return View(users);
     }
 
+    // Seçilen kullanıcının detay bilgilerini gösterir.
     [HttpGet]
     public async Task<IActionResult> UserDetails(string id)
     {
@@ -682,6 +728,8 @@ public class AdminController : Controller
         return View(user);
     }
 
+    // Kullanıcının aktif/pasif durumunu değiştirir.
+    // Backend tarafında admin hesabının pasifleştirilmesi engellenir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleUserStatus(string id)
@@ -699,6 +747,8 @@ public class AdminController : Controller
 
         return RedirectToAction(nameof(Users));
     }
+
+    // Seçilen kullanıcının stok ürünlerini admin panelinde gösterir.
     [HttpGet]
     public async Task<IActionResult> UserStocks(string id)
     {
@@ -714,6 +764,7 @@ public class AdminController : Controller
         return View(stocks);
     }
 
+    // Seçilen kullanıcının paylaşım ilanlarını admin panelinde gösterir.
     [HttpGet]
     public async Task<IActionResult> UserShareListings(string id)
     {
@@ -729,6 +780,7 @@ public class AdminController : Controller
         return View(listings);
     }
 
+    // Seçilen kullanıcının teslimat kayıtlarını admin panelinde gösterir.
     [HttpGet]
     public async Task<IActionResult> UserDeliveries(string id)
     {
@@ -744,6 +796,7 @@ public class AdminController : Controller
         return View(deliveries);
     }
 
+    // Sistemdeki paylaşım ilanlarını admin panelinde izlemek için listeler.
     [HttpGet]
     public async Task<IActionResult> ShareListings()
     {
@@ -757,6 +810,7 @@ public class AdminController : Controller
         return View(listings);
     }
 
+    // Sistemdeki teslimat kayıtlarını admin panelinde izlemek için listeler.
     [HttpGet]
     public async Task<IActionResult> Deliveries()
     {
@@ -770,3 +824,4 @@ public class AdminController : Controller
         return View(deliveries);
     }
 }
+

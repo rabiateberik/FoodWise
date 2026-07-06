@@ -54,7 +54,7 @@ public class StockService : IStockService
         // Son tüketim tarihi geçmiş aktif ürünler riskli ürünler yerine Expired durumuna alınır.
         await MarkExpiredStockItemsAsync(userId);
 
-        // Risk seviyesi yüksek veya kritik olan aktif stok ürünleri listelenir.
+        // Kullanıcının aktif stok ürünleri risk kayıtlarıyla birlikte alınır.
         var stockItems = await _context.StockItems
             .Include(x => x.Product)
             .Include(x => x.Unit)
@@ -62,12 +62,24 @@ public class StockService : IStockService
             .Where(x =>
                 x.UserId == userId &&
                 x.Status == StockItemStatus.Active &&
-                x.IsActive &&
-                x.WasteRiskPredictions.Any(r =>
-                    r.RiskLevel == RiskLevel.High ||
-                    r.RiskLevel == RiskLevel.Critical))
+                x.IsActive)
             .OrderBy(x => x.ExpirationDate)
             .ToListAsync();
+
+        // Eski risk kayıtlarına değil, sadece en güncel risk tahminine bakılır.
+        stockItems = stockItems
+            .Where(x =>
+            {
+                var latestRisk = x.WasteRiskPredictions
+                    .OrderByDescending(r => r.CalculatedAt)
+                    .ThenByDescending(r => r.Id)
+                    .FirstOrDefault();
+
+                return latestRisk != null &&
+                       (latestRisk.RiskLevel == RiskLevel.High ||
+                        latestRisk.RiskLevel == RiskLevel.Critical);
+            })
+            .ToList();
 
         var activeShareListingMap = await GetActiveShareListingMapAsync(
             userId,
@@ -414,9 +426,10 @@ public class StockService : IStockService
                 .ThenInclude(x => x.Category)
             .FirstAsync(x => x.Id == stockItemId);
 
-        var daysRemaining = (stockItem.ExpirationDate.Date - DateTime.Now.Date).Days;
+        var now = DateTime.Now;
+        var daysRemaining = (stockItem.ExpirationDate.Date - now.Date).Days;
 
-        // Önce eski kural tabanlı risk sonucu hazırlanır.
+        // Önce kural tabanlı risk sonucu hazırlanır.
         // ML servisi çalışmazsa sistem bu sonuca geri döner.
         var ruleBasedRiskScore = CalculateRiskScore(stockItem, daysRemaining);
         var ruleBasedRiskLevel = GetRiskLevel(ruleBasedRiskScore);
@@ -438,10 +451,16 @@ public class StockService : IStockService
             Console.WriteLine($"ML servisi kullanılamadı. Kural tabanlı risk kullanıldı: {ruleBasedRiskLevel}");
         }
 
-        // ML sonucu geldikten sonra FoodWise iş kurallarıyla güvenlik kontrolü yapılır.
-        // Böylece açılış tarihi daha eski olan ürün yanlışlıkla düşük riskte kalmaz.
+        // Kural tabanlı hesaplama minimum güvenlik seviyesi olarak korunur.
         finalRiskScore = Math.Max(finalRiskScore, ruleBasedRiskScore);
+
+        // Son kullanma tarihi çok yakınsa veya ürün uzun süredir açıksa risk düşük kalmamalıdır.
         finalRiskScore = ApplyBusinessRiskGuards(finalRiskScore, stockItem, daysRemaining);
+
+        // Son kullanma tarihi ileri alındığında riskin düşebilmesi için üst sınır uygulanır.
+        // Böylece ML yüksek tahmin verse bile tarih uzatıldığında skor aşağı inebilir.
+        finalRiskScore = ApplyExpirationDateRelief(finalRiskScore, stockItem, daysRemaining);
+
         finalRiskLevel = GetRiskLevel(finalRiskScore);
 
         Console.WriteLine($"Final risk sonucu: {finalRiskLevel} - Skor: {finalRiskScore}");
@@ -457,8 +476,8 @@ public class StockService : IStockService
             PredictedWasteDate = stockItem.ExpirationDate,
             RecommendationType = recommendationType,
             RecommendationText = CreateRecommendationText(finalRiskLevel, recommendationType),
-            CalculatedAt = DateTime.Now,
-            CreatedAt = DateTime.Now
+            CalculatedAt = now,
+            CreatedAt = now
         };
 
         await _context.WasteRiskPredictions.AddAsync(riskPrediction);
@@ -677,6 +696,48 @@ public class StockService : IStockService
 
         return Math.Clamp(finalScore, 0, 100);
     }
+
+    private int ApplyExpirationDateRelief(
+        int currentRiskScore,
+        StockItem stockItem,
+        int daysRemaining)
+    {
+        var finalScore = currentRiskScore;
+        var daysSinceOpened = CalculateDaysSinceOpened(stockItem.OpenedDate);
+        var isOpened = stockItem.OpenedDate.HasValue;
+        var isSensitive = stockItem.Product.IsSensitiveFood;
+
+        // Ürün uzun süredir açıksa son kullanma tarihi uzasa bile risk çok düşürülmez.
+        if (isOpened && daysSinceOpened >= 5)
+            return finalScore;
+
+        // Son kullanma tarihi ileri alındığında riskin düşebilmesi için üst sınır uygulanır.
+        if (daysRemaining >= 30)
+        {
+            finalScore = Math.Min(finalScore, isSensitive ? 40 : 25);
+        }
+        else if (daysRemaining >= 14)
+        {
+            finalScore = Math.Min(finalScore, isSensitive ? 45 : 35);
+        }
+        else if (daysRemaining >= 10)
+        {
+            finalScore = Math.Min(finalScore, isSensitive ? 55 : 40);
+        }
+        else if (daysRemaining >= 7)
+        {
+            finalScore = Math.Min(finalScore, isSensitive ? 65 : 50);
+        }
+
+        // Ürün açıldıysa tamamen sıfırlanmasın, ama aşırı yüksek de kalmasın.
+        if (isOpened && daysSinceOpened >= 1)
+        {
+            finalScore = Math.Max(finalScore, isSensitive ? 35 : 25);
+        }
+
+        return Math.Clamp(finalScore, 0, 100);
+    }
+
     private RiskLevel GetRiskLevel(int riskScore)
     {
         if (riskScore >= 90)
@@ -722,6 +783,7 @@ public class StockService : IStockService
         // En güncel risk tahmini kullanıcıya gösterilir.
         var latestRisk = stockItem.WasteRiskPredictions
             .OrderByDescending(x => x.CalculatedAt)
+            .ThenByDescending(x => x.Id)
             .FirstOrDefault();
 
         var hasActiveShareListing = activeShareListingMap != null &&

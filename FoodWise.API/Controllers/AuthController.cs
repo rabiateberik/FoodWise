@@ -1,6 +1,6 @@
-﻿
-// AuthController, kullanıcı kayıt ve giriş endpointlerini dışarıya açar.
-// Register ve Login işlemleri IAuthService üzerinden yürütülür.
+﻿// AuthController, kullanıcı kayıt ve giriş işlemleri için gerekli endpointleri içerir.
+// Kimlik doğrulama işlemleri doğrudan burada yapılmaz, AuthService üzerinden yürütülür.
+
 using FoodWise.Application.DTOs.Auth;
 using FoodWise.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -18,10 +18,10 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    // Yeni kullanıcı kaydı oluşturmak için kullanılır.
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterDto model)
     {
-        // Kullanıcı kayıt işlemi servis katmanına yönlendirilir.
         var result = await _authService.RegisterAsync(model);
 
         if (!result.Success)
@@ -30,10 +30,11 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının sisteme giriş yapmasını sağlar.
+    // Başarılı girişte servis tarafında token ve kullanıcı bilgileri hazırlanır.
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginDto model)
     {
-        // Kullanıcı giriş işlemi servis katmanına yönlendirilir.
         var result = await _authService.LoginAsync(model);
 
         if (!result.Success)
@@ -42,3 +43,4 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 }
+

@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 using FoodWise.Application.DTOs.Report;
 
 namespace FoodWise.Application.Interfaces;
 
+// Karbon raporu işlemlerinin servis katmanında hangi metotlarla yapılacağını tanımlar.
+// Controller, aylık rapor oluşturma ve rapor görüntüleme işlemleri için bu interface üzerinden servis katmanına erişir.
 public interface ICarbonReportService
 {
     Task<CarbonReportDto> GenerateMonthlyReportAsync(string userId, int month, int year);
@@ -18,3 +15,4 @@ public interface ICarbonReportService
 
     Task<CarbonReportSummaryDto> GetSummaryAsync(string userId);
 }
+

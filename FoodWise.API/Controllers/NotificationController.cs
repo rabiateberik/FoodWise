@@ -1,5 +1,6 @@
-﻿// NotificationController, kullanıcı bildirimlerini yöneten endpointleri içerir.
-// Bildirimler token ile korunan kullanıcıya özel veriler olduğu için controller [Authorize] ile korunur.
+﻿// NotificationController, kullanıcıya ait bildirim işlemlerini yöneten endpointleri içerir.
+// Bildirimler kullanıcıya özel olduğu için controller token doğrulaması ile korunur.
+
 using System.Security.Claims;
 using FoodWise.Application.DTOs.Notification;
 using FoodWise.Application.Interfaces;
@@ -20,10 +21,10 @@ public class NotificationController : ControllerBase
         _notificationService = notificationService;
     }
 
+    // Giriş yapan kullanıcının tüm aktif bildirimlerini listeler.
     [HttpGet]
     public async Task<IActionResult> GetMyNotifications()
     {
-        // Giriş yapan kullanıcının tüm aktif bildirimleri listelenir.
         var userId = GetUserId();
 
         var result = await _notificationService.GetUserNotificationsAsync(userId);
@@ -31,10 +32,10 @@ public class NotificationController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının sadece okunmamış bildirimlerini getirir.
     [HttpGet("unread")]
     public async Task<IActionResult> GetUnreadNotifications()
     {
-        // Giriş yapan kullanıcının okunmamış bildirimleri listelenir.
         var userId = GetUserId();
 
         var result = await _notificationService.GetUnreadNotificationsAsync(userId);
@@ -42,10 +43,10 @@ public class NotificationController : ControllerBase
         return Ok(result);
     }
 
+    // Bildirim rozeti için okunmamış bildirim sayısını döndürür.
     [HttpGet("unread-count")]
     public async Task<IActionResult> GetUnreadCount()
     {
-        // Dashboard veya bildirim rozeti için okunmamış bildirim sayısı döndürülür.
         var userId = GetUserId();
 
         var result = await _notificationService.GetUnreadCountAsync(userId);
@@ -53,11 +54,11 @@ public class NotificationController : ControllerBase
         return Ok(new { unreadCount = result });
     }
 
+    // Test amaçlı bildirim oluşturmak için kullanılır.
+    // Normal akışta bildirimler risk, paylaşım veya teslimat işlemlerinden otomatik üretilebilir.
     [HttpPost("test")]
     public async Task<IActionResult> CreateTestNotification(CreateNotificationDto model)
     {
-        // Test amaçlı bildirim oluşturur.
-        // İleride bu işlem risk, paylaşım ve teslimat servisleri tarafından otomatik yapılacaktır.
         var userId = GetUserId();
 
         var result = await _notificationService.CreateAsync(userId, model);
@@ -65,10 +66,10 @@ public class NotificationController : ControllerBase
         return Ok(result);
     }
 
+    // Seçilen bildirimi okundu olarak işaretler.
     [HttpPatch("{notificationId}/read")]
     public async Task<IActionResult> MarkAsRead(int notificationId)
     {
-        // Belirli bir bildirimi okundu olarak işaretler.
         var userId = GetUserId();
 
         var result = await _notificationService.MarkAsReadAsync(userId, notificationId);
@@ -79,10 +80,10 @@ public class NotificationController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının tüm okunmamış bildirimlerini tek işlemde okundu yapar.
     [HttpPatch("read-all")]
     public async Task<IActionResult> MarkAllAsRead()
     {
-        // Kullanıcının tüm okunmamış bildirimlerini okundu yapar.
         var userId = GetUserId();
 
         var result = await _notificationService.MarkAllAsReadAsync(userId);
@@ -93,10 +94,10 @@ public class NotificationController : ControllerBase
         return Ok("Tüm bildirimler okundu olarak işaretlendi.");
     }
 
+    // Bildirimi tamamen silmek yerine pasif hale getirir.
     [HttpDelete("{notificationId}")]
     public async Task<IActionResult> Delete(int notificationId)
     {
-        // Bildirimi pasif hale getirir.
         var userId = GetUserId();
 
         var result = await _notificationService.DeleteAsync(userId, notificationId);
@@ -107,9 +108,10 @@ public class NotificationController : ControllerBase
         return Ok("Bildirim silindi.");
     }
 
-    private string GetUserId() 
+    // JWT token içindeki kullanıcı Id bilgisini alır.
+    private string GetUserId()
     {
-        // JWT token içindeki NameIdentifier claim'i Identity kullanıcı Id bilgisini taşır.
         return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     }
 }
+

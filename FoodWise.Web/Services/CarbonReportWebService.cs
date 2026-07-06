@@ -1,5 +1,6 @@
-﻿// Bu servis, FoodWise.Web ile FoodWise.API arasındaki karbon raporu bağlantısını yönetir.
-// JWT token ile korunan CarbonReport API endpointlerine istek gönderir.
+﻿
+// CarbonReportWebService, FoodWise.Web ile FoodWise.API arasındaki karbon raporu bağlantısını yönetir.
+// Web tarafındaki rapor sayfaları, karbon raporu verilerini bu servis üzerinden API'den alır.
 
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -16,19 +17,24 @@ public class CarbonReportWebService : ICarbonReportWebService
     {
         _httpClient = httpClient;
 
+        // Backend API adresi appsettings.json içindeki ApiSettings:BaseUrl değerinden okunur.
         var apiBaseUrl = configuration["ApiSettings:BaseUrl"];
 
         if (string.IsNullOrWhiteSpace(apiBaseUrl))
             throw new InvalidOperationException("ApiSettings:BaseUrl appsettings.json içinde tanımlı olmalıdır.");
 
+        // HttpClient isteklerinin FoodWise.API adresine gönderilmesi sağlanır.
         _httpClient.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
     }
 
+    // Seçilen ay ve yıl için karbon raporu oluşturma isteğini API'ye gönderir.
     public async Task<CarbonReportViewModel?> GenerateMonthlyReportAsync(int month, int year, string token)
     {
         SetBearerToken(token);
 
-        var response = await _httpClient.PostAsync($"api/carbon-report/generate?month={month}&year={year}", null);
+        var response = await _httpClient.PostAsync(
+            $"api/carbon-report/generate?month={month}&year={year}",
+            null);
 
         if (!response.IsSuccessStatusCode)
             return null;
@@ -36,6 +42,7 @@ public class CarbonReportWebService : ICarbonReportWebService
         return await response.Content.ReadFromJsonAsync<CarbonReportViewModel>(GetJsonOptions());
     }
 
+    // Kullanıcının daha önce oluşturduğu karbon raporlarını API'den getirir.
     public async Task<List<CarbonReportViewModel>> GetMyReportsAsync(string token)
     {
         SetBearerToken(token);
@@ -50,6 +57,7 @@ public class CarbonReportWebService : ICarbonReportWebService
         return result ?? new List<CarbonReportViewModel>();
     }
 
+    // Kullanıcının toplam karbon tasarrufu özetini API'den getirir.
     public async Task<CarbonReportSummaryViewModel> GetSummaryAsync(string token)
     {
         SetBearerToken(token);
@@ -64,12 +72,14 @@ public class CarbonReportWebService : ICarbonReportWebService
         return result ?? new CarbonReportSummaryViewModel();
     }
 
+    // JWT token, korumalı API endpointlerine erişebilmek için Authorization header içine eklenir.
     private void SetBearerToken(string token)
     {
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token);
     }
 
+    // API'den gelen JSON verilerinin ViewModel sınıflarına çevrilmesi için ortak JSON ayarıdır.
     private static JsonSerializerOptions GetJsonOptions()
     {
         return new JsonSerializerOptions
@@ -78,3 +88,4 @@ public class CarbonReportWebService : ICarbonReportWebService
         };
     }
 }
+

@@ -1,4 +1,5 @@
-﻿@using FoodWise.Web.Helpers
+﻿
+@using FoodWise.Web.Helpers
 @model List<FoodWise.Web.ViewModels.Sharing.ShareRequestViewModel>
 
 @{
@@ -82,8 +83,8 @@
                 : "Kullanıcı";
 
                 <article class="request-card">
-                    <div class="request-header">
-                        <div>
+                    <div class="request-card-top">
+                        <div class="request-title-area">
                             <h3>@request.ProductName</h3>
                             <p>@request.ShareListingTitle</p>
                         </div>
@@ -198,55 +199,77 @@
 
 @section Styles {
     <style>
+        /*
+                    İlan Talepleri sayfası özel düzeni.
+                    Kartlar Riskli Ürünler sayfasındaki flex-wrap mantığına göre yan yana dizilir.
+                    Geniş ekranda 3 kart, orta ekranda 2 kart, küçük ekranda 1 kart görünür.
+                */
+
+        .requests-page,
+        .requests-page *,
+        .requests-page *::before,
+        .requests-page *::after {
+            box-sizing: border-box;
+        }
+
         .requests-page {
-            display: grid;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
             gap: 18px;
         }
 
         .requests-summary {
+            width: 100%;
+            max-width: 760px;
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 14px;
+            gap: 13px;
+            align-items: stretch;
         }
 
             .requests-summary div {
-                background: white;
-                border-radius: 16px;
-                padding: 16px 18px;
+                background: #ffffff;
+                border-radius: 15px;
+                padding: 14px 16px;
                 box-shadow: 0 8px 20px rgba(0, 0, 0, 0.045);
             }
 
             .requests-summary span {
                 display: block;
                 color: #607d8b;
-                font-size: 13px;
+                font-size: 12.5px;
                 margin-bottom: 5px;
             }
 
             .requests-summary strong {
                 color: #145c24;
-                font-size: 28px;
+                font-size: 25px;
                 font-weight: 900;
+                line-height: 1;
             }
 
         .request-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
-            gap: 16px;
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
             align-items: stretch;
-            justify-content: start;
         }
 
         .request-card {
-            background: white;
+            flex: 1 1 calc((100% - 40px) / 3);
+            max-width: calc((100% - 40px) / 3);
+            min-width: 300px;
+            background: #ffffff;
             border-radius: 18px;
-            padding: 18px;
+            padding: 16px;
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.05);
             border-top: 4px solid #dcfce7;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
-            width: 100%;
-            max-width: 360px;
-            box-sizing: border-box;
         }
 
             .request-card:hover {
@@ -254,32 +277,40 @@
                 box-shadow: 0 12px 26px rgba(0, 0, 0, 0.07);
             }
 
-        .request-header {
+        .request-card-top {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             gap: 12px;
-            margin-bottom: 13px;
+            margin-bottom: 12px;
         }
 
-            .request-header h3 {
-                color: #145c24;
-                margin: 0 0 4px;
-                font-size: 20px;
-                line-height: 1.25;
-            }
+        .request-title-area {
+            min-width: 0;
+        }
 
-            .request-header p {
-                color: #526b7a;
-                margin: 0;
-                line-height: 1.4;
-                font-size: 13.5px;
-                font-weight: 700;
-            }
+        .request-card-top h3 {
+            color: #145c24;
+            font-size: 19px;
+            font-weight: 850;
+            margin: 0 0 4px;
+            line-height: 1.25;
+        }
+
+        .request-card-top p {
+            margin: 0;
+            color: #526b7a;
+            font-weight: 800;
+            font-size: 13.5px;
+            line-height: 1.4;
+        }
 
         .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             border-radius: 999px;
-            padding: 7px 10px;
+            padding: 6px 10px;
             font-size: 12px;
             font-weight: 900;
             white-space: nowrap;
@@ -310,7 +341,7 @@
         .request-user-box {
             background: #f8faf8;
             border-radius: 13px;
-            padding: 12px;
+            padding: 11px 12px;
             margin-bottom: 10px;
         }
 
@@ -322,16 +353,19 @@
             }
 
             .request-user-box strong {
+                display: block;
                 color: #145c24;
-                font-size: 14.5px;
+                font-size: 13.5px;
                 font-weight: 900;
+                line-height: 1.35;
+                word-break: break-word;
             }
 
         .match-score-box {
             background: #f8faf8;
             border: 1px solid #e5eee7;
-            border-radius: 14px;
-            padding: 13px;
+            border-radius: 13px;
+            padding: 12px 13px;
             margin-bottom: 10px;
         }
 
@@ -339,7 +373,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             margin-bottom: 10px;
         }
 
@@ -352,8 +386,9 @@
 
             .match-score-header strong {
                 color: #145c24;
-                font-size: 14.5px;
+                font-size: 13.5px;
                 font-weight: 900;
+                line-height: 1.35;
             }
 
         .score-circle {
@@ -412,15 +447,16 @@
 
         .request-info {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-            margin-bottom: 14px;
+            grid-template-columns: 1fr;
+            gap: 9px;
+            margin-bottom: 10px;
         }
 
             .request-info div {
                 background: #f8faf8;
                 border-radius: 13px;
-                padding: 12px;
+                padding: 11px 12px;
+                min-width: 0;
             }
 
             .request-info span {
@@ -432,8 +468,9 @@
 
             .request-info strong {
                 color: #1f2937;
-                line-height: 1.4;
                 font-size: 13px;
+                line-height: 1.35;
+                word-break: break-word;
             }
 
         .card-actions {
@@ -441,6 +478,8 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 9px;
             align-items: stretch;
+            margin-top: auto;
+            padding-top: 4px;
         }
 
         .action-form {
@@ -453,11 +492,11 @@
 
         .action-btn {
             width: 100%;
-            min-height: 40px;
+            min-height: 38px;
             border: none;
             border-radius: 11px;
-            padding: 10px 12px;
-            font-size: 13.5px;
+            padding: 9px 10px;
+            font-size: 13px;
             font-weight: 900;
             text-decoration: none;
             cursor: pointer;
@@ -466,7 +505,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            transition: 0.15s ease;
+            transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
         }
 
             .action-btn:hover {
@@ -475,11 +514,12 @@
 
         .approve-btn {
             background: #238636;
-            color: white;
+            color: #ffffff;
         }
 
             .approve-btn:hover {
                 background: #1f7a30;
+                color: #ffffff;
             }
 
         .reject-btn {
@@ -489,6 +529,7 @@
 
             .reject-btn:hover {
                 background: #fecaca;
+                color: #991b1b;
             }
 
         .delivery-btn {
@@ -514,59 +555,69 @@
         }
 
         .empty-state {
-            background: white;
-            border-radius: 20px;
-            padding: 48px 24px;
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 44px 22px;
             text-align: center;
             box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
         }
 
         .empty-icon {
-            width: 64px;
-            height: 64px;
-            border-radius: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 19px;
             background: #dcfce7;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
-            margin: 0 auto 16px;
+            font-size: 30px;
+            margin: 0 auto 15px;
         }
 
         .empty-state h3 {
             color: #145c24;
-            font-size: 25px;
+            font-size: 22px;
+            font-weight: 850;
             margin: 0 0 10px;
         }
 
         .empty-state p {
             color: #526b7a;
-            margin-bottom: 22px;
+            margin-bottom: 20px;
             line-height: 1.5;
+            font-size: 14px;
         }
 
-        @@media (max-width: 1000px) {
-            .requests-summary {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @@media (max-width: 800px) {
-            .request-grid {
-                grid-template-columns: 1fr;
-            }
-
+        @@media (max-width: 1350px) {
             .request-card {
+                flex-basis: calc((100% - 20px) / 2);
+                max-width: calc((100% - 20px) / 2);
+            }
+        }
+
+        @@media (max-width: 900px) {
+            .requests-summary {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
                 max-width: none;
             }
 
-            .request-header,
+            .request-card {
+                flex-basis: 100%;
+                max-width: 100%;
+            }
+        }
+
+        @@media (max-width: 760px) {
+            .requests-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .request-card-top,
             .match-score-header {
                 flex-direction: column;
                 align-items: flex-start;
             }
 
-            .request-info,
             .card-actions {
                 grid-template-columns: 1fr;
             }
@@ -578,3 +629,4 @@
         }
     </style>
 }
+

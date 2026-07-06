@@ -1,4 +1,5 @@
-﻿@*
+﻿
+@*
     Bu sayfa, FoodWise.Web kullanıcı giriş ekranıdır.
     Kullanıcı e-posta ve şifre bilgilerini girer.
     Form AuthController üzerinden FoodWise.API login endpointine gönderilir.
@@ -9,7 +10,7 @@
 
 @{
     Layout = null;
-    ViewData["Title"] = "FoodWise - Giriş Yap";
+    ViewData["Title"] = "FoodWise - Giriş";
 }
 
 <!DOCTYPE html>
@@ -20,117 +21,293 @@
     <title>@ViewData["Title"]</title>
 
     <style>
+        :root {
+            --primary: #238636;
+            --primary-hover: #1f7a30;
+            --primary-light: #dcfce7;
+            --dark-forest: #145c24;
+            --deep-forest: #064e3b;
+            --text-main: #1f2937;
+            --text-muted: #4b5563;
+            --bg-soft: #f3faf5;
+            --border-color: #dbe7df;
+        }
+
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             min-height: 100vh;
-            background: radial-gradient(circle at top left, rgba(35, 134, 54, 0.14), transparent 34%), radial-gradient(circle at bottom right, rgba(20, 92, 36, 0.10), transparent 32%), linear-gradient(135deg, #edf7ef 0%, #f8faf8 45%, #ffffff 100%);
+            color: var(--text-main);
+            background-color: #ffffff;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            color: #1f2937;
         }
 
-        .auth-container {
-            width: 100%;
-            max-width: 460px;
-            background: #ffffff;
-            border-radius: 28px;
-            padding: 42px 38px;
-            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.10);
-            border: 1px solid #dcfce7;
-        }
-
-        .brand {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .brand-icon {
-            width: 64px;
-            height: 64px;
-            border-radius: 22px;
-            background: #dcfce7;
-            color: #238636;
+        .split-container {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 30px;
-            margin: 0 auto 16px;
+            width: 100vw;
+            min-height: 100vh;
         }
 
-        .brand h1 {
-            margin: 0;
-            color: #145c24;
+        /* Sol Taraf - Proje Tanıtım Alanı */
+        .info-sidebar {
+            flex: 1;
+            background: linear-gradient(135deg, var(--dark-forest) 0%, var(--deep-forest) 100%);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            padding: 46px 52px;
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+            .info-sidebar::before {
+                content: "";
+                position: absolute;
+                top: -20%;
+                left: -20%;
+                width: 620px;
+                height: 620px;
+                border-radius: 50%;
+                background: rgba(220, 252, 231, 0.05);
+                pointer-events: none;
+            }
+
+            .info-sidebar::after {
+                content: "";
+                position: absolute;
+                bottom: -140px;
+                right: -120px;
+                width: 320px;
+                height: 320px;
+                border-radius: 50%;
+                background: rgba(167, 243, 208, 0.04);
+                pointer-events: none;
+            }
+
+        .sidebar-content {
+            position: relative;
+            z-index: 2;
+            max-width: 500px;
+            margin: 26px auto 0;
+        }
+
+        .sidebar-logo {
             font-size: 38px;
-            font-weight: 900;
-            letter-spacing: -0.5px;
+            background: rgba(255, 255, 255, 0.15);
+            width: 70px;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            margin-bottom: 22px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
         }
 
-        .brand p {
-            margin: 10px 0 0;
-            color: #607d8b;
+        .sidebar-content h1 {
+            font-size: 42px;
+            font-weight: 850;
+            letter-spacing: -1.2px;
+            margin-bottom: 12px;
+            color: #ffffff;
+        }
+
+        .sidebar-content .tagline {
+            font-size: 16px;
+            color: #a7f3d0;
+            margin-bottom: 36px;
+            line-height: 1.45;
+        }
+
+        .feature-list {
+            display: flex;
+            flex-direction: column;
+            gap: 23px;
+        }
+
+        .feature-item {
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+
+        .feature-icon {
+            min-width: 48px;
+            width: 48px;
+            height: 48px;
+            font-size: 22px;
+            background: rgba(255, 255, 255, 0.11);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            line-height: 1;
+            backdrop-filter: blur(10px);
+        }
+
+        .feature-text h3 {
             font-size: 15px;
+            font-weight: 750;
+            margin-bottom: 5px;
+            color: #f9fafb;
+        }
+
+        .feature-text p {
+            font-size: 13px;
+            color: #d1d5db;
             line-height: 1.5;
         }
 
+        /* Sağ Taraf - Kullanıcı Giriş Alanı */
+        .form-section {
+            width: 590px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 26px 34px;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 34%), radial-gradient(circle at bottom left, rgba(20, 92, 36, 0.08), transparent 38%), linear-gradient(135deg, #f8fcf9 0%, #eef8f1 100%);
+        }
+
+            .form-section::before {
+                content: "";
+                position: absolute;
+                top: 80px;
+                right: -90px;
+                width: 220px;
+                height: 220px;
+                border-radius: 50%;
+                background: rgba(35, 134, 54, 0.07);
+                pointer-events: none;
+            }
+
+            .form-section::after {
+                content: "";
+                position: absolute;
+                bottom: -110px;
+                left: -90px;
+                width: 260px;
+                height: 260px;
+                border-radius: 50%;
+                background: rgba(20, 92, 36, 0.06);
+                pointer-events: none;
+            }
+
+        .auth-container {
+            width: 100%;
+            max-width: 445px;
+            position: relative;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.93);
+            border-radius: 24px;
+            padding: 30px 30px;
+            box-shadow: 0 20px 50px rgba(22, 101, 52, 0.12);
+            border: 1px solid rgba(35, 134, 54, 0.10);
+            backdrop-filter: blur(14px);
+        }
+
+        .brand-mini {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 19px;
+        }
+
+        .brand-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 16px;
+            background: var(--primary-light);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .brand-mini h1 {
+            color: var(--dark-forest);
+            font-size: 23px;
+            font-weight: 850;
+            letter-spacing: -0.6px;
+            margin: 0;
+        }
+
+        .brand-mini p {
+            color: var(--text-muted);
+            font-size: 12.5px;
+            margin-top: 3px;
+        }
+
         .form-title {
-            margin-bottom: 22px;
+            margin-bottom: 21px;
         }
 
             .form-title span {
                 display: block;
-                color: #238636;
-                font-weight: 900;
-                font-size: 14px;
-                margin-bottom: 8px;
+                color: var(--primary);
+                font-weight: 800;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+                margin-bottom: 6px;
             }
 
             .form-title h2 {
-                color: #145c24;
-                margin: 0 0 8px;
-                font-size: 28px;
-                font-weight: 900;
+                color: var(--dark-forest);
+                font-size: 26px;
+                font-weight: 850;
+                letter-spacing: -0.6px;
+                margin: 0;
             }
 
-            .form-title p {
-                color: #607d8b;
-                margin: 0;
-                line-height: 1.5;
-                font-size: 14px;
-            }
+        .form-subtitle {
+            margin-top: 7px;
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.45;
+        }
 
         .form-group {
-            margin-bottom: 18px;
+            margin-bottom: 14px;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
-            color: #1f2937;
-            font-weight: 800;
-            font-size: 14px;
+            margin-bottom: 7px;
+            color: var(--text-main);
+            font-weight: 750;
+            font-size: 13px;
         }
 
         input {
             width: 100%;
-            padding: 14px 15px;
-            border: 1px solid #d1d5db;
-            border-radius: 14px;
-            font-size: 15px;
+            padding: 12px 14px;
+            border: 1px solid #d8e5dc;
+            border-radius: 13px;
+            font-size: 14px;
             outline: none;
-            background: #f8fbff;
-            transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+            background: #f4faf6;
+            color: var(--text-main);
+            transition: all 0.2s ease;
         }
 
+            input::placeholder {
+                color: #9ca3af;
+            }
+
             input:focus {
-                border-color: #238636;
-                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.10);
+                border-color: var(--primary);
+                box-shadow: 0 0 0 4px rgba(35, 134, 54, 0.12);
                 background: #ffffff;
             }
 
@@ -139,46 +316,56 @@
             border: none;
             padding: 14px;
             border-radius: 14px;
-            background: #238636;
+            background: var(--primary);
             color: #ffffff;
-            font-size: 16px;
-            font-weight: 900;
+            font-size: 15px;
+            font-weight: 800;
             cursor: pointer;
-            transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-            margin-top: 4px;
-            box-shadow: 0 10px 24px rgba(35, 134, 54, 0.20);
+            transition: all 0.2s ease;
+            margin-top: 6px;
+            box-shadow: 0 10px 24px rgba(35, 134, 54, 0.22);
         }
 
             .btn-primary:hover {
-                background: #1f7a30;
+                background: var(--primary-hover);
                 transform: translateY(-1px);
-                box-shadow: 0 14px 30px rgba(35, 134, 54, 0.24);
+                box-shadow: 0 14px 30px rgba(35, 134, 54, 0.30);
+            }
+
+            .btn-primary:active {
+                transform: translateY(0);
             }
 
         .bottom-link {
             text-align: center;
-            margin-top: 24px;
-            color: #607d8b;
-            font-size: 14px;
+            margin-top: 20px;
+            color: var(--text-muted);
+            font-size: 13px;
         }
 
             .bottom-link a {
-                color: #238636;
-                font-weight: 900;
+                color: var(--primary);
+                font-weight: 800;
                 text-decoration: none;
+                margin-left: 4px;
             }
 
                 .bottom-link a:hover {
                     text-decoration: underline;
                 }
 
+        .validation-summary,
+        .success-message {
+            padding: 11px 13px;
+            border-radius: 14px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
         .validation-summary {
             background: #fef2f2;
             color: #991b1b;
-            padding: 12px 14px;
-            border-radius: 14px;
-            margin-bottom: 18px;
-            font-size: 14px;
             border: 1px solid #fecaca;
         }
 
@@ -188,97 +375,166 @@
 
         .field-validation-error {
             display: block;
-            margin-top: 6px;
+            margin-top: 5px;
             color: #dc2626;
-            font-size: 13px;
+            font-size: 12.5px;
         }
 
         .success-message {
             background: #f0fdf4;
             color: #166534;
-            padding: 12px 14px;
-            border-radius: 14px;
-            margin-bottom: 18px;
-            font-size: 14px;
             border: 1px solid #bbf7d0;
-            font-weight: 700;
+            font-weight: 650;
         }
 
-        @@media (max-width: 520px) {
-            body {
-                padding: 14px;
+        @@media (max-width: 1080px) {
+            .info-sidebar {
+                display: none;
+            }
+
+            .form-section {
+                width: 100%;
+                min-height: 100vh;
+                padding: 24px;
             }
 
             .auth-container {
-                padding: 34px 22px;
+                max-width: 460px;
+            }
+        }
+
+        @@media (max-width: 620px) {
+            .form-section {
+                padding: 18px;
+            }
+
+            .auth-container {
+                padding: 28px 22px;
                 border-radius: 24px;
             }
 
-            .brand h1 {
-                font-size: 34px;
+            .brand-mini {
+                align-items: flex-start;
             }
 
             .form-title h2 {
-                font-size: 25px;
+                font-size: 24px;
             }
         }
     </style>
 </head>
 
 <body>
-    <main class="auth-container">
-        <div class="brand">
-            <div class="brand-icon">🌱</div>
-            <h1>FoodWise</h1>
-            <p>Gıda israfını azaltan akıllı stok ve paylaşım sistemi</p>
-        </div>
+    <div class="split-container">
 
-        <div class="form-title">
-            <span>Hesabına giriş yap</span>
-            <h2>Hoş geldin</h2>
-            <p>Stoklarını ve paylaşım süreçlerini yönetmek için giriş yap.</p>
-        </div>
+        <section class="info-sidebar">
+            <div class="sidebar-content">
+                <div class="sidebar-logo">🌱</div>
 
-        @if (TempData["SuccessMessage"] != null)
-        {
-            <div class="success-message">
-                @TempData["SuccessMessage"]
+                <h1>FoodWise</h1>
+
+                <p class="tagline">
+                    Evlerde Gıda İsrafını Azaltmak İçin Yapay Zeka Destekli Akıllı Stok ve Paylaşım Sistemi
+                </p>
+
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <div class="feature-icon">📦</div>
+                        <div class="feature-text">
+                            <h3>Stoklarını Kolayca Yönet</h3>
+                            <p>Evindeki gıdaları sisteme ekle, miktarlarını ve son kullanma tarihlerini düzenli takip et.</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">🤖</div>
+                        <div class="feature-text">
+                            <h3>Akıllı Risk ve Tarif Önerileri</h3>
+                            <p>Riskli ürünlerini erken fark et, bu ürünleri değerlendirebileceğin tarifleri keşfet.</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">🤝</div>
+                        <div class="feature-text">
+                            <h3>Güvenli Paylaşım Ağı</h3>
+                            <p>Tüketemeyeceğin ürünleri güvenli teslim noktaları üzerinden başka kullanıcılarla paylaş.</p>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">🌍</div>
+                        <div class="feature-text">
+                            <h3>Çevresel Katkını Gör</h3>
+                            <p>Kurtardığın ürünlerle kazandığın eko-puanları ve karbon tasarrufunu takip et.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-        }
+        </section>
 
-        @if (TempData["ErrorMessage"] != null)
-        {
-            <div class="validation-summary">
-                @TempData["ErrorMessage"]
+        <main class="form-section">
+            <div class="auth-container">
+                <div class="brand-mini">
+                    <div class="brand-icon">🌱</div>
+                    <div>
+                        <h1>FoodWise</h1>
+                        <p>Akıllı stok ve paylaşım platformu</p>
+                    </div>
+                </div>
+
+                <div class="form-title">
+                    <span>FoodWise Giriş</span>
+                    <h2>Hoş Geldin</h2>
+                    <p class="form-subtitle">
+                        Stoklarını takip etmek, riskli ürünleri değerlendirmek ve paylaşım ağına katılmak için giriş yap.
+                    </p>
+                </div>
+
+                @if (TempData["SuccessMessage"] != null)
+                {
+                    <div class="success-message">
+                        @TempData["SuccessMessage"]
+                    </div>
+                }
+
+                @if (TempData["ErrorMessage"] != null)
+                {
+                    <div class="validation-summary">
+                        @TempData["ErrorMessage"]
+                    </div>
+                }
+
+                <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+                <form asp-controller="Auth" asp-action="Login" method="post">
+                    @Html.AntiForgeryToken()
+
+                    <div class="form-group">
+                        <label asp-for="Email">E-posta Adresi</label>
+                        <input asp-for="Email" placeholder="ornek@mail.com" autocomplete="email" />
+                        <span asp-validation-for="Email" class="field-validation-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label asp-for="Password">Şifre</label>
+                        <input asp-for="Password" type="password" placeholder="••••••••" autocomplete="current-password" />
+                        <span asp-validation-for="Password" class="field-validation-error"></span>
+                    </div>
+
+                    <button type="submit" class="btn-primary">
+                        Giriş Yap
+                    </button>
+                </form>
+
+                <div class="bottom-link">
+                    Hesabın yok mu?
+                    <a asp-controller="Auth" asp-action="Register">Kayıt Ol</a>
+                </div>
             </div>
-        }
+        </main>
 
-        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
-
-        <form asp-controller="Auth" asp-action="Login" method="post">
-            @Html.AntiForgeryToken()
-
-            <div class="form-group">
-                <label asp-for="Email">E-posta</label>
-                <input asp-for="Email" placeholder="ornek@mail.com" autocomplete="email" />
-                <span asp-validation-for="Email"></span>
-            </div>
-
-            <div class="form-group">
-                <label asp-for="Password">Şifre</label>
-                <input asp-for="Password" type="password" placeholder="Şifreni gir" autocomplete="current-password" />
-                <span asp-validation-for="Password"></span>
-            </div>
-
-            <button type="submit" class="btn-primary">
-                Giriş Yap
-            </button>
-        </form>
-
-        <div class="bottom-link">
-            Hesabın yok mu?
-            <a asp-controller="Auth" asp-action="Register">Kayıt Ol</a>
-        </div>
-    </main>
+    </div>
 </body>
 </html>
+

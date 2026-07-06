@@ -1,6 +1,7 @@
-﻿// DeliveryController, Web arayüzünde QR destekli teslimat işlemlerini yönetir.
-// Bağışlanan ve alınacak teslimatlar listelenir; drop-off, QR okutma ve teslim tamamlama işlemleri yapılır.
-// Tüm Teslimatlar sekmesi kaldırılmıştır; varsayılan teslimat ekranı Teslim Edeceklerim olarak açılır.
+﻿
+// DeliveryController, Web arayüzündeki QR destekli teslimat sürecini yönetir.
+// Bağışçının teslim edeceği ürünler, alıcının teslim alacağı ürünler ve tamamlanan teslimatlar bu controller üzerinden görüntülenir.
+// Controller teslimat durumunu doğrudan değiştirmez; tüm işlemleri IDeliveryWebService aracılığıyla FoodWise.API'ye gönderir.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Delivery;
@@ -17,14 +18,15 @@ public class DeliveryController : Controller
         _deliveryWebService = deliveryWebService;
     }
 
+    // Teslimat ana sayfasına gelen kullanıcı varsayılan olarak Teslim Edeceklerim sekmesine yönlendirilir.
+    // Index doğrudan Outgoing action'ına gider.
     [HttpGet]
     public IActionResult Index()
     {
-        // Tüm Teslimatlar ekranı kaldırıldı.
-        // Teslimatlar menüsüne gelen kullanıcı varsayılan olarak Teslim Edeceklerim ekranına yönlendirilir.
         return RedirectToAction(nameof(Outgoing));
     }
 
+    // Kullanıcının bağışçı olduğu aktif teslimatları listeler.
     [HttpGet]
     public async Task<IActionResult> Outgoing()
     {
@@ -35,11 +37,12 @@ public class DeliveryController : Controller
 
         var model = await CreateDeliveryPageModelAsync(token);
 
-        // Teslim Edeceklerim sekmesinde yalnızca aktif bağış teslimatları gösterilir.
+        // Teslim Edeceklerim sekmesinde yalnızca devam eden bağış teslimatları gösterilir.
         model.DonatedDeliveries = model.DonatedDeliveries
             .Where(IsActiveDelivery)
             .ToList();
 
+        // Bu sekmede alıcı teslimatları gösterilmez.
         model.ReceivedDeliveries = new List<DeliveryViewModel>();
 
         ViewBag.ActiveDeliveryTab = "Outgoing";
@@ -49,6 +52,7 @@ public class DeliveryController : Controller
         return View("Index", model);
     }
 
+    // Kullanıcının alıcı olduğu aktif teslimatları listeler.
     [HttpGet]
     public async Task<IActionResult> Incoming()
     {
@@ -59,11 +63,12 @@ public class DeliveryController : Controller
 
         var model = await CreateDeliveryPageModelAsync(token);
 
-        // Teslim Alacaklarım sekmesinde yalnızca aktif alım teslimatları gösterilir.
+        // Teslim Alacaklarım sekmesinde yalnızca devam eden alım teslimatları gösterilir.
         model.ReceivedDeliveries = model.ReceivedDeliveries
             .Where(IsActiveDelivery)
             .ToList();
 
+        // Bu sekmede bağış teslimatları gösterilmez.
         model.DonatedDeliveries = new List<DeliveryViewModel>();
 
         ViewBag.ActiveDeliveryTab = "Incoming";
@@ -73,6 +78,7 @@ public class DeliveryController : Controller
         return View("Index", model);
     }
 
+    // Kullanıcının tamamlanan teslimatlarını listeler.
     [HttpGet]
     public async Task<IActionResult> Completed()
     {
@@ -83,7 +89,7 @@ public class DeliveryController : Controller
 
         var model = await CreateDeliveryPageModelAsync(token);
 
-        // Tamamlananlar sekmesinde teslim alınmış veya tamamlanmış kayıtlar gösterilir.
+        // Tamamlananlar sekmesinde hem bağışlanan hem de teslim alınan tamamlanmış kayıtlar gösterilir.
         model.DonatedDeliveries = model.DonatedDeliveries
             .Where(IsCompletedDelivery)
             .ToList();
@@ -99,6 +105,7 @@ public class DeliveryController : Controller
         return View("Index", model);
     }
 
+    // Onaylanmış paylaşım talebinden teslimat oluşturma isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateFromRequest(int shareRequestId)
@@ -120,6 +127,7 @@ public class DeliveryController : Controller
         return RedirectToAction("MyListings", "Sharing");
     }
 
+    // Bağışçının ürünü teslim kutusuna bıraktığını API'ye bildirir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DropOff(DropOffDeliveryViewModel model)
@@ -143,6 +151,7 @@ public class DeliveryController : Controller
         return RedirectToAction(nameof(Outgoing));
     }
 
+    // Alıcının teslimat kutusu üzerindeki QR kodu okutarak teslimatı doğrulamasını sağlar.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ScanBox(ScanDeliveryBoxViewModel model)
@@ -172,6 +181,7 @@ public class DeliveryController : Controller
         return RedirectToAction(nameof(Incoming));
     }
 
+    // QR doğrulaması yapılan teslimatı tamamlamak için API'ye istek gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Complete(int deliveryId)
@@ -195,6 +205,7 @@ public class DeliveryController : Controller
         return RedirectToAction(nameof(Incoming));
     }
 
+    // Teslimat sayfasında kullanılacak bağış ve alım teslimat listelerini hazırlar.
     private async Task<DeliveryPageViewModel> CreateDeliveryPageModelAsync(string token)
     {
         var donatedDeliveries = await _deliveryWebService.GetMyDonatedDeliveriesAsync(token);
@@ -207,6 +218,8 @@ public class DeliveryController : Controller
         };
     }
 
+    // Teslimatın devam eden bir teslimat olup olmadığını kontrol eder.
+    // Tamamlanmış, iptal edilmiş veya süresi geçmiş teslimatlar aktif listelerde gösterilmez.
     private static bool IsActiveDelivery(DeliveryViewModel delivery)
     {
         if (string.IsNullOrWhiteSpace(delivery.Status))
@@ -218,6 +231,7 @@ public class DeliveryController : Controller
                !delivery.Status.Equals("Expired", StringComparison.OrdinalIgnoreCase);
     }
 
+    // Teslimatın tamamlanan teslimatlar sekmesinde gösterilip gösterilmeyeceğini kontrol eder.
     private static bool IsCompletedDelivery(DeliveryViewModel delivery)
     {
         if (string.IsNullOrWhiteSpace(delivery.Status))

@@ -1,5 +1,7 @@
-﻿// ProfileService, ASP.NET Identity kullanıcı tablosundan giriş yapan kullanıcının profil bilgilerini yönetir.
-// Kullanıcı profil bilgilerini görüntüleyebilir, konum bilgilerini güncelleyebilir, şifresini değiştirebilir ve hesabını pasif hale getirebilir.
+﻿
+// ProfileService, ASP.NET Identity kullanıcı tablosundan giriş yapan kullanıcının profil bilgilerini yönetir.
+// Kullanıcı profil bilgilerini görüntüleyebilir, konum bilgilerini güncelleyebilir,
+// şifresini değiştirebilir ve hesabını pasif hale getirebilir.
 
 using FoodWise.Application.DTOs.Profile;
 using FoodWise.Application.Interfaces;
@@ -17,6 +19,7 @@ public class ProfileService : IProfileService
         _userManager = userManager;
     }
 
+    // Giriş yapan kullanıcının profil bilgilerini getirir.
     public async Task<ProfileDto?> GetMyProfileAsync(string userId)
     {
         var user = await _userManager.FindByIdAsync(userId);
@@ -24,6 +27,7 @@ public class ProfileService : IProfileService
         if (user == null)
             return null;
 
+        // Identity kullanıcısı, ekranda gösterilecek ProfileDto modeline dönüştürülür.
         return new ProfileDto
         {
             UserId = user.Id,
@@ -38,6 +42,7 @@ public class ProfileService : IProfileService
         };
     }
 
+    // Kullanıcının profil ve konum bilgilerini günceller.
     public async Task<bool> UpdateProfileAsync(string userId, UpdateProfileDto model)
     {
         var user = await _userManager.FindByIdAsync(userId);
@@ -58,6 +63,7 @@ public class ProfileService : IProfileService
         return result.Succeeded;
     }
 
+    // Kullanıcının mevcut şifresini kontrol ederek yeni şifre belirlemesini sağlar.
     public async Task<bool> ChangePasswordAsync(string userId, ChangePasswordDto model)
     {
         var user = await _userManager.FindByIdAsync(userId);
@@ -65,6 +71,7 @@ public class ProfileService : IProfileService
         if (user == null)
             return false;
 
+        // Yeni şifre ile tekrar girilen şifre aynı değilse işlem yapılmaz.
         if (model.NewPassword != model.ConfirmNewPassword)
             return false;
 
@@ -78,6 +85,7 @@ public class ProfileService : IProfileService
         return result.Succeeded;
     }
 
+    // Kullanıcının hesabını fiziksel olarak silmek yerine pasif hale getirir.
     public async Task<bool> DeleteAccountAsync(string userId, DeleteAccountDto model)
     {
         var user = await _userManager.FindByIdAsync(userId);
@@ -85,9 +93,11 @@ public class ProfileService : IProfileService
         if (user == null)
             return false;
 
+        // Yanlışlıkla hesap silinmesini önlemek için kullanıcıdan özel onay metni beklenir.
         if (model.ConfirmText.Trim() != "HESABIMI SİL")
             return false;
 
+        // Hesap silme işleminden önce kullanıcının mevcut şifresi doğrulanır.
         var isPasswordValid = await _userManager.CheckPasswordAsync(user, model.CurrentPassword);
 
         if (!isPasswordValid)
@@ -108,3 +118,4 @@ public class ProfileService : IProfileService
         return result.Succeeded;
     }
 }
+

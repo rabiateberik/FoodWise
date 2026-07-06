@@ -18,33 +18,40 @@ public class MlShareMatchingService : IMlShareMatchingService
     {
         _httpClient = httpClient;
 
+        // Python FastAPI ML servisinin temel adresi appsettings.json içinden okunur.
         var baseUrl = configuration["MlApiSettings:BaseUrl"];
 
         if (string.IsNullOrWhiteSpace(baseUrl))
             throw new InvalidOperationException("MlApiSettings:BaseUrl appsettings.json içinde tanımlı olmalıdır.");
 
+        // HttpClient isteklerinin Python ML servis adresine gönderilmesi sağlanır.
         _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
     }
 
+    // Paylaşım ilanı ve kullanıcı bilgilerine göre ML servisinden eşleşme skoru alır.
     public async Task<MlShareMatchPredictionResponseDto?> PredictMatchScoreAsync(
         MlShareMatchPredictionRequestDto request)
     {
         try
         {
+            // C# tarafındaki PascalCase alan adları Python tarafındaki camelCase JSON yapısıyla uyumlu hale getirilir.
             var jsonOptions = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 PropertyNameCaseInsensitive = true
             };
 
+            // Eşleşme tahmini için istek Python FastAPI tarafındaki predict-match-score endpointine gönderilir.
             var response = await _httpClient.PostAsJsonAsync(
                 "predict-match-score",
                 request,
                 jsonOptions);
 
+            // ML servisi başarılı cevap dönmezse skor alınamaz.
             if (!response.IsSuccessStatusCode)
                 return null;
 
+            // Python servisinden gelen JSON cevap DTO yapısına çevrilir.
             return await response.Content.ReadFromJsonAsync<MlShareMatchPredictionResponseDto>(
                 jsonOptions);
         }
@@ -56,3 +63,4 @@ public class MlShareMatchingService : IMlShareMatchingService
         }
     }
 }
+

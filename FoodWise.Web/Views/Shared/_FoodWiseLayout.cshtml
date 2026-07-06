@@ -1,4 +1,5 @@
-﻿@*
+﻿
+@*
     FoodWise genel layout dosyasıdır.
     Sidebar menüsü, üst başlık alanı, sağ üst bildirim zili, profil kutusu,
     ortak buton stilleri ve SweetAlert mesaj yapısı bu dosyada tutulur.
@@ -48,6 +49,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@pageTitle</title>
 
+    @* Sidebar menü ikonları için Bootstrap Icons kullanılır. *@
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
     <style>
         body {
             margin: 0;
@@ -62,11 +67,17 @@
         }
 
         .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 260px;
+            height: 100vh;
             background: #145c24;
             color: white;
             padding: 28px 20px;
             box-sizing: border-box;
+            overflow-y: auto;
+            z-index: 1000;
         }
 
         .brand {
@@ -113,6 +124,10 @@
             font-size: 15px;
             cursor: pointer;
             box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
         }
 
             .menu a.active,
@@ -121,8 +136,29 @@
                 background: rgba(255, 255, 255, 0.18);
             }
 
+        .menu-icon {
+            width: 20px;
+            min-width: 20px;
+            font-size: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.95;
+        }
+
+        .menu a.active .menu-icon,
+        .menu a:hover .menu-icon,
+        .logout-button:hover .menu-icon {
+            opacity: 1;
+        }
+
+        .menu-text {
+            line-height: 1.2;
+        }
+
         .logout-form {
             margin: 0;
+            width: 100%;
         }
 
         .content {
@@ -151,6 +187,7 @@
             .topbar + * {
                 margin-top: 120px;
             }
+
             .topbar h2 {
                 color: #145c24;
                 font-size: 30px;
@@ -170,30 +207,6 @@
             flex-wrap: wrap;
         }
 
-        .layout {
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 260px;
-            height: 100vh;
-            background: #145c24;
-            color: white;
-            padding: 28px 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
-            z-index: 1000;
-        }
-
-        .content {
-            min-height: 100vh;
-            margin-left: 260px;
-            padding: 36px;
-            box-sizing: border-box;
-        }
         /* Sağ üst bildirim zili alanı */
         .notification-wrapper {
             position: relative;
@@ -475,6 +488,7 @@
 
         @@media (max-width: 900px) {
             .layout {
+                display: block;
                 min-height: 100vh;
             }
 
@@ -491,7 +505,6 @@
                 padding: 18px;
             }
 
-          
             .topbar {
                 position: static;
                 border-radius: 20px;
@@ -503,15 +516,12 @@
                 .topbar + * {
                     margin-top: 0;
                 }
-         
 
             .topbar-actions {
                 width: 100%;
                 justify-content: flex-start;
             }
         }
-      
-        
 
         @@media (max-width: 600px) {
             .notification-dropdown {
@@ -539,61 +549,73 @@
                 <a asp-controller="Home"
                    asp-action="Index"
                    class="@(IsController("Home") ? "active" : "")">
-                    Dashboard
+                    <i class="bi bi-speedometer2 menu-icon"></i>
+                    <span class="menu-text">Dashboard</span>
                 </a>
 
                 <a asp-controller="Stock"
                    asp-action="Index"
                    class="@(isStockIndexActive ? "active" : "")">
-                    Stoklarım
+                    <i class="bi bi-box-seam menu-icon"></i>
+                    <span class="menu-text">Stoklarım</span>
                 </a>
 
                 <a asp-controller="Stock"
                    asp-action="Risky"
                    class="@(isStockRiskyActive ? "active" : "")">
-                    Riskli Ürünler
+                    <i class="bi bi-exclamation-triangle menu-icon"></i>
+                    <span class="menu-text">Riskli Ürünler</span>
                 </a>
 
                 <a asp-controller="Recipe"
                    asp-action="Index"
                    class="@(IsController("Recipe") ? "active" : "")">
-                    Tarif Önerileri
+                    <i class="bi bi-journal-richtext menu-icon"></i>
+                    <span class="menu-text">Tarif Önerileri</span>
                 </a>
 
                 <a asp-controller="Sharing"
                    asp-action="MyListings"
                    class="@(isSharingMineActive ? "active" : "")">
-                    Paylaşım İlanları
+                    <i class="bi bi-heart menu-icon"></i>
+                    <span class="menu-text">Paylaşım İlanlarım</span>
                 </a>
 
                 <a asp-controller="Sharing"
                    asp-action="Available"
                    class="@(isSharingAvailableActive ? "active" : "")">
-                    Mevcut İlanlar
+                    <i class="bi bi-shop menu-icon"></i>
+                    <span class="menu-text">Mevcut İlanlar</span>
                 </a>
 
                 <a asp-controller="Delivery"
                    asp-action="Outgoing"
                    class="@(IsController("Delivery") ? "active" : "")">
-                    Teslimatlar
+                    <i class="bi bi-truck menu-icon"></i>
+                    <span class="menu-text">Teslimatlar</span>
                 </a>
 
                 <a asp-controller="Notification"
                    asp-action="Index"
                    class="@(IsController("Notification") ? "active" : "")">
-                    Bildirimler
+                    <i class="bi bi-bell menu-icon"></i>
+                    <span class="menu-text">Bildirimler</span>
                 </a>
 
                 <a asp-controller="EcoPoint"
                    asp-action="Index"
                    class="@(IsController("EcoPoint") ? "active" : "")">
-                    Eco Puan
+                    <i class="bi bi-recycle menu-icon"></i>
+                    <span class="menu-text">Eco Puan</span>
                 </a>
+               
+
 
                 <a asp-controller="CarbonReport"
                    asp-action="Index"
                    class="@(IsController("CarbonReport") ? "active" : "")">
-                    Karbon Raporu
+                    <i class="bi bi-globe2 menu-icon"></i>
+                    <span class="menu-text">Karbon Raporu</span>
                 </a>
 
                 <div class="menu-title">Hesap</div>
@@ -601,13 +623,17 @@
                 <a asp-controller="Profile"
                    asp-action="Index"
                    class="@(IsController("Profile") ? "active" : "")">
-                    Profilim
+                    <i class="bi bi-person-circle menu-icon"></i>
+                    <span class="menu-text">Profilim</span>
                 </a>
 
                 @* Çıkış işlemi güvenli olması için POST olarak yapılır. *@
                 <form asp-controller="Auth" asp-action="Logout" method="post" class="logout-form">
                     @Html.AntiForgeryToken()
-                    <button type="submit" class="logout-button">Çıkış Yap</button>
+                    <button type="submit" class="logout-button">
+                        <i class="bi bi-box-arrow-right menu-icon"></i>
+                        <span class="menu-text">Çıkış Yap</span>
+                    </button>
                 </form>
             </nav>
         </aside>
@@ -647,6 +673,7 @@
 
     @* SweetAlert2, başarılı ve hatalı işlemleri kısa süreli popup olarak gösterir. *@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     @if (!string.IsNullOrWhiteSpace(successMessage))
     {
         <script>
@@ -677,9 +704,6 @@
         </script>
     }
 
-
-
-
     @* Bildirim zili dropdown aç/kapat işlemleri burada yönetilir. *@
     <script>
         document.addEventListener("DOMContentLoaded", function () {
@@ -709,3 +733,4 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
+

@@ -1,5 +1,6 @@
-﻿// Bu servis, FoodWise.Web ile FoodWise.API arasındaki profil bilgisi bağlantısını yönetir.
-// JWT token ile korunan Profile API endpointlerine istek gönderir.
+﻿
+// ProfileWebService, FoodWise.Web ile FoodWise.API arasındaki profil işlemleri bağlantısını yönetir.
+// Profil görüntüleme, profil güncelleme, şifre değiştirme ve hesap silme işlemleri API üzerinden yapılır.
 
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -16,14 +17,17 @@ public class ProfileWebService : IProfileWebService
     {
         _httpClient = httpClient;
 
+        // Backend API adresi appsettings.json içindeki ApiSettings:BaseUrl değerinden okunur.
         var apiBaseUrl = configuration["ApiSettings:BaseUrl"];
 
         if (string.IsNullOrWhiteSpace(apiBaseUrl))
             throw new InvalidOperationException("ApiSettings:BaseUrl appsettings.json içinde tanımlı olmalıdır.");
 
+        // HttpClient isteklerinin FoodWise.API adresine gönderilmesi sağlanır.
         _httpClient.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
     }
 
+    // Giriş yapan kullanıcının profil bilgilerini API'den getirir.
     public async Task<ProfileViewModel?> GetMyProfileAsync(string token)
     {
         SetBearerToken(token);
@@ -36,6 +40,7 @@ public class ProfileWebService : IProfileWebService
         return await response.Content.ReadFromJsonAsync<ProfileViewModel>(GetJsonOptions());
     }
 
+    // Kullanıcının profil ve konum bilgilerini güncelleme isteğini API'ye gönderir.
     public async Task<bool> UpdateProfileAsync(UpdateProfileViewModel model, string token)
     {
         SetBearerToken(token);
@@ -45,6 +50,7 @@ public class ProfileWebService : IProfileWebService
         return response.IsSuccessStatusCode;
     }
 
+    // Kullanıcının şifre değiştirme isteğini API'ye gönderir.
     public async Task<bool> ChangePasswordAsync(ChangePasswordViewModel model, string token)
     {
         SetBearerToken(token);
@@ -54,11 +60,7 @@ public class ProfileWebService : IProfileWebService
         return response.IsSuccessStatusCode;
     }
 
-    private void SetBearerToken(string token)
-    {
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", token);
-    }
+    // Kullanıcının hesap silme/pasif hale getirme isteğini API'ye gönderir.
     public async Task<bool> DeleteAccountAsync(DeleteAccountViewModel model, string token)
     {
         SetBearerToken(token);
@@ -67,6 +69,15 @@ public class ProfileWebService : IProfileWebService
 
         return response.IsSuccessStatusCode;
     }
+
+    // JWT token, korumalı Profile API endpointlerine erişebilmek için Authorization header içine eklenir.
+    private void SetBearerToken(string token)
+    {
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    // API'den gelen JSON verilerinin ViewModel sınıflarına çevrilmesi için ortak JSON ayarıdır.
     private static JsonSerializerOptions GetJsonOptions()
     {
         return new JsonSerializerOptions
@@ -75,3 +86,4 @@ public class ProfileWebService : IProfileWebService
         };
     }
 }
+

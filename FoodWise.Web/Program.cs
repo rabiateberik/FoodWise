@@ -1,5 +1,6 @@
-// Bu dosya, FoodWise.Web MVC uygulamasýnýn baþlangýç ayarlarýný yapar.
-// MVC servisleri, Session yönetimi ve API ile haberleþmek için HttpClient burada yapýlandýrýlýr.
+
+// FoodWise.Web MVC uygulamasýnýn baþlangýç ayarlarý bu dosyada yapýlýr.
+// MVC yapýsý, Session yönetimi, API baðlantýsý ve Web servis kayýtlarý burada tanýmlanýr.
 
 using FoodWise.Web.Services;
 
@@ -8,21 +9,21 @@ var builder = WebApplication.CreateBuilder(args);
 // MVC controller ve view desteði eklenir.
 builder.Services.AddControllersWithViews();
 
-// Session kullanabilmek için gerekli servisler eklenir.
-// JWT token ve kullanýcý bilgileri web tarafýnda Session içinde saklanacaktýr.
+// Session kullanýmý için gerekli ayarlar yapýlýr.
+// JWT token ve bazý kullanýcý bilgileri web tarafýnda Session içinde saklanýr.
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(60); // Kullanýcý oturumu 60 dakika aktif kalýr.
-    options.Cookie.HttpOnly = true;                 // Cookie'ye client-side script eriþimini engeller.
-    options.Cookie.IsEssential = true;              // Session cookie'sinin zorunlu olduðunu belirtir.
+    options.IdleTimeout = TimeSpan.FromMinutes(60);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
 });
 
-// HttpContext'e servis katmanlarýndan eriþebilmek için eklenir.
-// Ýleride token okuma, kullanýcý bilgisi alma gibi iþlemlerde kullanýlabilir.
+// HttpContext bilgisine servisler içinden eriþebilmek için eklenir.
+// Session, token veya kullanýcý bilgisi okuma iþlemlerinde kullanýlabilir.
 builder.Services.AddHttpContextAccessor();
 
-// API ile haberleþmek için HttpClient tanýmlanýr.
-// BaseAddress, appsettings.json içindeki ApiSettings:BaseUrl deðerinden okunur.
+// Backend API ile haberleþmek için ortak HttpClient tanýmlanýr.
+// API adresi appsettings.json içindeki ApiSettings:BaseUrl deðerinden okunur.
 builder.Services.AddHttpClient("FoodWiseApi", client =>
 {
     var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"];
@@ -34,51 +35,50 @@ builder.Services.AddHttpClient("FoodWiseApi", client =>
 
     client.BaseAddress = new Uri(apiBaseUrl);
 });
-// AuthWebService, Web tarafýndaki login/register iþlemlerinin API'ye gönderilmesini saðlar.
+
+// Web tarafýndaki login/register iþlemlerini API'ye gönderen servis kaydý yapýlýr.
 builder.Services.AddScoped<IAuthWebService, AuthWebService>();
-// Stock API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr.
+
+// Web servisleri HttpClient ile birlikte Dependency Injection container'a eklenir.
+// Bu servisler MVC Controller ile Backend API arasýnda iletiþim kurar.
 builder.Services.AddHttpClient<IStockWebService, StockWebService>();
-// Recipe API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr.
 builder.Services.AddHttpClient<IRecipeWebService, RecipeWebService>();
-// Sharing API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr.
 builder.Services.AddHttpClient<ISharingWebService, SharingWebService>();
-// Notification API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr.
 builder.Services.AddHttpClient<INotificationWebService, NotificationWebService>();
-// CarbonReport API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr.
 builder.Services.AddHttpClient<ICarbonReportWebService, CarbonReportWebService>();
-// Delivery API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr.
 builder.Services.AddHttpClient<IDeliveryWebService, DeliveryWebService>();
-// Profile API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr.
 builder.Services.AddHttpClient<IProfileWebService, ProfileWebService>();
-// Eco puan özetini ve puan geçmiþini API'den çekmek için Web servis kaydý.
 builder.Services.AddHttpClient<IEcoPointWebService, EcoPointWebService>();
-//Admin API ile haberleþen Web servisinin HttpClient baðýmlýlýðý burada tanýmlanýr. Admin paneli iþlemleri için kullanýlýr.
 builder.Services.AddHttpClient<IAdminWebService, AdminWebService>();
+
 var app = builder.Build();
 
-// Production ortamýnda hata sayfasý yönetimi yapýlýr.
+// Production ortamýnda genel hata sayfasý ve HSTS güvenlik ayarý kullanýlýr.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
 
+// HTTP istekleri HTTPS'e yönlendirilir.
 app.UseHttpsRedirection();
 
-// wwwroot içindeki css, js, image gibi statik dosyalarýn kullanýlmasýný saðlar.
+// wwwroot klasöründeki css, js ve görsel dosyalarýnýn kullanýlmasýný saðlar.
 app.UseStaticFiles();
 
 app.UseRouting();
 
-// Session middleware'i route iþleminden sonra, authorization iþleminden önce kullanýlmalýdýr.
+// Session middleware'i aktif edilir.
+// Route iþleminden sonra, authorization iþleminden önce çalýþmasý gerekir.
 app.UseSession();
 
 app.UseAuthorization();
 
-// Varsayýlan route ayarý.
-// Uygulama açýldýðýnda kullanýcý Auth/Login sayfasýna yönlendirilecektir.
+// Varsayýlan route tanýmlanýr.
+// Uygulama açýldýðýnda kullanýcý Auth/Login sayfasýna yönlendirilir.
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Auth}/{action=Login}/{id?}");
 
 app.Run();
+

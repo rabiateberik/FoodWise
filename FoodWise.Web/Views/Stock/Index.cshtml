@@ -1,13 +1,16 @@
-﻿@using FoodWise.Web.Helpers
+﻿
+@using FoodWise.Web.Helpers
 @model List<FoodWise.Web.ViewModels.Stock.StockItemViewModel>
 
 @{
     Layout = "_FoodWiseLayout";
-   
+
     ViewData["Title"] = "Stoklarım";
     ViewData["PageDescription"] = "Evindeki gıda ürünlerini buradan takip edebilir, düzenleyebilir veya paylaşabilirsin.";
 }
+
 @await Html.PartialAsync("_StockTabs")
+
 @*
     Stoklarım sayfası ortak FoodWise layout yapısını kullanır.
     Sidebar, üst bar, bildirim zili, profil kutusu ve ortak mesaj alanları layout üzerinden gelir.
@@ -88,7 +91,8 @@
 
                                     @if (item.RiskScore.HasValue)
                                     {
-                                        <span> / @item.RiskScore</span>
+                                        <span class="risk-score-separator">·</span>
+                                        <span>@item.RiskScore</span>
                                     }
                                 </span>
                             </td>
@@ -106,7 +110,6 @@
                                         Düzenle
                                     </a>
 
-                                    @* Stok ürünü aktif paylaşım ilanında kullanılıyorsa API tarafında silme engellenir. *@
                                     <form asp-controller="Stock"
                                           asp-action="Delete"
                                           method="post"
@@ -123,7 +126,6 @@
 
                                     @if (item.HasActiveShareListing)
                                     {
-                                        @* Ürün aktif paylaşım ilanındaysa tek tıklanabilir rozet gösterilir. *@
                                         <a asp-controller="Sharing"
                                            asp-action="MyListings"
                                            asp-fragment="listing-@item.ActiveShareListingId"
@@ -133,7 +135,6 @@
                                     }
                                     else
                                     {
-                                        @* Kullanıcı riskli olmayan ürünleri de isterse paylaşıma açabilir. *@
                                         <a asp-controller="Sharing"
                                            asp-action="Create"
                                            asp-route-stockItemId="@item.Id"
@@ -154,11 +155,33 @@
 
 @section Styles {
     <style>
+        /*
+                    Layout tarafında .topbar + * margin-top: 120px verdiği için
+                    ilk eleman olan stock-tabs çok aşağı iniyordu.
+                    Bu sayfada sekmeleri daha yukarı ve dengeli konuma alıyoruz.
+                */
+        .topbar + .stock-tabs {
+            margin-top: 94px !important;
+        }
+
+        .stock-tabs {
+            gap: 9px;
+            margin-bottom: 18px;
+        }
+
+        .stock-tab {
+            min-height: 38px;
+            padding: 9px 15px;
+            border-radius: 999px;
+            font-size: 13.5px;
+            font-weight: 800;
+        }
+
         .stock-card {
-            background: white;
-            border-radius: 20px;
-            padding: 28px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 22px;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.055);
         }
 
         .table-wrapper {
@@ -168,57 +191,66 @@
 
         table {
             width: 100%;
-            min-width: 1120px;
-            border-collapse: collapse;
+            min-width: 1040px;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 14px;
         }
 
         th {
             text-align: left;
             color: #145c24;
             background: #f0f8f2;
-            padding: 16px;
+            padding: 13px 15px;
             border-bottom: 1px solid #dbe8dd;
             white-space: nowrap;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 800;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.2px;
         }
 
         thead th:first-child {
-            border-top-left-radius: 14px;
+            border-top-left-radius: 13px;
         }
 
         thead th:last-child {
-            border-top-right-radius: 14px;
-        }
-        td {
-            padding: 18px 16px;
-            border-bottom: 1px solid #eef2f4;
-            vertical-align: top;
-            color: #1f2937;
+            border-top-right-radius: 13px;
         }
 
-        table {
-            width: 100%;
-            min-width: 1120px;
-            border-collapse: separate;
-            border-spacing: 0;
+        td {
+            padding: 13px 15px;
+            border-bottom: 1px solid #eef2f4;
+            vertical-align: middle;
+            color: #1f2937;
+            font-size: 13.5px;
+            line-height: 1.4;
         }
-        tbody tr:hover {
-            background: #fbfdfb;
+
+        tbody tr {
+            transition: background 0.18s ease;
         }
+
+            tbody tr:hover {
+                background: #fbfdfb;
+            }
+
+            tbody tr:last-child td {
+                border-bottom: none;
+            }
 
         .product-cell strong {
             display: block;
             color: #0f172a;
-            font-size: 16px;
-            margin-bottom: 4px;
+            font-size: 14px;
+            font-weight: 800;
+            margin-bottom: 3px;
         }
 
         .product-cell small {
             display: block;
             color: #6b7280;
-            line-height: 1.4;
+            font-size: 12px;
+            line-height: 1.35;
         }
 
         .nowrap {
@@ -227,19 +259,26 @@
 
         .recommendation-cell {
             max-width: 360px;
-            line-height: 1.45;
+            line-height: 1.4;
             color: #263238;
+            font-size: 13.5px;
         }
 
         .risk-badge {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 7px 11px;
+            gap: 4px;
+            padding: 6px 10px;
             border-radius: 999px;
-            font-size: 13px;
+            font-size: 12.5px;
             font-weight: 800;
             white-space: nowrap;
+        }
+
+        .risk-score-separator {
+            opacity: 0.75;
+            margin: 0 1px;
         }
 
         .risk-critical {
@@ -268,15 +307,15 @@
         }
 
         .actions-cell {
-            width: 190px;
-            min-width: 190px;
+            width: 170px;
+            min-width: 170px;
         }
 
         .stock-actions {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            width: 170px;
+            gap: 7px;
+            width: 154px;
         }
 
         .delete-form {
@@ -286,11 +325,11 @@
         .stock-action-btn,
         .share-status-btn {
             width: 100%;
-            min-height: 38px;
+            min-height: 34px;
             border: none;
-            border-radius: 11px;
-            padding: 9px 10px;
-            font-size: 13px;
+            border-radius: 10px;
+            padding: 8px 9px;
+            font-size: 12.5px;
             font-weight: 800;
             text-align: center;
             text-decoration: none;
@@ -300,24 +339,27 @@
             align-items: center;
             justify-content: center;
             white-space: nowrap;
+            transition: all 0.18s ease;
         }
 
         .edit-btn {
             background: #405a68;
-            color: white;
+            color: #ffffff;
         }
 
             .edit-btn:hover {
                 background: #344955;
+                transform: translateY(-1px);
             }
 
         .delete-btn {
             background: #dc2626;
-            color: white;
+            color: #ffffff;
         }
 
             .delete-btn:hover {
                 background: #b91c1c;
+                transform: translateY(-1px);
             }
 
         .share-status-btn {
@@ -333,6 +375,7 @@
             .share-open-btn:hover {
                 background: #dcfce7;
                 color: #14532d;
+                transform: translateY(-1px);
             }
 
         .shared-btn {
@@ -344,32 +387,46 @@
             .shared-btn:hover {
                 background: #bfdbfe;
                 color: #1e40af;
+                transform: translateY(-1px);
             }
 
         .empty-state {
             text-align: center;
-            padding: 50px 20px;
+            padding: 42px 20px;
         }
 
             .empty-state h3 {
                 color: #145c24;
-                font-size: 24px;
-                margin-bottom: 10px;
+                font-size: 20px;
+                font-weight: 850;
+                margin-bottom: 9px;
             }
 
             .empty-state p {
                 color: #526b7a;
-                margin-bottom: 24px;
+                font-size: 13.5px;
+                margin-bottom: 20px;
             }
 
         @@media (max-width: 900px) {
+            .topbar + .stock-tabs {
+                margin-top: 0 !important;
+            }
+
             .stock-card {
                 padding: 18px;
+                border-radius: 16px;
             }
 
             table {
-                min-width: 1040px;
+                min-width: 1000px;
+            }
+
+            th,
+            td {
+                padding: 12px 13px;
             }
         }
     </style>
 }
+

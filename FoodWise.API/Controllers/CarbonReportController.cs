@@ -1,4 +1,6 @@
-﻿
+﻿// CarbonReportController, kullanıcının aylık karbon raporlarını yönetir.
+// Rapor oluşturma, mevcut raporu görüntüleme ve özet bilgileri alma işlemleri bu controller üzerinden yapılır.
+
 using System.Security.Claims;
 using FoodWise.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -18,6 +20,7 @@ public class CarbonReportController : ControllerBase
         _carbonReportService = carbonReportService;
     }
 
+    // Kullanıcının seçtiği ay ve yıl için karbon raporu oluşturur.
     [HttpPost("generate")]
     public async Task<IActionResult> GenerateMonthlyReport(int month, int year)
     {
@@ -31,6 +34,7 @@ public class CarbonReportController : ControllerBase
         return Ok(result);
     }
 
+    // Daha önce oluşturulmuş aylık karbon raporunu getirir.
     [HttpGet("monthly")]
     public async Task<IActionResult> GetMonthlyReport(int month, int year)
     {
@@ -47,6 +51,7 @@ public class CarbonReportController : ControllerBase
         return Ok(result);
     }
 
+    // Giriş yapan kullanıcının tüm karbon raporlarını listeler.
     [HttpGet("my")]
     public async Task<IActionResult> GetMyReports()
     {
@@ -57,6 +62,7 @@ public class CarbonReportController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının karbon raporlarına ait genel özet bilgilerini getirir.
     [HttpGet("summary")]
     public async Task<IActionResult> GetSummary()
     {
@@ -67,13 +73,16 @@ public class CarbonReportController : ControllerBase
         return Ok(result);
     }
 
+    // JWT token içindeki kullanıcı id bilgisini alır.
     private string GetUserId()
     {
         return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     }
 
+    // Rapor oluşturma ve görüntüleme işlemleri için ay-yıl bilgisini kontrol eder.
     private static bool IsValidMonthAndYear(int month, int year)
     {
         return month >= 1 && month <= 12 && year >= 2024 && year <= DateTime.Now.Year + 1;
     }
 }
+

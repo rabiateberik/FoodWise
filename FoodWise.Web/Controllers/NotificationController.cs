@@ -1,5 +1,7 @@
-﻿// NotificationController, Web arayüzünde kullanıcı bildirimlerini listeleme, okundu yapma ve silme işlemlerini yönetir.
-// API ile doğrudan değil, INotificationWebService üzerinden haberleşir.
+﻿
+// NotificationController, Web arayüzünde kullanıcı bildirimleri sayfasını yönetir.
+// Bildirim listeleme, okundu yapma, tümünü okundu yapma, silme ve test bildirimi oluşturma işlemleri burada karşılanır.
+// Controller API'ye doğrudan gitmez; tüm bildirim işlemleri INotificationWebService üzerinden FoodWise.API'ye gönderilir.
 
 using FoodWise.Web.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -15,17 +17,21 @@ public class NotificationController : Controller
         _notificationWebService = notificationWebService;
     }
 
+    // Kullanıcının bildirim listesini gösteren sayfayı açar.
     [HttpGet]
     public async Task<IActionResult> Index()
     {
         var token = HttpContext.Session.GetString("JWToken");
 
+        // Token yoksa kullanıcı giriş yapmamış kabul edilir.
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
+        // Bildirim listesi ve okunmamış bildirim sayısı API'den alınır.
         var notifications = await _notificationWebService.GetMyNotificationsAsync(token);
         var unreadCount = await _notificationWebService.GetUnreadCountAsync(token);
 
+        // Sayfada gösterilecek ek kullanıcı ve bildirim bilgileri ViewBag ile taşınır.
         ViewBag.UnreadCount = unreadCount;
         ViewBag.FullName = HttpContext.Session.GetString("FullName");
         ViewBag.Email = HttpContext.Session.GetString("Email");
@@ -33,6 +39,7 @@ public class NotificationController : Controller
         return View(notifications);
     }
 
+    // Seçilen bildirimi okundu olarak işaretleme isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MarkAsRead(int id)
@@ -47,6 +54,7 @@ public class NotificationController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Kullanıcının tüm bildirimlerini okundu olarak işaretleme isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MarkAllAsRead()
@@ -61,6 +69,7 @@ public class NotificationController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Seçilen bildirimi silme isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
@@ -75,6 +84,7 @@ public class NotificationController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Geliştirme ve test amacıyla örnek bildirim oluşturma isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateTest()
@@ -93,3 +103,4 @@ public class NotificationController : Controller
         return RedirectToAction(nameof(Index));
     }
 }
+

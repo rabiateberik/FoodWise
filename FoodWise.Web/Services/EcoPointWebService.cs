@@ -1,5 +1,6 @@
-﻿// EcoPointWebService, FoodWise.API üzerindeki EcoPoint endpointlerini çağırır.
-// Dashboard, Profil ve ileride Eco Puan geçmişi sayfası bu servis üzerinden veri alır.
+﻿
+// EcoPointWebService, FoodWise.Web ile FoodWise.API arasındaki eco puan bağlantısını yönetir.
+// Dashboard, profil ve eco puan geçmişi ekranları bu servis üzerinden API'den veri alır.
 
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -16,21 +17,26 @@ public class EcoPointWebService : IEcoPointWebService
     {
         _httpClient = httpClient;
 
+        // Backend API adresi appsettings.json içindeki ApiSettings:BaseUrl değerinden okunur.
         var baseUrl = configuration["ApiSettings:BaseUrl"];
 
         if (!string.IsNullOrWhiteSpace(baseUrl))
         {
+            // HttpClient isteklerinin FoodWise.API adresine gönderilmesi sağlanır.
             _httpClient.BaseAddress = new Uri(baseUrl);
         }
 
+        // API'den gelen JSON alan adlarının ViewModel sınıflarıyla uyumlu okunmasını sağlar.
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         };
     }
 
+    // Kullanıcının toplam eco puanını, seviyesini ve özet bilgilerini API'den getirir.
     public async Task<EcoPointSummaryViewModel> GetSummaryAsync(string token)
     {
+        // Token yoksa korumalı API endpointine istek gönderilmez.
         if (string.IsNullOrWhiteSpace(token))
             return new EcoPointSummaryViewModel();
 
@@ -47,8 +53,10 @@ public class EcoPointWebService : IEcoPointWebService
             ?? new EcoPointSummaryViewModel();
     }
 
+    // Kullanıcının eco puan geçmişini API'den getirir.
     public async Task<List<EcoPointHistoryViewModel>> GetHistoryAsync(string token)
     {
+        // Token yoksa boş liste döndürülür.
         if (string.IsNullOrWhiteSpace(token))
             return new List<EcoPointHistoryViewModel>();
 
@@ -65,9 +73,11 @@ public class EcoPointWebService : IEcoPointWebService
             ?? new List<EcoPointHistoryViewModel>();
     }
 
+    // JWT token, korumalı EcoPoint API endpointlerine erişebilmek için Authorization header içine eklenir.
     private void SetAuthorizationHeader(string token)
     {
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token);
     }
 }
+

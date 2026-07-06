@@ -1,11 +1,18 @@
 FoodWise Recipe Recommendation Model Metrics
 ============================================
 
-MAE: 6.8152
-RMSE: 9.1340
-R2 Score: 0.9352
+Algorithm: GradientBoostingRegressor
+
+MAE: 4.8668
+RMSE: 6.5225
+R2 Score: 0.9670
 
 Açıklama:
 MAE, tahmin edilen skorun gerçek skordan ortalama kaç puan saptığını gösterir.
 RMSE, büyük hataları daha fazla cezalandıran hata metriğidir.
 R2 Score, modelin hedef değişkendeki varyansı ne kadar açıkladığını gösterir.
+
+Model açıklaması:
+Gradient Boosting Regressor, karar ağaçlarını ardışık şekilde eğitir.
+Her yeni ağaç, önceki ağaçların yaptığı hataları azaltmaya çalışır.
+Bu nedenle 0-100 arası tarif öneri skoru gibi regresyon problemlerinde kullanılabilir.

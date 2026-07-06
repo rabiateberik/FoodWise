@@ -1,9 +1,12 @@
-﻿// DisplayTextHelper, API'den gelen enum ve durum değerlerini Web arayüzünde Türkçe göstermek için kullanılır.
+﻿
+// DisplayTextHelper, API'den gelen enum ve durum değerlerini Web arayüzünde Türkçe göstermek için kullanılır.
+// View dosyalarında aynı switch/çeviri kodlarını tekrar yazmamak için ortak yardımcı sınıf olarak hazırlanmıştır.
 
 namespace FoodWise.Web.Helpers;
 
 public static class DisplayTextHelper
 {
+    // Stok ürünlerinin risk seviyesini kullanıcıya Türkçe gösterir.
     public static string GetRiskLevelText(string? riskLevel)
     {
         return riskLevel switch
@@ -16,13 +19,14 @@ public static class DisplayTextHelper
         };
     }
 
+    // API'den gelen saklama koşulu bilgisini Türkçe metne çevirir.
     public static string GetStorageConditionText(string? storageCondition)
     {
         return storageCondition switch
         {
             "RoomTemperature" => "Oda Sıcaklığı",
-            "Refrigerator" => "Buzdolabı",
-            "Freezer" => "Dondurucu",
+            "Refrigerator" or "Refrigerated" => "Buzdolabı",
+            "Freezer" or "Frozen" => "Dondurucu",
             "DryStorage" => "Kuru Depolama",
             "Unknown" => "Bilinmiyor",
             _ => storageCondition ?? "-"
@@ -46,6 +50,7 @@ public static class DisplayTextHelper
         };
     }
 
+    // Paylaşım taleplerinin durumlarını Türkçe metne çevirir.
     public static string GetShareRequestStatusText(string? status)
     {
         return status switch
@@ -58,6 +63,7 @@ public static class DisplayTextHelper
         };
     }
 
+    // QR destekli teslimat sürecindeki teslimat durumlarını Türkçe gösterir.
     public static string GetDeliveryStatusText(string? status)
     {
         return status switch
@@ -66,12 +72,14 @@ public static class DisplayTextHelper
             "QrGenerated" => "QR Oluşturuldu",
             "DroppedOff" => "Kutuya Bırakıldı",
             "Delivered" => "Teslim Edildi",
+            "Completed" => "Tamamlandı",
             "Expired" => "Süresi Doldu",
             "Cancelled" => "İptal Edildi",
             _ => status ?? "-"
         };
     }
 
+    // Bildirim tiplerini kullanıcıya daha anlaşılır Türkçe metinlerle gösterir.
     public static string GetNotificationTypeText(string? type)
     {
         return type switch
@@ -90,6 +98,7 @@ public static class DisplayTextHelper
         };
     }
 
+    // API'den gelen birim adlarını Web arayüzünde Türkçe göstermek için kullanılır.
     public static string GetUnitText(string? unitName)
     {
         return unitName switch
@@ -106,3 +115,4 @@ public static class DisplayTextHelper
         };
     }
 }
+

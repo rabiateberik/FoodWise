@@ -1,5 +1,7 @@
-﻿// CarbonReportController, Web arayüzünde karbon raporlarını listeleme ve aylık rapor oluşturma işlemlerini yönetir.
-// API ile doğrudan değil, ICarbonReportWebService üzerinden haberleşir.
+﻿
+// CarbonReportController, Web arayüzünde karbon raporu sayfasını yönetir.
+// Kullanıcının karbon raporlarını listeleme, özet bilgileri gösterme ve aylık rapor oluşturma işlemleri burada yapılır.
+// Controller API'ye doğrudan gitmez; tüm API haberleşmesi ICarbonReportWebService üzerinden yürütülür.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.CarbonReport;
@@ -16,6 +18,8 @@ public class CarbonReportController : Controller
         _carbonReportWebService = carbonReportWebService;
     }
 
+    // Karbon raporu ana sayfasını açar.
+    // Kullanıcı giriş yapmamışsa login sayfasına yönlendirilir.
     [HttpGet]
     public async Task<IActionResult> Index()
     {
@@ -24,8 +28,10 @@ public class CarbonReportController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
+        // Sayfa açılırken mevcut ayın raporu oluşturulmaya/güncellenmeye çalışılır.
         await GenerateCurrentMonthReportIfPossibleAsync(token);
 
+        // Rapor listesi, özet bilgiler ve varsayılan ay-yıl bilgileri hazırlanır.
         var model = await CreatePageModelAsync(token);
 
         SetUserViewBag();
@@ -33,6 +39,7 @@ public class CarbonReportController : Controller
         return View(model);
     }
 
+    // Kullanıcının seçtiği ay ve yıl için karbon raporu oluşturma isteğini alır.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Generate(CarbonReportPageViewModel model)
@@ -44,6 +51,8 @@ public class CarbonReportController : Controller
 
         if (!ModelState.IsValid)
         {
+            // Form hatalıysa sayfa modeli yeniden hazırlanır.
+            // Böylece rapor listesi ve özet alanları boş kalmaz.
             var pageModel = await CreatePageModelAsync(token);
             pageModel.Month = model.Month;
             pageModel.Year = model.Year;
@@ -53,6 +62,7 @@ public class CarbonReportController : Controller
             return View("Index", pageModel);
         }
 
+        // Seçilen ay ve yıl bilgisi API'ye gönderilerek rapor oluşturulur veya güncellenir.
         var result = await _carbonReportWebService.GenerateMonthlyReportAsync(
             model.Month,
             model.Year,
@@ -66,6 +76,7 @@ public class CarbonReportController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Sayfa açılışında mevcut ay için otomatik rapor oluşturmayı dener.
     private async Task GenerateCurrentMonthReportIfPossibleAsync(string token)
     {
         var now = DateTime.Now;
@@ -80,11 +91,12 @@ public class CarbonReportController : Controller
         }
         catch
         {
-            // Sayfa açılışında otomatik rapor oluşturma başarısız olursa
-            // kullanıcı sayfayı yine görebilsin. Manuel oluşturma butonu hata mesajını gösterebilir.
+            // Otomatik rapor oluşturma başarısız olsa bile sayfanın açılması engellenmez.
+            // Kullanıcı isterse manuel oluşturma işlemini tekrar deneyebilir.
         }
     }
 
+    // Karbon raporu sayfasında kullanılacak ana ViewModel'i hazırlar.
     private async Task<CarbonReportPageViewModel> CreatePageModelAsync(string token)
     {
         var reports = await _carbonReportWebService.GetMyReportsAsync(token);
@@ -99,9 +111,11 @@ public class CarbonReportController : Controller
         };
     }
 
+    // Layout veya sayfa içinde kullanılacak temel kullanıcı bilgilerini ViewBag'e taşır.
     private void SetUserViewBag()
     {
         ViewBag.FullName = HttpContext.Session.GetString("FullName");
         ViewBag.Email = HttpContext.Session.GetString("Email");
     }
 }
+

@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,6 +26,8 @@ public class EcoPointService : IEcoPointService
         _context = context;
     }
 
+    // Kullanıcıya eco puan ekler.
+    // Puan bilgisi EcoPointHistories tablosunda geçmiş kaydı olarak saklanır.
     public async Task AddPointAsync(
         string userId,
         int point,
@@ -32,6 +35,7 @@ public class EcoPointService : IEcoPointService
         string description,
         int? deliveryId = null)
     {
+        // Kullanıcı bilgisi boşsa veya puan geçerli değilse işlem yapılmaz.
         if (string.IsNullOrWhiteSpace(userId) || point <= 0)
             return;
 
@@ -48,6 +52,7 @@ public class EcoPointService : IEcoPointService
                 return;
         }
 
+        // Yeni eco puan geçmiş kaydı oluşturulur.
         var history = new EcoPointHistory
         {
             UserId = userId,
@@ -62,8 +67,10 @@ public class EcoPointService : IEcoPointService
         await _context.SaveChangesAsync();
     }
 
+    // Kullanıcının toplam eco puanını, seviyesini ve geçmiş kayıt sayısını döndürür.
     public async Task<EcoPointSummaryDto> GetSummaryAsync(string userId)
     {
+        // Kullanıcı bilgisi alınamazsa boş bir özet döndürülür.
         if (string.IsNullOrWhiteSpace(userId))
         {
             return new EcoPointSummaryDto
@@ -74,10 +81,12 @@ public class EcoPointService : IEcoPointService
             };
         }
 
+        // Kullanıcının tüm eco puan geçmişi alınır.
         var histories = await _context.EcoPointHistories
             .Where(x => x.UserId == userId)
             .ToListAsync();
 
+        // Toplam puan geçmiş kayıtlarındaki puanların toplamından hesaplanır.
         var totalPoint = histories.Sum(x => x.Point);
 
         return new EcoPointSummaryDto
@@ -88,6 +97,7 @@ public class EcoPointService : IEcoPointService
         };
     }
 
+    // Kullanıcının eco puan geçmişini en yeni kayıt en üstte olacak şekilde listeler.
     public async Task<List<EcoPointHistoryDto>> GetHistoryAsync(string userId)
     {
         if (string.IsNullOrWhiteSpace(userId))
@@ -109,6 +119,7 @@ public class EcoPointService : IEcoPointService
             .ToListAsync();
     }
 
+    // Toplam eco puana göre kullanıcının seviye adını belirler.
     private static string GetLevelName(int totalPoint)
     {
         return totalPoint switch
@@ -121,6 +132,7 @@ public class EcoPointService : IEcoPointService
         };
     }
 
+    // EcoPointActionType enum değerini kullanıcıya gösterilecek Türkçe metne çevirir.
     private static string GetActionTypeText(EcoPointActionType actionType)
     {
         return actionType switch
@@ -135,3 +147,4 @@ public class EcoPointService : IEcoPointService
         };
     }
 }
+

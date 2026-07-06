@@ -1,6 +1,8 @@
-﻿// RecipeController, Web arayüzünde tarif listeleme, stok ürününe göre tarif önerisi
-// ve kullanıcı tarif etkileşimlerini yönetir.
-// API ile doğrudan değil, IRecipeWebService üzerinden haberleşir.
+﻿
+// RecipeController, Web arayüzünde tarif listeleme ve tarif önerisi ekranlarını yönetir.
+// Genel tarif önerileri, stok ürününe göre öneriler, kaydedilen/yapılan tarifler
+// ve kullanıcı tarif etkileşimleri bu controller üzerinden karşılanır.
+// Controller tarif önerisini kendisi hesaplamaz; tüm işlemleri IRecipeWebService üzerinden FoodWise.API'ye gönderir.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Recipe;
@@ -12,6 +14,7 @@ public class RecipeController : Controller
 {
     private readonly IRecipeWebService _recipeWebService;
 
+    // API tarafında tarif etkileşim türlerini temsil eden sabit değerlerdir.
     private const int InteractionViewed = 1;
     private const int InteractionLiked = 2;
     private const int InteractionSaved = 3;
@@ -23,6 +26,7 @@ public class RecipeController : Controller
         _recipeWebService = recipeWebService;
     }
 
+    // Kullanıcının tüm stoklarına göre genel tarif önerilerini listeler.
     [HttpGet]
     public async Task<IActionResult> Index()
     {
@@ -31,7 +35,7 @@ public class RecipeController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
-        // Kullanıcının tüm stoklarına göre genel tarif önerileri alınır.
+        // Kullanıcının stok durumuna göre genel tarif önerileri API'den alınır.
         var recipes = await _recipeWebService.GetGeneralRecommendationsAsync(token);
 
         ViewBag.ProductName = null;
@@ -42,6 +46,7 @@ public class RecipeController : Controller
         return View("Recommendations", recipes);
     }
 
+    // Seçilen stok ürününe göre tarif önerilerini listeler.
     [HttpGet]
     public async Task<IActionResult> Recommendations(int? stockItemId, string? productName)
     {
@@ -50,14 +55,14 @@ public class RecipeController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
-        // Stok ürünü seçilmeden tarif önerisi istenirse kullanıcı riskli ürünler sayfasına yönlendirilir.
+        // Stok ürünü seçilmeden öneri istenirse kullanıcı riskli ürünler sayfasına yönlendirilir.
         if (!stockItemId.HasValue || stockItemId.Value <= 0)
         {
             TempData["ErrorMessage"] = "Tarif önerisi almak için önce bir stok ürünü seçmelisin.";
             return RedirectToAction("Risky", "Stock");
         }
 
-        // Seçilen stok ürününe göre tarif önerileri alınır.
+        // Seçilen stok ürününe göre tarif önerileri API'den alınır.
         var recommendations = await _recipeWebService.GetRecommendationsByStockItemAsync(
             stockItemId.Value,
             token);
@@ -70,6 +75,7 @@ public class RecipeController : Controller
         return View(recommendations);
     }
 
+    // Kullanıcının kaydettiği tarifleri listeler.
     [HttpGet]
     public async Task<IActionResult> Saved()
     {
@@ -78,7 +84,6 @@ public class RecipeController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
-        // Kullanıcının kaydettiği tarifler alınır.
         var recipes = await _recipeWebService.GetSavedRecipesAsync(token);
 
         ViewBag.ProductName = null;
@@ -89,6 +94,7 @@ public class RecipeController : Controller
         return View("Recommendations", recipes);
     }
 
+    // Kullanıcının yaptığı olarak işaretlediği tarifleri listeler.
     [HttpGet]
     public async Task<IActionResult> Cooked()
     {
@@ -97,7 +103,6 @@ public class RecipeController : Controller
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
-        // Kullanıcının "Yaptım" olarak işaretlediği tarifler alınır.
         var recipes = await _recipeWebService.GetCookedRecipesAsync(token);
 
         ViewBag.ProductName = null;
@@ -107,13 +112,16 @@ public class RecipeController : Controller
 
         return View("Recommendations", recipes);
     }
+
+    // Seçilen tarifin detay sayfasını açar.
+    // Tarif detayı açıldığında Viewed etkileşimi API'ye kaydedilir.
     [HttpGet]
     public async Task<IActionResult> Detail(
-    int recipeId,
-    int? stockItemId,
-    int? recommendationScore,
-    string? source,
-    string? returnUrl)
+        int recipeId,
+        int? stockItemId,
+        int? recommendationScore,
+        string? source,
+        string? returnUrl)
     {
         var token = HttpContext.Session.GetString("JWToken");
 
@@ -122,6 +130,7 @@ public class RecipeController : Controller
 
         List<RecipeRecommendationViewModel> recipes;
 
+        // Detay sayfası hangi sekmeden açıldıysa tarif o liste içinden aranır.
         if (string.Equals(source, "Saved", StringComparison.OrdinalIgnoreCase))
         {
             recipes = await _recipeWebService.GetSavedRecipesAsync(token);
@@ -147,7 +156,7 @@ public class RecipeController : Controller
             return RedirectToSafeUrl(returnUrl);
         }
 
-        // Kullanıcı tarif detayını açtığında Viewed etkileşimi kaydedilir.
+        // Kullanıcı tarif detayını açtığında görüntüleme etkileşimi kaydedilir.
         await _recipeWebService.CreateRecipeInteractionAsync(new CreateRecipeInteractionViewModel
         {
             RecipeId = recipeId,
@@ -163,6 +172,8 @@ public class RecipeController : Controller
 
         return View(recipe);
     }
+
+    // Kullanıcının tarifi beğenme etkileşimini kaydeder.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Like(
@@ -180,6 +191,7 @@ public class RecipeController : Controller
             returnUrl);
     }
 
+    // Kullanıcının tarifi kaydetme etkileşimini kaydeder.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Save(
@@ -197,6 +209,7 @@ public class RecipeController : Controller
             returnUrl);
     }
 
+    // Kullanıcının tarifi yaptım olarak işaretleme etkileşimini kaydeder.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Cook(
@@ -214,6 +227,8 @@ public class RecipeController : Controller
             returnUrl);
     }
 
+    // Kullanıcının tarifi beğenmediğini API'ye bildirir.
+    // Bu bilgi sonraki önerilerde kişiselleştirme için kullanılabilir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Dislike(
@@ -231,6 +246,7 @@ public class RecipeController : Controller
             returnUrl);
     }
 
+    // Tarif görüntüleme etkileşimini manuel olarak kaydetmek için kullanılır.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ViewRecipe(
@@ -248,6 +264,7 @@ public class RecipeController : Controller
             returnUrl);
     }
 
+    // Beğenme, kaydetme, yaptım, beğenmedim ve görüntüleme işlemleri için ortak etkileşim kaydetme metodudur.
     private async Task<IActionResult> CreateInteractionAndRedirectAsync(
         int recipeId,
         int interactionType,
@@ -290,6 +307,8 @@ public class RecipeController : Controller
         return RedirectToSafeUrl(returnUrl);
     }
 
+    // Kullanıcıyı işlem yaptığı önceki sayfaya güvenli şekilde geri yönlendirir.
+    // Local olmayan URL'lere yönlendirme yapılmayarak açık yönlendirme riski engellenir.
     private IActionResult RedirectToSafeUrl(string? returnUrl)
     {
         if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
@@ -298,3 +317,4 @@ public class RecipeController : Controller
         return RedirectToAction(nameof(Index));
     }
 }
+

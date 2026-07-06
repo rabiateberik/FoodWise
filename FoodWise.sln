@@ -14,10 +14,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoodWise.Web", "FoodWise.Web\FoodWise.Web.csproj", "{1A352B6B-702A-4507-B56C-FBDFBE9805E5}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "FoodWise.ML", "FoodWise.ML", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
-	ProjectSection(SolutionItems) = preProject
-		FoodWise.ML\generate_foodwise_dataset.py = FoodWise.ML\generate_foodwise_dataset.py
-		FoodWise.ML\train_foodwise_model.py = FoodWise.ML\train_foodwise_model.py
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

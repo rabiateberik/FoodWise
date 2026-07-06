@@ -1,5 +1,7 @@
-﻿// Bu controller, FoodWise.Web tarafındaki kullanıcı giriş, kayıt ve çıkış işlemlerini yönetir.
-// Kullanıcı bilgilerini AuthWebService aracılığıyla FoodWise.API'ye gönderir ve başarılı girişte JWT token bilgisini Session içinde saklar.
+﻿
+// AuthController, FoodWise.Web tarafındaki kullanıcı giriş, kayıt ve çıkış işlemlerini yönetir.
+// Kullanıcı bilgileri doğrudan burada doğrulanmaz; AuthWebService aracılığıyla FoodWise.API'ye gönderilir.
+// Başarılı giriş veya kayıt işleminden sonra API'den gelen JWT token Session içinde saklanır.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Auth;
@@ -11,6 +13,8 @@ public class AuthController : Controller
 {
     private readonly IAuthWebService _authWebService;
 
+    // Session içinde kullanılacak anahtarlar sabit olarak tutulur.
+    // Böylece string değerlerin farklı yerlerde hatalı yazılması engellenir.
     private const string TokenSessionKey = "JWToken";
     private const string UserIdSessionKey = "UserId";
     private const string FullNameSessionKey = "FullName";
@@ -21,10 +25,11 @@ public class AuthController : Controller
         _authWebService = authWebService;
     }
 
+    // Login sayfasını açar.
+    // Kullanıcı zaten giriş yaptıysa tekrar login ekranına gönderilmez.
     [HttpGet]
     public IActionResult Login()
     {
-        // Kullanıcı zaten giriş yaptıysa tekrar login ekranına dönmesin.
         var token = HttpContext.Session.GetString(TokenSessionKey);
 
         if (!string.IsNullOrWhiteSpace(token))
@@ -35,6 +40,8 @@ public class AuthController : Controller
         return View();
     }
 
+    // Login formundan gelen bilgileri API'ye gönderir.
+    // API başarılı cevap dönerse JWT token ve kullanıcı bilgileri Session içine kaydedilir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model)
@@ -60,10 +67,11 @@ public class AuthController : Controller
         return RedirectToAction("Index", "Home");
     }
 
+    // Register sayfasını açar.
+    // Kullanıcı zaten giriş yaptıysa kayıt ekranına erişmesine gerek yoktur.
     [HttpGet]
     public IActionResult Register()
     {
-        // Kullanıcı zaten giriş yaptıysa kayıt ekranına erişmesine gerek yoktur.
         var token = HttpContext.Session.GetString(TokenSessionKey);
 
         if (!string.IsNullOrWhiteSpace(token))
@@ -74,6 +82,8 @@ public class AuthController : Controller
         return View();
     }
 
+    // Kayıt formundan gelen bilgileri API'ye gönderir.
+    // Kayıt başarılı olursa kullanıcı tekrar login yaptırılmadan oturum başlatılır.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterViewModel model)
@@ -91,7 +101,6 @@ public class AuthController : Controller
             return View(model);
         }
 
-        // Kayıt başarılı olursa kullanıcı tekrar login yaptırılmadan oturumu başlatılır.
         SaveUserSession(result);
 
         TempData["SuccessMessage"] = "Kayıt başarılı. FoodWise'a hoş geldiniz.";
@@ -99,11 +108,11 @@ public class AuthController : Controller
         return RedirectToAction("Index", "Home");
     }
 
+    // Kullanıcı çıkış yaptığında Session içindeki tüm bilgiler temizlenir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Logout()
     {
-        // Kullanıcı çıkış yaptığında Session içindeki tüm bilgiler temizlenir.
         HttpContext.Session.Clear();
 
         TempData["SuccessMessage"] = "Çıkış işlemi başarılı.";
@@ -111,6 +120,8 @@ public class AuthController : Controller
         return RedirectToAction("Login", "Auth");
     }
 
+    // API'den dönen kimlik bilgilerini Session içine kaydeder.
+    // Diğer controller ve servisler JWT token'a buradan erişerek korumalı API endpointlerine istek atar.
     private void SaveUserSession(AuthResponseViewModel result)
     {
         HttpContext.Session.SetString(TokenSessionKey, result.Token ?? string.Empty);

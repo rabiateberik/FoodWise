@@ -1,4 +1,6 @@
-﻿@model List<FoodWise.Web.ViewModels.Stock.StockItemViewModel>
+﻿
+@using FoodWise.Web.Helpers
+@model List<FoodWise.Web.ViewModels.Stock.StockItemViewModel>
 
 @{
     Layout = "_FoodWiseLayout";
@@ -6,10 +8,12 @@
     ViewData["Title"] = "Süresi Geçen Ürünler";
     ViewData["PageDescription"] = "Son tüketim tarihi geçmiş ürünleri buradan görüntüleyebilir ve stoktan kaldırabilirsin.";
 }
+
 @await Html.PartialAsync("_StockTabs")
+
 @section TopbarActions {
     <a asp-controller="Stock" asp-action="Index" class="btn-secondary">
-        Stoklarıma Dön
+        ← Stoklarıma Dön
     </a>
 }
 
@@ -18,6 +22,7 @@
     {
         <div class="empty-state">
             <div class="empty-icon">✅</div>
+
             <h3>Süresi geçen ürün yok.</h3>
             <p>Harika! Şu anda son tüketim tarihi geçmiş aktif bir stok ürünün bulunmuyor.</p>
 
@@ -35,7 +40,7 @@
 
                 <article class="expired-card">
                     <div class="expired-header">
-                        <div>
+                        <div class="expired-title-area">
                             <span>Süresi Geçti</span>
                             <h3>@item.ProductName</h3>
                         </div>
@@ -48,7 +53,7 @@
                     <div class="expired-info">
                         <div>
                             <span>Miktar</span>
-                            <strong>@item.Quantity.ToString("0.##") @item.UnitName</strong>
+                            <strong>@item.Quantity.ToString("0.##") @DisplayTextHelper.GetUnitText(item.UnitName)</strong>
                         </div>
 
                         <div>
@@ -58,7 +63,7 @@
 
                         <div>
                             <span>Risk Durumu</span>
-                            <strong>@(item.RiskLevel ?? "Expired")</strong>
+                            <strong>@DisplayTextHelper.GetRiskLevelText(item.RiskLevel ?? "Expired")</strong>
                         </div>
                     </div>
 
@@ -78,6 +83,7 @@
                           asp-action="Delete"
                           asp-route-id="@item.Id"
                           method="post"
+                          class="delete-form"
                           onsubmit="return confirm('Bu ürünü stoktan kaldırmak istediğine emin misin?');">
                         @Html.AntiForgeryToken()
 
@@ -93,142 +99,241 @@
 
 @section Styles {
     <style>
+        /*
+                    Süresi Geçen Ürünler sayfası özel düzeni.
+                    Kartlar flex-wrap ile yan yana dizilir, alan yetmeyince alt satıra geçer.
+                */
+
+        .topbar + .stock-tabs {
+            margin-top: 94px !important;
+        }
+
+        .stock-tabs {
+            gap: 9px;
+            margin-bottom: 18px;
+        }
+
+        .stock-tab {
+            min-height: 38px;
+            padding: 9px 15px;
+            border-radius: 999px;
+            font-size: 13.5px;
+            font-weight: 800;
+        }
+
+        .expired-page,
+        .expired-page *,
+        .expired-page *::before,
+        .expired-page *::after {
+            box-sizing: border-box;
+        }
+
         .expired-page {
-            display: grid;
-            gap: 22px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
         }
 
         .expired-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
             gap: 20px;
-        }
-
-        .expired-card,
-        .empty-state {
-            background: white;
-            border-radius: 22px;
-            padding: 24px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            align-items: stretch;
         }
 
         .expired-card {
-            border-top: 5px solid #dc2626;
+            flex: 1 1 calc((100% - 40px) / 3);
+            max-width: calc((100% - 40px) / 3);
+            min-width: 300px;
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.05);
+            border-top: 4px solid #dc2626;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
+
+            .expired-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 26px rgba(0, 0, 0, 0.07);
+            }
 
         .expired-header {
             display: flex;
             justify-content: space-between;
-            gap: 16px;
             align-items: flex-start;
-            margin-bottom: 18px;
+            gap: 12px;
+            margin-bottom: 12px;
         }
 
-            .expired-header span {
-                color: #dc2626;
-                font-size: 13px;
-                font-weight: 900;
-            }
+        .expired-title-area {
+            min-width: 0;
+        }
 
-            .expired-header h3 {
-                color: #145c24;
-                font-size: 24px;
-                margin: 6px 0 0;
-            }
+        .expired-header span {
+            display: block;
+            color: #dc2626;
+            font-size: 12px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+
+        .expired-header h3 {
+            color: #145c24;
+            font-size: 19px;
+            font-weight: 850;
+            margin: 0;
+            line-height: 1.25;
+        }
 
         .expired-badge {
             background: #fee2e2;
             color: #991b1b;
             border-radius: 999px;
-            padding: 8px 12px;
-            font-size: 13px;
+            padding: 6px 10px;
+            font-size: 12px;
             font-weight: 900;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .expired-info {
             display: grid;
-            gap: 10px;
-            margin-bottom: 14px;
+            gap: 9px;
+            margin-bottom: 10px;
         }
 
             .expired-info div,
             .note-box {
                 background: #f8faf8;
-                border-radius: 14px;
-                padding: 13px;
+                border-radius: 13px;
+                padding: 11px 12px;
+                min-width: 0;
             }
 
                 .expired-info span,
                 .note-box span {
                     display: block;
                     color: #6b7280;
-                    font-size: 13px;
-                    margin-bottom: 6px;
+                    font-size: 12px;
+                    margin-bottom: 4px;
                 }
 
             .expired-info strong {
                 color: #1f2937;
+                font-size: 13px;
+                line-height: 1.35;
+                word-break: break-word;
             }
 
-        .note-box p {
-            color: #526b7a;
-            line-height: 1.5;
-            margin: 0;
+        .note-box {
+            margin-top: 2px;
         }
+
+            .note-box p {
+                color: #526b7a;
+                line-height: 1.45;
+                margin: 0;
+                font-size: 13px;
+            }
 
         .warning-box {
             background: #fef2f2;
             color: #991b1b;
             border: 1px solid #fecaca;
-            border-radius: 14px;
-            padding: 13px;
-            line-height: 1.5;
-            font-size: 14px;
-            margin: 14px 0;
+            border-radius: 13px;
+            padding: 11px 12px;
+            line-height: 1.45;
+            font-size: 13px;
+            margin: 10px 0 14px;
+        }
+
+        .delete-form {
+            margin: auto 0 0;
         }
 
         .delete-btn {
             width: 100%;
+            min-height: 38px;
             border: none;
-            border-radius: 12px;
-            padding: 12px 14px;
+            border-radius: 11px;
+            padding: 9px 10px;
             background: #dc2626;
-            color: white;
+            color: #ffffff;
+            font-size: 13px;
             font-weight: 900;
             cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease;
         }
 
             .delete-btn:hover {
                 background: #b91c1c;
+                transform: translateY(-1px);
             }
 
         .empty-state {
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 44px 22px;
             text-align: center;
-            padding: 54px 24px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
         }
 
         .empty-icon {
-            width: 72px;
-            height: 72px;
-            border-radius: 24px;
+            width: 60px;
+            height: 60px;
+            border-radius: 19px;
             background: #dcfce7;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 34px;
-            margin: 0 auto 18px;
+            font-size: 30px;
+            margin: 0 auto 15px;
         }
 
         .empty-state h3 {
             color: #145c24;
-            font-size: 26px;
+            font-size: 22px;
+            font-weight: 850;
             margin: 0 0 10px;
         }
 
         .empty-state p {
             color: #526b7a;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        @@media (max-width: 1350px) {
+            .expired-card {
+                flex-basis: calc((100% - 20px) / 2);
+                max-width: calc((100% - 20px) / 2);
+            }
+        }
+
+        @@media (max-width: 900px) {
+            .expired-card {
+                flex-basis: 100%;
+                max-width: 100%;
+            }
+        }
+
+        @@media (max-width: 760px) {
+            .topbar + .stock-tabs {
+                margin-top: 0 !important;
+            }
+
+            .expired-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
         }
     </style>
 }
+

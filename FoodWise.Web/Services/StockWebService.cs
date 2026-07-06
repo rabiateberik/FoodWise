@@ -1,5 +1,6 @@
-﻿// Bu servis, FoodWise.Web ile FoodWise.API arasındaki stok işlemleri bağlantısını yönetir.
-// JWT token ile korunan Stock API endpointlerine istek gönderir.
+﻿
+// StockWebService, FoodWise.Web ile FoodWise.API arasındaki stok işlemleri bağlantısını yönetir.
+// Stok listeleme, riskli ürünleri getirme, stok ekleme, güncelleme ve silme işlemleri API üzerinden yapılır.
 
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -16,14 +17,17 @@ public class StockWebService : IStockWebService
     {
         _httpClient = httpClient;
 
+        // Backend API adresi appsettings.json içindeki ApiSettings:BaseUrl değerinden okunur.
         var apiBaseUrl = configuration["ApiSettings:BaseUrl"];
 
         if (string.IsNullOrWhiteSpace(apiBaseUrl))
             throw new InvalidOperationException("ApiSettings:BaseUrl appsettings.json içinde tanımlı olmalıdır.");
 
+        // HttpClient isteklerinin FoodWise.API adresine gönderilmesi sağlanır.
         _httpClient.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
     }
 
+    // Kullanıcının stok ürünlerini API'den getirir.
     public async Task<List<StockItemViewModel>> GetMyStockAsync(string token)
     {
         SetBearerToken(token);
@@ -38,6 +42,7 @@ public class StockWebService : IStockWebService
         return result ?? new List<StockItemViewModel>();
     }
 
+    // Kullanıcının riskli stok ürünlerini API'den getirir.
     public async Task<List<StockItemViewModel>> GetRiskyStockAsync(string token)
     {
         SetBearerToken(token);
@@ -52,11 +57,11 @@ public class StockWebService : IStockWebService
         return result ?? new List<StockItemViewModel>();
     }
 
+    // Düzenleme sayfasında mevcut stok ürününü forma doldurmak için tekil stok kaydı alınır.
     public async Task<StockItemViewModel?> GetByIdAsync(int id, string token)
     {
         SetBearerToken(token);
 
-        // Düzenleme sayfasında mevcut stok ürününü forma doldurmak için tekil stok kaydı alınır.
         var response = await _httpClient.GetAsync($"api/stock/{id}");
 
         if (!response.IsSuccessStatusCode)
@@ -65,14 +70,16 @@ public class StockWebService : IStockWebService
         return await response.Content.ReadFromJsonAsync<StockItemViewModel>(GetJsonOptions());
     }
 
+    // Yeni stok ürünü oluşturma isteğini API'ye gönderir.
     public async Task<bool> CreateAsync(CreateStockItemViewModel model, string token)
     {
         SetBearerToken(token);
 
         // API tarafı StorageCondition değerini enum/int olarak beklediği için
-        // Web formundan gelen değer güvenli şekilde gönderilir.
+        // Web formundan gelen değer doğrudan istek modeline eklenir.
         var storageConditionValue = model.StorageCondition;
 
+        // API tarafındaki CreateStockItemDto ile uyumlu olacak şekilde istek modeli hazırlanır.
         var requestModel = new
         {
             model.ProductId,
@@ -92,7 +99,7 @@ public class StockWebService : IStockWebService
         {
             var errorMessage = await response.Content.ReadAsStringAsync();
 
-            // Ekleme hatasını terminal/Output ekranında görmek için geçici log.
+            // Geliştirme aşamasında stok ekleme hatasını terminal/Output ekranında görmek için yazdırılır.
             Console.WriteLine($"Stock create failed. Status: {response.StatusCode}, Error: {errorMessage}");
 
             return false;
@@ -101,6 +108,7 @@ public class StockWebService : IStockWebService
         return true;
     }
 
+    // Mevcut stok ürününü güncelleme isteğini API'ye gönderir.
     public async Task<bool> UpdateAsync(int id, EditStockItemViewModel model, string token)
     {
         SetBearerToken(token);
@@ -131,6 +139,7 @@ public class StockWebService : IStockWebService
         {
             var errorMessage = await response.Content.ReadAsStringAsync();
 
+            // Geliştirme aşamasında stok güncelleme hatasını terminal/Output ekranında görmek için yazdırılır.
             Console.WriteLine($"Stock update failed. Status: {response.StatusCode}, Error: {errorMessage}");
 
             return false;
@@ -139,21 +148,17 @@ public class StockWebService : IStockWebService
         return true;
     }
 
+    // Kullanıcının kendi stok ürününü silmesi/pasif hale getirmesi için API'ye DELETE isteği gönderir.
     public async Task<bool> DeleteAsync(int id, string token)
     {
         SetBearerToken(token);
 
-        // Kullanıcının kendi stok ürününü silmesi için API'ye DELETE isteği gönderilir.
         var response = await _httpClient.DeleteAsync($"api/stock/{id}");
 
         return response.IsSuccessStatusCode;
     }
 
-    private void SetBearerToken(string token)
-    {
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", token);
-    }
+    // Kullanıcının son kullanma tarihi geçmiş stok ürünlerini API'den getirir.
     public async Task<List<StockItemViewModel>> GetExpiredStockAsync(string token)
     {
         SetBearerToken(token);
@@ -166,6 +171,15 @@ public class StockWebService : IStockWebService
         return await response.Content.ReadFromJsonAsync<List<StockItemViewModel>>(GetJsonOptions())
                ?? new List<StockItemViewModel>();
     }
+
+    // JWT token, korumalı Stock API endpointlerine erişebilmek için Authorization header içine eklenir.
+    private void SetBearerToken(string token)
+    {
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    // API'den gelen JSON verilerinin ViewModel sınıflarına çevrilmesi için ortak JSON ayarıdır.
     private static JsonSerializerOptions GetJsonOptions()
     {
         return new JsonSerializerOptions

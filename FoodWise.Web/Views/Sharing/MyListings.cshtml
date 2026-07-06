@@ -1,4 +1,5 @@
-﻿@using FoodWise.Web.Helpers
+﻿
+@using FoodWise.Web.Helpers
 @model List<FoodWise.Web.ViewModels.Sharing.ShareListingViewModel>
 
 @{
@@ -82,8 +83,8 @@
                 <article class="listing-card @(highlightListingId == listing.Id ? "highlight-listing" : "")"
                          id="listing-@listing.Id">
 
-                    <div class="listing-header">
-                        <div>
+                    <div class="listing-card-top">
+                        <div class="listing-title-area">
                             <h3>@listing.Title</h3>
 
                             <p>
@@ -170,63 +171,82 @@
 
 @section Styles {
     <style>
-        .sharing-page {
-            display: grid;
-            gap: 22px;
+        /*
+                    Paylaşım İlanlarım sayfası özel düzeni.
+                    Kart yapısı Riskli Ürünler sayfasındaki mantığa benzer şekilde flex-wrap ile yan yana dizilir.
+                    Alan yetmeyince kartlar otomatik alt satıra geçer.
+                */
+
+        .sharing-page,
+        .sharing-page *,
+        .sharing-page *::before,
+        .sharing-page *::after {
+            box-sizing: border-box;
         }
 
-        .sharing-summary {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+        .sharing-page {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
             gap: 18px;
         }
 
+        .sharing-summary {
+            width: 100%;
+            max-width: 760px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 13px;
+            align-items: stretch;
+        }
+
             .sharing-summary div {
-                background: white;
-                border-radius: 18px;
-                padding: 22px;
-                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+                background: #ffffff;
+                border-radius: 15px;
+                padding: 14px 16px;
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.045);
             }
 
             .sharing-summary span {
                 display: block;
                 color: #607d8b;
-                font-size: 14px;
-                margin-bottom: 8px;
+                font-size: 12.5px;
+                margin-bottom: 5px;
             }
 
             .sharing-summary strong {
                 color: #145c24;
-                font-size: 34px;
+                font-size: 25px;
                 font-weight: 900;
+                line-height: 1;
             }
 
         .listing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 380px));
-            gap: 18px;
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
             align-items: stretch;
-            justify-content: start;
         }
 
         .listing-card {
-            background: white;
+            flex: 1 1 calc((100% - 40px) / 3);
+            max-width: calc((100% - 40px) / 3);
+            min-width: 300px;
+            background: #ffffff;
             border-radius: 18px;
-            padding: 20px;
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
+            padding: 16px;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.05);
             border-top: 4px solid #dcfce7;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
             display: flex;
             flex-direction: column;
-            min-height: 100%;
-            max-width: 380px;
-            width: 100%;
-            box-sizing: border-box;
+            overflow: hidden;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
 
             .listing-card:hover {
                 transform: translateY(-2px);
-                box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+                box-shadow: 0 12px 26px rgba(0, 0, 0, 0.07);
             }
 
             .listing-card:target {
@@ -257,40 +277,52 @@
             }
         }
 
-        .listing-header {
+        .listing-card-top {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 16px;
-            margin-bottom: 18px;
+            gap: 12px;
+            margin-bottom: 12px;
         }
 
-            .listing-header h3 {
-                color: #145c24;
-                font-size: 23px;
-                margin: 0 0 6px;
-                line-height: 1.25;
-            }
+        .listing-title-area {
+            min-width: 0;
+        }
 
-            .listing-header p,
-            .description {
-                color: #526b7a;
-                line-height: 1.5;
-                margin: 0;
-            }
+        .listing-card-top h3 {
+            color: #145c24;
+            font-size: 19px;
+            font-weight: 850;
+            margin: 0 0 4px;
+            line-height: 1.25;
+        }
+
+        .listing-card-top p {
+            margin: 0;
+            color: #526b7a;
+            font-weight: 800;
+            font-size: 13.5px;
+            line-height: 1.4;
+        }
 
         .description {
             background: #f8faf8;
-            border-radius: 14px;
-            padding: 13px 15px;
-            margin-bottom: 16px;
+            border-radius: 13px;
+            padding: 11px 12px;
+            color: #526b7a;
+            font-size: 13px;
+            line-height: 1.45;
+            margin: 0 0 10px;
         }
 
         .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             border-radius: 999px;
-            padding: 8px 12px;
-            font-size: 13px;
-            font-weight: 800;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 900;
             white-space: nowrap;
             flex-shrink: 0;
         }
@@ -330,9 +362,9 @@
         .delivery-point-box {
             background: #f8faf8;
             border: 1px solid #e5eee7;
-            border-radius: 14px;
-            padding: 13px;
-            margin: 0 0 14px;
+            border-radius: 13px;
+            padding: 12px 13px;
+            margin-bottom: 10px;
         }
 
         .delivery-point-top {
@@ -347,14 +379,16 @@
                 display: block;
                 color: #6b7280;
                 font-size: 12px;
-                margin-bottom: 5px;
+                margin-bottom: 4px;
             }
 
             .delivery-point-top strong {
+                display: block;
                 color: #145c24;
-                font-size: 15px;
+                font-size: 13.5px;
                 font-weight: 900;
                 line-height: 1.35;
+                word-break: break-word;
             }
 
         .delivery-location {
@@ -365,11 +399,15 @@
         }
 
         .location-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             border-radius: 999px;
             padding: 6px 9px;
             font-size: 11px;
             font-weight: 900;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
             .location-badge.same-neighborhood {
@@ -394,35 +432,38 @@
 
         .listing-info {
             display: grid;
-            gap: 12px;
-            margin-top: 4px;
+            grid-template-columns: 1fr;
+            gap: 9px;
+            margin-bottom: 10px;
         }
 
             .listing-info div {
                 background: #f8faf8;
-                border-radius: 15px;
-                padding: 14px;
+                border-radius: 13px;
+                padding: 11px 12px;
+                min-width: 0;
             }
 
             .listing-info span {
                 display: block;
                 color: #6b7280;
-                font-size: 13px;
-                margin-bottom: 6px;
+                font-size: 12px;
+                margin-bottom: 4px;
             }
 
             .listing-info strong {
                 color: #1f2937;
-                line-height: 1.5;
+                font-size: 13px;
+                line-height: 1.35;
+                word-break: break-word;
             }
 
         .card-actions {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
+            gap: 9px;
             margin-top: auto;
-            padding-top: 20px;
-            align-items: stretch;
+            padding-top: 4px;
         }
 
             .card-actions.single-action {
@@ -435,12 +476,12 @@
 
         .action-btn {
             width: 100%;
-            min-height: 42px;
+            min-height: 38px;
             border: none;
-            border-radius: 12px;
-            padding: 11px 14px;
-            font-size: 14px;
-            font-weight: 800;
+            border-radius: 11px;
+            padding: 9px 10px;
+            font-size: 13px;
+            font-weight: 900;
             text-decoration: none;
             cursor: pointer;
             box-sizing: border-box;
@@ -448,15 +489,21 @@
             align-items: center;
             justify-content: center;
             text-align: center;
+            transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
         }
+
+            .action-btn:hover {
+                transform: translateY(-1px);
+            }
 
         .requests-btn {
             background: #238636;
-            color: white;
+            color: #ffffff;
         }
 
             .requests-btn:hover {
                 background: #1f7a30;
+                color: #ffffff;
             }
 
         .cancel-btn {
@@ -466,38 +513,41 @@
 
             .cancel-btn:hover {
                 background: #fecaca;
+                color: #991b1b;
             }
 
         .empty-state {
-            background: white;
-            border-radius: 22px;
-            padding: 58px 24px;
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 44px 22px;
             text-align: center;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
         }
 
         .empty-icon {
-            width: 70px;
-            height: 70px;
-            border-radius: 22px;
+            width: 60px;
+            height: 60px;
+            border-radius: 19px;
             background: #dcfce7;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 34px;
-            margin: 0 auto 18px;
+            font-size: 30px;
+            margin: 0 auto 15px;
         }
 
         .empty-state h3 {
             color: #145c24;
-            font-size: 28px;
+            font-size: 22px;
+            font-weight: 850;
             margin: 0 0 10px;
         }
 
         .empty-state p {
             color: #526b7a;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             line-height: 1.5;
+            font-size: 14px;
         }
 
         .empty-actions {
@@ -507,24 +557,34 @@
             flex-wrap: wrap;
         }
 
-        @@media (max-width: 1000px) {
+        @@media (max-width: 1350px) {
+            .listing-card {
+                flex-basis: calc((100% - 20px) / 2);
+                max-width: calc((100% - 20px) / 2);
+            }
+        }
+
+        @@media (max-width: 900px) {
             .sharing-summary {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                max-width: none;
+            }
+
+            .listing-card {
+                flex-basis: 100%;
+                max-width: 100%;
             }
         }
 
         @@media (max-width: 760px) {
-            .listing-grid {
+            .sharing-summary {
                 grid-template-columns: 1fr;
             }
 
-            .listing-card {
-                max-width: none;
-            }
-
-            .listing-header,
+            .listing-card-top,
             .delivery-point-top {
                 flex-direction: column;
+                align-items: flex-start;
             }
 
             .card-actions {
@@ -548,3 +608,4 @@
         });
     </script>
 }
+

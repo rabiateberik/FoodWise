@@ -17,25 +17,25 @@ public class MlRecipeRecommendationService : IMlRecipeRecommendationService
     {
         _httpClient = httpClient;
 
+        // Python FastAPI servisinin adresi appsettings.json içinden okunur.
         var baseUrl = configuration["MlApiSettings:BaseUrl"];
 
         if (string.IsNullOrWhiteSpace(baseUrl))
             throw new InvalidOperationException("MlApiSettings:BaseUrl appsettings.json içinde tanımlı olmalıdır.");
 
+        // HttpClient için temel ML API adresi ayarlanır.
         _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
     }
 
+    // Tek bir tarif için ML servisinden öneri skoru alır.
     public async Task<MlRecipeScorePredictionResponseDto?> PredictRecipeScoreAsync(
         MlRecipeScorePredictionRequestDto request)
     {
         try
         {
-            var jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                PropertyNameCaseInsensitive = true
-            };
+            var jsonOptions = CreateJsonOptions();
 
+            // Tarif bilgileri Python FastAPI tarafındaki predict-recipe-score endpointine gönderilir.
             var response = await _httpClient.PostAsJsonAsync(
                 "predict-recipe-score",
                 request,
@@ -44,6 +44,7 @@ public class MlRecipeRecommendationService : IMlRecipeRecommendationService
             if (!response.IsSuccessStatusCode)
                 return null;
 
+            // Python servisinden gelen JSON cevap DTO yapısına çevrilir.
             return await response.Content.ReadFromJsonAsync<MlRecipeScorePredictionResponseDto>(
                 jsonOptions);
         }
@@ -54,4 +55,56 @@ public class MlRecipeRecommendationService : IMlRecipeRecommendationService
             return null;
         }
     }
+
+    // Birden fazla tarif için ML skorlarını tek istekte alır.
+    // Böylece her tarif için ayrı ayrı API çağrısı yapılmaz ve performans artar.
+    public async Task<List<MlRecipeScoreBatchPredictionItemResponseDto>> PredictRecipeScoresBatchAsync(
+        List<MlRecipeScorePredictionRequestDto> requests)
+    {
+        try
+        {
+            if (requests == null || !requests.Any())
+                return new List<MlRecipeScoreBatchPredictionItemResponseDto>();
+
+            var jsonOptions = CreateJsonOptions();
+
+            // Tarif önerileri toplu istek formatına dönüştürülür.
+            var batchRequest = new MlRecipeScoreBatchPredictionRequestDto
+            {
+                Items = requests
+            };
+
+            // Toplu tarif verileri Python FastAPI batch tahmin endpointine gönderilir.
+            var response = await _httpClient.PostAsJsonAsync(
+                "predict-recipe-scores-batch",
+                batchRequest,
+                jsonOptions);
+
+            if (!response.IsSuccessStatusCode)
+                return new List<MlRecipeScoreBatchPredictionItemResponseDto>();
+
+            // Python servisinden gelen toplu skor cevabı okunur.
+            var result = await response.Content.ReadFromJsonAsync<MlRecipeScoreBatchPredictionResponseDto>(
+                jsonOptions);
+
+            return result?.Items ?? new List<MlRecipeScoreBatchPredictionItemResponseDto>();
+        }
+        catch
+        {
+            // ML servisi kapalıysa veya hata oluşursa boş liste döner.
+            // RecipeService tarafında eski skorlar kullanılmaya devam eder.
+            return new List<MlRecipeScoreBatchPredictionItemResponseDto>();
+        }
+    }
+
+    // C# tarafındaki PascalCase alan adları ile Python tarafındaki camelCase JSON alanlarını uyumlu hale getirir.
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        return new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
+    }
 }
+

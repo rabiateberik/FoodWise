@@ -1,5 +1,5 @@
-﻿// AdminController, admin paneli için gerekli API endpointlerini içerir.
-// Bu endpointlere sadece Admin rolüne sahip kullanıcılar erişebilir.
+﻿// AdminController, yönetim panelindeki işlemler için API endpointlerini içerir.
+// Bu controller sadece Admin rolüne sahip kullanıcılar tarafından kullanılabilir.
 
 using FoodWise.Application.DTOs.Admin;
 using FoodWise.Application.Interfaces;
@@ -20,6 +20,7 @@ public class AdminController : ControllerBase
         _adminService = adminService;
     }
 
+    // Admin panelinde gösterilecek genel özet bilgileri getirir.
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboardSummary()
     {
@@ -27,6 +28,8 @@ public class AdminController : ControllerBase
 
         return Ok(result);
     }
+
+    // Sistemde kayıtlı ürün kategorilerini listeler.
     [HttpGet("categories")]
     public async Task<IActionResult> GetCategories()
     {
@@ -35,6 +38,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Seçilen kategoriye ait detay bilgilerini getirir.
     [HttpGet("categories/{id}")]
     public async Task<IActionResult> GetCategoryById(int id)
     {
@@ -46,6 +50,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Yeni kategori oluşturur. Aynı isimde kategori varsa servis null döndürür.
     [HttpPost("categories")]
     public async Task<IActionResult> CreateCategory(CreateAdminCategoryDto model)
     {
@@ -60,6 +65,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Mevcut kategori bilgilerini günceller.
     [HttpPut("categories/{id}")]
     public async Task<IActionResult> UpdateCategory(int id, UpdateAdminCategoryDto model)
     {
@@ -74,6 +80,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Kategorinin aktif/pasif durumunu değiştirir.
     [HttpPatch("categories/{id}/toggle-status")]
     public async Task<IActionResult> ToggleCategoryStatus(int id)
     {
@@ -87,6 +94,8 @@ public class AdminController : ControllerBase
             message = "Kategori durumu güncellendi."
         });
     }
+
+    // Ürün yönetimi için ürünleri listeler.
     [HttpGet("products")]
     public async Task<IActionResult> GetProducts()
     {
@@ -95,6 +104,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Seçilen ürünün detay bilgilerini getirir.
     [HttpGet("products/{id}")]
     public async Task<IActionResult> GetProductById(int id)
     {
@@ -106,6 +116,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Yeni ürün ekler. Ürün adı veya kategori durumu servis tarafında kontrol edilir.
     [HttpPost("products")]
     public async Task<IActionResult> CreateProduct(CreateAdminProductDto model)
     {
@@ -120,6 +131,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Mevcut ürün bilgilerini günceller.
     [HttpPut("products/{id}")]
     public async Task<IActionResult> UpdateProduct(int id, UpdateAdminProductDto model)
     {
@@ -134,6 +146,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Ürünün sistemde aktif veya pasif olma durumunu değiştirir.
     [HttpPatch("products/{id}/toggle-status")]
     public async Task<IActionResult> ToggleProductStatus(int id)
     {
@@ -148,6 +161,7 @@ public class AdminController : ControllerBase
         });
     }
 
+    // Kullanıcıların eklediği ürünlerin onay durumunu değiştirir.
     [HttpPatch("products/{id}/toggle-approval")]
     public async Task<IActionResult> ToggleProductApproval(int id)
     {
@@ -161,7 +175,8 @@ public class AdminController : ControllerBase
             message = "Ürün onay durumu güncellendi."
         });
     }
-    //teslimat noktası yönetimi için gerekli endpointler
+
+    // Teslimat noktalarını yönetmek için kullanılan endpointler.
     [HttpGet("delivery-points")]
     public async Task<IActionResult> GetDeliveryPoints()
     {
@@ -170,6 +185,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Seçilen teslimat noktasının detayını getirir.
     [HttpGet("delivery-points/{id}")]
     public async Task<IActionResult> GetDeliveryPointById(int id)
     {
@@ -181,6 +197,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Yeni teslimat noktası ekler.
     [HttpPost("delivery-points")]
     public async Task<IActionResult> CreateDeliveryPoint(CreateAdminDeliveryPointDto model)
     {
@@ -195,6 +212,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Teslimat noktası bilgilerini günceller.
     [HttpPut("delivery-points/{id}")]
     public async Task<IActionResult> UpdateDeliveryPoint(int id, UpdateAdminDeliveryPointDto model)
     {
@@ -208,7 +226,8 @@ public class AdminController : ControllerBase
 
         return Ok(result);
     }
-    //Teslimat noktası aktif/pasif durumunu değiştirmek için kullanılır.
+
+    // Teslimat noktasının aktif/pasif durumunu değiştirir.
     [HttpPatch("delivery-points/{id}/toggle-status")]
     public async Task<IActionResult> ToggleDeliveryPointStatus(int id)
     {
@@ -222,6 +241,8 @@ public class AdminController : ControllerBase
             message = "Teslimat noktası aktif/pasif durumu güncellendi."
         });
     }
+
+    // Sistemdeki kullanıcıları listeler.
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers()
     {
@@ -230,6 +251,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Seçilen kullanıcının detay bilgilerini getirir.
     [HttpGet("users/{id}")]
     public async Task<IActionResult> GetUserById(string id)
     {
@@ -241,6 +263,8 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcı hesabını aktif veya pasif hale getirir.
+    // Admin hesabının pasifleştirilmesi servis tarafında engellenir.
     [HttpPatch("users/{id}/toggle-status")]
     public async Task<IActionResult> ToggleUserStatus(string id)
     {
@@ -254,6 +278,8 @@ public class AdminController : ControllerBase
             message = "Kullanıcı aktif/pasif durumu güncellendi."
         });
     }
+
+    // Kullanıcının stok kayıtlarını admin paneli için getirir.
     [HttpGet("users/{id}/stocks")]
     public async Task<IActionResult> GetUserStocks(string id)
     {
@@ -262,6 +288,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının oluşturduğu paylaşım ilanlarını getirir.
     [HttpGet("users/{id}/share-listings")]
     public async Task<IActionResult> GetUserShareListings(string id)
     {
@@ -270,6 +297,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Kullanıcının teslimat geçmişini getirir.
     [HttpGet("users/{id}/deliveries")]
     public async Task<IActionResult> GetUserDeliveries(string id)
     {
@@ -277,6 +305,8 @@ public class AdminController : ControllerBase
 
         return Ok(result);
     }
+
+    // Tüm paylaşım ilanlarını admin paneli için listeler.
     [HttpGet("share-listings")]
     public async Task<IActionResult> GetShareListings()
     {
@@ -285,6 +315,7 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // Sistemdeki teslimat kayıtlarını listeler.
     [HttpGet("deliveries")]
     public async Task<IActionResult> GetDeliveries()
     {
@@ -293,3 +324,4 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 }
+

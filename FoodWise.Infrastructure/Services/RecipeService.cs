@@ -1,5 +1,5 @@
 ﻿// RecipeService, kullanıcının stok ürünlerine göre tarif önerileri üretir.
-// Tarif önerileri, dataset üzerinden aktarılan normalize edilmiş malzeme metinleri kullanılarak hesaplanır.
+// Tarif önerileri, normalize edilmiş malzeme metinleri, kullanıcı etkileşimleri ve ML skorları kullanılarak hesaplanır.
 
 using FoodWise.Application.DTOs.Recipe;
 using FoodWise.Application.DTOs.RecipeRecommendation;
@@ -12,7 +12,6 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace FoodWise.Infrastructure.Services;
-
 
 public class RecipeService : IRecipeService
 {
@@ -30,23 +29,24 @@ public class RecipeService : IRecipeService
         _mlRecipeRecommendationService = mlRecipeRecommendationService;
     }
 
+    // Seçilen stok ürününü merkeze alarak tarif önerileri üretir.
+    // Özellikle son kullanma tarihi yaklaşan veya riskli ürünleri değerlendirmek için kullanılır.
     public async Task<List<RecipeRecommendationDto>> GetRecommendationsByStockItemAsync(string userId, int stockItemId)
     {
-        // Giriş yapan kullanıcıya ait seçilen stok ürünü alınır.
-        // Bu ürün genellikle son tüketim tarihi yaklaşan / riskli ürün olur.
+        // Kullanıcının seçtiği aktif stok ürünü alınır.
         var selectedStockItem = await _context.StockItems
             .Include(x => x.Product)
-           .FirstOrDefaultAsync(x =>
-    x.Id == stockItemId &&
-    x.UserId == userId &&
-    x.IsActive &&
-    x.Status == StockItemStatus.Active);
+            .FirstOrDefaultAsync(x =>
+                x.Id == stockItemId &&
+                x.UserId == userId &&
+                x.IsActive &&
+                x.Status == StockItemStatus.Active);
 
         if (selectedStockItem == null)
             return new List<RecipeRecommendationDto>();
 
-        // Kullanıcının tüm aktif stokları alınır.
-        // Seçilen riskli ürün ana önceliktir, diğer stok ürünleri ise skoru artırır.
+        // Kullanıcının tüm stok ürünleri alınır.
+        // Seçilen ürün dışında diğer stok ürünleri de tarif eşleşmesine dahil edilir.
         var userStockItems = await _context.StockItems
             .Include(x => x.Product)
             .Where(x =>
@@ -55,6 +55,7 @@ public class RecipeService : IRecipeService
                 x.Product != null)
             .ToListAsync();
 
+        // Stoktaki ürün isimleri normalize edilerek eşleştirme için aday malzemelere çevrilir.
         var stockCandidates = userStockItems
             .Where(x => !string.IsNullOrWhiteSpace(x.Product.Name))
             .Select(x => new StockIngredientCandidate
@@ -69,6 +70,7 @@ public class RecipeService : IRecipeService
             .Select(x => x.First())
             .ToList();
 
+        // Seçilen ürün öneri hesaplamasında öncelikli ürün olarak işaretlenir.
         var selectedProductCandidate = new StockIngredientCandidate
         {
             ProductId = selectedStockItem.ProductId,
@@ -78,6 +80,7 @@ public class RecipeService : IRecipeService
             IsRisky = true
         };
 
+        // Normalize edilmiş malzeme metni olan aktif tarifler alınır.
         var recipes = await _context.Recipes
             .AsNoTracking()
             .Where(x =>
@@ -85,20 +88,22 @@ public class RecipeService : IRecipeService
                 !string.IsNullOrWhiteSpace(x.NormalizedIngredientsText))
             .ToListAsync();
 
+        // Tarifler seçilen stok ürününe göre değerlendirilir ve en iyi 20 öneri alınır.
         var recommendations = recipes
-        .Select(recipe => EvaluateRecipe(recipe, selectedProductCandidate, stockCandidates))
-        .Where(result => result != null)
-        .Select(result => result!)
-        .OrderByDescending(x => x.MatchScore)
-        .ThenBy(x => x.PreparationTimeMinutes)
-        .Take(20)
-        .ToList();
+            .Select(recipe => EvaluateRecipe(recipe, selectedProductCandidate, stockCandidates))
+            .Where(result => result != null)
+            .Select(result => result!)
+            .OrderByDescending(x => x.MatchScore)
+            .ThenBy(x => x.PreparationTimeMinutes)
+            .Take(20)
+            .ToList();
 
+        // Kullanıcının geçmiş tarif etkileşimlerine göre skorlar kişiselleştirilir.
         recommendations = await _recipeAiScoringService.ApplyPersonalizedScoresAsync(
-      userId,
-      recommendations
-  );
+            userId,
+            recommendations);
 
+        // Python ML modeli üzerinden tarif skorları yeniden değerlendirilir.
         recommendations = await ApplyMlRecipeScoresAsync(
             userId,
             recommendations,
@@ -110,15 +115,16 @@ public class RecipeService : IRecipeService
             .Take(20)
             .ToList();
 
+        // Üretilen öneriler geçmiş kayıt olarak saklanır.
         await SaveRecommendationHistoryAsync(userId, stockItemId, recommendations);
 
         return recommendations;
     }
 
+    // Kullanıcının tüm stok ürünlerine göre genel tarif önerileri üretir.
     public async Task<List<RecipeRecommendationDto>> GetGeneralRecommendationsAsync(string userId)
     {
-        // Menüdeki Tarif Önerileri sayfası için kullanıcının tüm stoklarına göre genel öneri üretir.
-        // Riskli ürünlerle eşleşen tarifler daha yüksek öncelik alır.
+        // Kullanıcının stokları risk tahminleriyle birlikte alınır.
         var userStockItems = await _context.StockItems
             .Include(x => x.Product)
             .Include(x => x.WasteRiskPredictions)
@@ -131,6 +137,7 @@ public class RecipeService : IRecipeService
         if (!userStockItems.Any())
             return new List<RecipeRecommendationDto>();
 
+        // Stok ürünleri tarif malzemeleriyle karşılaştırılabilecek adaylara dönüştürülür.
         var stockCandidates = userStockItems
             .Where(x => !string.IsNullOrWhiteSpace(x.Product.Name))
             .Select(x => new StockIngredientCandidate
@@ -156,19 +163,19 @@ public class RecipeService : IRecipeService
                 !string.IsNullOrWhiteSpace(x.NormalizedIngredientsText))
             .ToListAsync();
 
+        // Tüm stoklara göre genel tarifler değerlendirilir.
         var recommendations = recipes
-       .Select(recipe => EvaluateGeneralRecipe(recipe, stockCandidates))
-       .Where(result => result != null)
-       .Select(result => result!)
-       .OrderByDescending(x => x.MatchScore)
-       .ThenBy(x => x.PreparationTimeMinutes)
-       .Take(30)
-       .ToList();
+            .Select(recipe => EvaluateGeneralRecipe(recipe, stockCandidates))
+            .Where(result => result != null)
+            .Select(result => result!)
+            .OrderByDescending(x => x.MatchScore)
+            .ThenBy(x => x.PreparationTimeMinutes)
+            .Take(30)
+            .ToList();
 
         recommendations = await _recipeAiScoringService.ApplyPersonalizedScoresAsync(
-      userId,
-      recommendations
-  );
+            userId,
+            recommendations);
 
         recommendations = await ApplyMlRecipeScoresAsync(
             userId,
@@ -181,36 +188,55 @@ public class RecipeService : IRecipeService
             .Take(30)
             .ToList();
     }
+
+    // Tarif önerilerine Python ML servisinden gelen skorları uygular.
+    // ML servisi çalışmazsa mevcut kural tabanlı skorlar korunur.
     private async Task<List<RecipeRecommendationDto>> ApplyMlRecipeScoresAsync(
-    string userId,
-    List<RecipeRecommendationDto> recommendations,
-    List<StockItem> userStockItems)
+        string userId,
+        List<RecipeRecommendationDto> recommendations,
+        List<StockItem> userStockItems)
     {
         if (!recommendations.Any())
             return recommendations;
 
+        // Kullanıcının tarif etkileşim geçmişi ML isteğinde özellik olarak kullanılır.
         var interactionSummary = await GetUserRecipeInteractionSummaryAsync(userId);
 
-        foreach (var recommendation in recommendations)
-        {
-            var mlRequest = CreateMlRecipeScoreRequest(
+        // Her tarif önerisi, ML servisinin beklediği request DTO yapısına dönüştürülür.
+        var mlRequests = recommendations
+            .Select(recommendation => CreateMlRecipeScoreRequest(
                 recommendation,
                 userStockItems,
-                interactionSummary);
+                interactionSummary))
+            .ToList();
 
-            var mlResult = await _mlRecipeRecommendationService.PredictRecipeScoreAsync(mlRequest);
+        // Tarifler Python FastAPI servisine toplu olarak gönderilir.
+        var mlResults = await _mlRecipeRecommendationService.PredictRecipeScoresBatchAsync(mlRequests);
 
-            if (mlResult == null)
-            {
-                Console.WriteLine($"Tarif ML skoru alınamadı. Eski skor kullanıldı: {recommendation.RecipeName}");
-                continue;
-            }
+        if (mlResults == null || !mlResults.Any())
+        {
+            Console.WriteLine("Toplu tarif ML skoru alınamadı. Malzeme sınırı uygulanarak eski skorlar kullanılacak.");
+
+            return ApplyIngredientScoreLimits(recommendations);
+        }
+
+        if (mlResults.Count != recommendations.Count)
+        {
+            Console.WriteLine($"Tarif ML sonucu sayısı eşleşmedi. Öneri: {recommendations.Count}, ML Sonuç: {mlResults.Count}");
+        }
+
+        var resultCount = Math.Min(recommendations.Count, mlResults.Count);
+
+        for (var i = 0; i < resultCount; i++)
+        {
+            var recommendation = recommendations[i];
+            var mlResult = mlResults[i];
 
             var currentScore = recommendation.MatchScore;
             var mlScore = (int)Math.Round(Math.Clamp(mlResult.RecommendationScore, 0, 100));
 
-            // Mevcut kural/kişiselleştirme skoru tamamen çöpe atılmaz.
-            // ML skoru ağırlıklı olacak şekilde hibrit skor hesaplanır.
+            // Son skor hem mevcut kural tabanlı skordan hem de ML skorundan etkilenir.
+            // ML skoru daha ağırlıklı kullanılır.
             var finalScore = (int)Math.Round((currentScore * 0.35) + (mlScore * 0.65));
 
             recommendation.MatchScore = Math.Clamp(finalScore, 0, 100);
@@ -218,9 +244,57 @@ public class RecipeService : IRecipeService
             Console.WriteLine($"Tarif ML skoru kullanıldı: {recommendation.RecipeName} - ML: {mlScore} - Final: {recommendation.MatchScore}");
         }
 
+        return ApplyIngredientScoreLimits(recommendations);
+    }
+
+    // Eksik malzemesi olan tariflerin çok yüksek skor görünmesini engeller.
+    private static List<RecipeRecommendationDto> ApplyIngredientScoreLimits(
+        List<RecipeRecommendationDto> recommendations)
+    {
+        foreach (var recommendation in recommendations)
+        {
+            if (recommendation.TotalIngredientCount <= 0)
+            {
+                recommendation.MatchScore = Math.Clamp(recommendation.MatchScore, 0, 100);
+                continue;
+            }
+
+            var totalIngredientCount = Math.Max(1, recommendation.TotalIngredientCount);
+            var matchedIngredientCount = Math.Clamp(
+                recommendation.MatchedIngredientCount,
+                0,
+                totalIngredientCount);
+
+            var ingredientMatchRatio = matchedIngredientCount / (double)totalIngredientCount;
+
+            var hasMissingIngredients =
+                recommendation.MissingIngredients.Any() ||
+                matchedIngredientCount < totalIngredientCount;
+
+            var maxAllowedScore = 100;
+
+            // Eksik malzeme varsa hiçbir tarif %100 görünmemeli.
+            if (hasMissingIngredients)
+                maxAllowedScore = 94;
+
+            // Malzeme eşleşme oranına göre skor için üst sınır uygulanır.
+            if (ingredientMatchRatio < 0.50)
+                maxAllowedScore = Math.Min(maxAllowedScore, 75);
+            else if (ingredientMatchRatio < 0.75)
+                maxAllowedScore = Math.Min(maxAllowedScore, 85);
+            else if (ingredientMatchRatio < 1.00)
+                maxAllowedScore = Math.Min(maxAllowedScore, 94);
+
+            recommendation.MatchScore = Math.Clamp(
+                Math.Min(recommendation.MatchScore, maxAllowedScore),
+                0,
+                100);
+        }
+
         return recommendations;
     }
 
+    // Tarif önerisini Python ML modelinin beklediği request DTO yapısına dönüştürür.
     private MlRecipeScorePredictionRequestDto CreateMlRecipeScoreRequest(
         RecipeRecommendationDto recommendation,
         List<StockItem> userStockItems,
@@ -230,6 +304,7 @@ public class RecipeService : IRecipeService
             .Select(NormalizeText)
             .ToHashSet();
 
+        // Öneride eşleşen malzemelerin kullanıcının hangi stok ürünlerine denk geldiği bulunur.
         var matchedStockItems = userStockItems
             .Where(x =>
                 x.Product != null &&
@@ -277,6 +352,7 @@ public class RecipeService : IRecipeService
         };
     }
 
+    // Kullanıcının tarif etkileşim sayılarını ML modeli için özetler.
     private async Task<RecipeInteractionSummary> GetUserRecipeInteractionSummaryAsync(string userId)
     {
         var interactions = await _context.UserRecipeInteractions
@@ -296,6 +372,7 @@ public class RecipeService : IRecipeService
         };
     }
 
+    // Hazırlanma süresine göre tarif zorluğunu tahmini olarak belirler.
     private static string InferRecipeDifficulty(int preparationTimeMinutes)
     {
         if (preparationTimeMinutes <= 20)
@@ -307,6 +384,8 @@ public class RecipeService : IRecipeService
         return "Zor";
     }
 
+    // Tarif adına göre kategori tahmini yapar.
+    // Dataset içinde kategori yoksa ML isteği için yaklaşık kategori üretilir.
     private static string InferRecipeCategory(string recipeName)
     {
         var normalizedName = NormalizeText(recipeName);
@@ -338,6 +417,7 @@ public class RecipeService : IRecipeService
         return "Ana Yemek";
     }
 
+    // ML modeline mevsim bilgisini özellik olarak göndermek için mevcut mevsimi döndürür.
     private static string GetCurrentSeasonText()
     {
         var month = DateTime.Now.Month;
@@ -350,6 +430,8 @@ public class RecipeService : IRecipeService
             _ => "Kış"
         };
     }
+
+    // Belirli bir ürüne göre tarifleri listeler.
     public async Task<List<RecipeRecommendationDto>> GetRecipesByProductAsync(int productId)
     {
         var product = await _context.Products
@@ -386,10 +468,9 @@ public class RecipeService : IRecipeService
             .ToList();
     }
 
+    // Sistemdeki aktif tarifleri temel bilgilerle listeler.
     public async Task<List<RecipeRecommendationDto>> GetAllRecipesAsync()
     {
-        // Dataset üzerinden çok sayıda tarif geldiği için genel liste sınırlı tutulur.
-        // Asıl öneri akışı GetGeneralRecommendationsAsync ve GetRecommendationsByStockItemAsync üzerinden çalışır.
         var recipes = await _context.Recipes
             .AsNoTracking()
             .Where(x => x.IsActive)
@@ -401,6 +482,9 @@ public class RecipeService : IRecipeService
             .Select(MapToBasicRecipeDto)
             .ToList();
     }
+
+    // Kullanıcının tarif etkileşimini kaydeder.
+    // Beğenme, kaydetme, yaptım, beğenmedim ve görüntüleme işlemleri bu metotla tutulur.
     public async Task<bool> CreateRecipeInteractionAsync(string userId, CreateRecipeInteractionDto dto)
     {
         if (string.IsNullOrWhiteSpace(userId))
@@ -415,6 +499,7 @@ public class RecipeService : IRecipeService
         if (!recipeExists)
             return false;
 
+        // Etkileşim stok ürünüyle ilişkiliyse stok ürününün kullanıcıya ait olduğu kontrol edilir.
         if (dto.StockItemId.HasValue)
         {
             var stockItemExists = await _context.StockItems
@@ -428,11 +513,11 @@ public class RecipeService : IRecipeService
         }
 
         int? recommendationScore = dto.RecommendationScore.HasValue
-       ? Math.Clamp(dto.RecommendationScore.Value, 0, 100)
-       : null;
+            ? Math.Clamp(dto.RecommendationScore.Value, 0, 100)
+            : null;
 
-        // Viewed etkileşimi tekrar tekrar kaydedilebilir.
-        // Like, Save, Cooked ve Disliked gibi etkileşimlerde aynı kayıt varsa güncellenir.
+        // Görüntüleme dışındaki etkileşimlerde aynı türden kayıt varsa güncellenir.
+        // Böylece aynı tarif için tekrar tekrar aynı beğeni/kaydetme kaydı oluşmaz.
         if (dto.InteractionType != RecipeInteractionType.Viewed)
         {
             var existingInteraction = await _context.UserRecipeInteractions
@@ -469,9 +554,11 @@ public class RecipeService : IRecipeService
 
         return true;
     }
+
+    // Kullanıcının belirli bir etkileşim türüne sahip tariflerini listeler.
     public async Task<List<RecipeRecommendationDto>> GetRecipesByInteractionTypeAsync(
-    string userId,
-    RecipeInteractionType interactionType)
+        string userId,
+        RecipeInteractionType interactionType)
     {
         if (string.IsNullOrWhiteSpace(userId))
             return new List<RecipeRecommendationDto>();
@@ -494,6 +581,7 @@ public class RecipeService : IRecipeService
             .GroupBy(x => x.RecipeId)
             .Select(group =>
             {
+                // Aynı tarif için birden fazla kayıt varsa en son etkileşim dikkate alınır.
                 var latestInteraction = group
                     .OrderByDescending(x => x.CreatedAt)
                     .First();
@@ -515,6 +603,8 @@ public class RecipeService : IRecipeService
             })
             .ToList();
     }
+
+    // Kullanıcı tarif etkileşimlerinden AI/ML eğitim verisi üretir.
     public async Task<List<RecipeAiTrainingDataDto>> GetRecipeAiTrainingDataAsync()
     {
         var interactions = await _context.UserRecipeInteractions
@@ -533,6 +623,7 @@ public class RecipeService : IRecipeService
 
         foreach (var interaction in interactions)
         {
+            // Her etkileşim için sadece o etkileşimden önceki kullanıcı ve tarif geçmişi dikkate alınır.
             var previousUserInteractions = interactions
                 .Where(x =>
                     x.UserId == interaction.UserId &&
@@ -584,6 +675,8 @@ public class RecipeService : IRecipeService
 
         return trainingData;
     }
+
+    // Seçilen stok ürünü merkeze alınarak tek bir tarifin uygunluk skoru hesaplanır.
     private static RecipeRecommendationDto? EvaluateRecipe(
         Recipe recipe,
         StockIngredientCandidate selectedProduct,
@@ -595,15 +688,16 @@ public class RecipeService : IRecipeService
         if (!recipeTokens.Any())
             return null;
 
+        // Tarif, seçilen ürünü içermiyorsa bu özel öneri listesine alınmaz.
         var selectedProductMatched = IsIngredientMatched(
             normalizedIngredientsText,
             recipeTokens,
             selectedProduct);
 
-        // Ana mantık: Seçilen/riskli ürün tarifte yoksa öneri olarak gösterilmez.
         if (!selectedProductMatched)
             return null;
 
+        // Kullanıcının stokundaki hangi ürünlerin tarifle eşleştiği bulunur.
         var matchedStockIngredients = userStockCandidates
             .Where(stock => IsIngredientMatched(normalizedIngredientsText, recipeTokens, stock))
             .GroupBy(stock => stock.NormalizedName)
@@ -624,21 +718,16 @@ public class RecipeService : IRecipeService
         var coverageScore = (int)Math.Round(coverageRatio * 35);
         coverageScore = Math.Clamp(coverageScore, 0, 35);
 
-        // Seçilen riskli ürün tarifte geçtiği için temel puan verilir.
         var selectedProductScore = 35;
 
-        // Seçilen ürün dışındaki stok eşleşmeleri ayrıca puan kazandırır.
         var otherMatchedIngredientCount = matchedStockIngredients
             .Count(x => !x.ProductName.Equals(
                 selectedProduct.ProductName,
                 StringComparison.CurrentCultureIgnoreCase));
 
         var stockMatchScore = Math.Min(25, otherMatchedIngredientCount * 7);
-
-        // Eksik malzeme çoksa skor düşürülür.
         var missingPenalty = Math.Min(15, missingIngredients.Count * 2);
 
-        // Az malzemeli ve stok uyumu yüksek tariflere küçük bonus verilir.
         var simpleRecipeBonus = totalIngredientCount > 0 &&
                                 totalIngredientCount <= 5 &&
                                 coverageRatio >= 0.60
@@ -651,11 +740,11 @@ public class RecipeService : IRecipeService
                          + simpleRecipeBonus
                          - missingPenalty;
 
-        // Sadece seçilen ürün eşleştiyse skor fazla yükselmesin.
+        // Sadece seçilen ürün eşleşmişse skor fazla yükselmesin diye sınır uygulanır.
         if (otherMatchedIngredientCount == 0)
             finalScore = Math.Min(finalScore, 65);
 
-        // Tüm malzemeler eşleşmiyorsa %100 verilmesin.
+        // Eksik malzeme varsa tarif %100 görünmez.
         if (totalIngredientCount > 0 && matchedIngredientCount < totalIngredientCount)
             finalScore = Math.Min(finalScore, 94);
 
@@ -684,6 +773,8 @@ public class RecipeService : IRecipeService
             Ingredients = new List<RecipeIngredientDto>()
         };
     }
+
+    // Etkileşim türünü ML eğitiminde kullanılacak sayısal etikete çevirir.
     private static float GetInteractionLabel(RecipeInteractionType interactionType)
     {
         return interactionType switch
@@ -696,6 +787,8 @@ public class RecipeService : IRecipeService
             _ => 0.0f
         };
     }
+
+    // Kullanıcının tüm stoklarına göre genel tarif skorunu hesaplar.
     private static RecipeRecommendationDto? EvaluateGeneralRecipe(
         Recipe recipe,
         List<StockIngredientCandidate> userStockCandidates)
@@ -712,7 +805,6 @@ public class RecipeService : IRecipeService
             .Select(group => group.First())
             .ToList();
 
-        // Kullanıcının stoklarından hiçbir ürün tarifle eşleşmiyorsa öneri olarak gösterilmez.
         if (!matchedStockIngredients.Any())
             return null;
 
@@ -734,16 +826,10 @@ public class RecipeService : IRecipeService
         var coverageScore = (int)Math.Round(coverageRatio * 40);
         coverageScore = Math.Clamp(coverageScore, 0, 40);
 
-        // Stoktan eşleşen her ürün skoru artırır.
         var stockMatchScore = Math.Min(30, matchedIngredientCount * 7);
-
-        // Riskli ürünleri içeren tariflere ekstra öncelik verilir.
         var riskyBonus = Math.Min(20, riskyMatchedIngredients.Count * 10);
-
-        // Eksik malzeme çoksa skor düşürülür.
         var missingPenalty = Math.Min(18, missingIngredients.Count * 2);
 
-        // Az malzemeli ve stok uyumu yüksek tariflere küçük bonus verilir.
         var simpleRecipeBonus = totalIngredientCount > 0 &&
                                 totalIngredientCount <= 5 &&
                                 coverageRatio >= 0.60
@@ -756,17 +842,16 @@ public class RecipeService : IRecipeService
                          + simpleRecipeBonus
                          - missingPenalty;
 
-        // Riskli ürün eşleşmesi yoksa skor fazla yükselmesin.
+        // Riskli ürün içermeyen tariflerin skoru belirli bir seviyede sınırlandırılır.
         if (!riskyMatchedIngredients.Any())
             finalScore = Math.Min(finalScore, 82);
 
-        // Tüm malzemeler eşleşmiyorsa %100 verilmesin.
         if (totalIngredientCount > 0 && matchedIngredientCount < totalIngredientCount)
             finalScore = Math.Min(finalScore, 94);
 
         finalScore = Math.Clamp(finalScore, 0, 100);
 
-        // Çok düşük eşleşmeler kullanıcıya gösterilmez.
+        // Çok düşük skorlu tarifler öneri listesine dahil edilmez.
         if (finalScore < 35)
             return null;
 
@@ -794,6 +879,7 @@ public class RecipeService : IRecipeService
         };
     }
 
+    // Recipe entity'sini temel tarif DTO yapısına dönüştürür.
     private static RecipeRecommendationDto MapToBasicRecipeDto(Recipe recipe)
     {
         return new RecipeRecommendationDto
@@ -815,6 +901,7 @@ public class RecipeService : IRecipeService
         };
     }
 
+    // Stok ürününün tarif malzemeleri içinde geçip geçmediğini kontrol eder.
     private static bool IsIngredientMatched(
         string normalizedIngredientsText,
         HashSet<string> recipeTokens,
@@ -823,24 +910,25 @@ public class RecipeService : IRecipeService
         if (string.IsNullOrWhiteSpace(stock.NormalizedName))
             return false;
 
-        // Ürün adı birebir ifade olarak geçiyorsa güçlü eşleşme kabul edilir.
+        // Önce tam ifade eşleşmesi kontrol edilir.
         if (ContainsExactPhrase(normalizedIngredientsText, stock.NormalizedName))
             return true;
 
         if (!stock.Tokens.Any())
             return false;
 
-        // Çok kelimeli ürünlerde tüm anlamlı kelimeler tarif içinde geçiyorsa eşleşme kabul edilir.
+        // Birden fazla kelimeli ürünlerde tüm tokenların tarif içinde geçmesi beklenir.
         if (stock.Tokens.Count > 1 && stock.Tokens.All(recipeTokens.Contains))
             return true;
 
-        // Tek kelimeli ürünlerde token bazlı eşleşme yapılır.
+        // Tek kelimeli ürünlerde token eşleşmesi yeterli kabul edilir.
         if (stock.Tokens.Count == 1 && recipeTokens.Contains(stock.Tokens.First()))
             return true;
 
         return false;
     }
 
+    // Bir kelime veya ifadenin metin içinde bağımsız şekilde geçip geçmediğini kontrol eder.
     private static bool ContainsExactPhrase(string text, string phrase)
     {
         if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(phrase))
@@ -851,6 +939,7 @@ public class RecipeService : IRecipeService
         return Regex.IsMatch(text, pattern, RegexOptions.IgnoreCase);
     }
 
+    // Tarifin malzeme sayısını hesaplar.
     private static int GetRecipeIngredientCount(Recipe recipe)
     {
         if (!string.IsNullOrWhiteSpace(recipe.IngredientsText))
@@ -866,6 +955,7 @@ public class RecipeService : IRecipeService
         return 0;
     }
 
+    // Kullanıcının stoğunda olmayan tarif malzemelerini bulur.
     private static List<string> GetMissingIngredients(
         Recipe recipe,
         List<StockIngredientCandidate> userStockCandidates)
@@ -898,6 +988,7 @@ public class RecipeService : IRecipeService
             .ToList();
     }
 
+    // Eksik malzeme metnini ekranda daha temiz göstermek için miktar ve birim ifadelerini temizler.
     private static string CleanIngredientLineForDisplay(string line)
     {
         var text = line.Trim();
@@ -915,6 +1006,7 @@ public class RecipeService : IRecipeService
         return string.IsNullOrWhiteSpace(text) ? line.Trim() : text;
     }
 
+    // Seçilen ürün odaklı öneri açıklaması üretir.
     private static string CreateRecommendationReason(string selectedProductName, List<string> matchedIngredients)
     {
         var distinctMatchedIngredients = matchedIngredients
@@ -936,6 +1028,7 @@ public class RecipeService : IRecipeService
         return $"{selectedProductName} ürününü değerlendirmek için önerildi. Ayrıca stokundaki {string.Join(", ", otherIngredients)} ürünleriyle de eşleşiyor.";
     }
 
+    // Genel tarif önerileri için kullanıcıya açıklama metni üretir.
     private static string CreateGeneralRecommendationReason(
         List<string> matchedIngredients,
         List<string> riskyMatchedIngredients)
@@ -963,6 +1056,7 @@ public class RecipeService : IRecipeService
         return "Stok ürünlerine göre önerildi.";
     }
 
+    // Stok ürününün son risk tahminine göre riskli kabul edilip edilmeyeceğini belirler.
     private static bool IsRiskyStockItem(StockItem stockItem)
     {
         if (stockItem.WasteRiskPredictions == null || !stockItem.WasteRiskPredictions.Any())
@@ -989,6 +1083,7 @@ public class RecipeService : IRecipeService
                riskLevelValue.Equals("Orta", StringComparison.OrdinalIgnoreCase);
     }
 
+    // Nesne içindeki property değerini reflection ile okur.
     private static object? GetPropertyValue(object source, string propertyName)
     {
         return source
@@ -997,6 +1092,7 @@ public class RecipeService : IRecipeService
             .GetValue(source);
     }
 
+    // Nesne içindeki DateTime tipindeki property değerini okur.
     private static DateTime? GetDateTimePropertyValue(object source, string propertyName)
     {
         var value = GetPropertyValue(source, propertyName);
@@ -1007,6 +1103,7 @@ public class RecipeService : IRecipeService
         return null;
     }
 
+    // Türkçe karakterleri sadeleştirerek metni eşleştirme için normalize eder.
     private static string NormalizeText(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
@@ -1028,6 +1125,7 @@ public class RecipeService : IRecipeService
         return text;
     }
 
+    // Malzeme eşleştirmesi için anlamlı kelimeleri token listesine çevirir.
     private static HashSet<string> GetMeaningfulTokens(string text)
     {
         var normalizedText = NormalizeText(text);
@@ -1035,6 +1133,7 @@ public class RecipeService : IRecipeService
         if (string.IsNullOrWhiteSpace(normalizedText))
             return new HashSet<string>();
 
+        // Ölçü, bağlaç ve tarif eşleştirmesinde anlam taşımayan kelimeler çıkarılır.
         var stopWords = new HashSet<string>
         {
             "ve", "ile", "icin", "uzere", "bir", "iki", "uc", "dort",
@@ -1050,6 +1149,7 @@ public class RecipeService : IRecipeService
             .ToHashSet();
     }
 
+    // Stok ürününe göre üretilen tarif önerilerini geçmiş tablosuna kaydeder.
     private async Task SaveRecommendationHistoryAsync(
         string userId,
         int stockItemId,
@@ -1062,6 +1162,7 @@ public class RecipeService : IRecipeService
             .Select(x => x.RecipeId)
             .ToList();
 
+        // Daha önce aynı kullanıcı, stok ürünü ve tarif için kayıt varsa tekrar eklenmez.
         var existingRecipeIds = await _context.RecipeRecommendations
             .Where(x =>
                 x.UserId == userId &&
@@ -1094,6 +1195,7 @@ public class RecipeService : IRecipeService
         await _context.SaveChangesAsync();
     }
 
+    // Stok ürününü tarif malzemeleriyle eşleştirmek için kullanılan iç modeldir.
     private class StockIngredientCandidate
     {
         public int ProductId { get; set; }
@@ -1106,6 +1208,8 @@ public class RecipeService : IRecipeService
 
         public bool IsRisky { get; set; }
     }
+
+    // Kullanıcının tarif etkileşim geçmişini özetlemek için kullanılan iç modeldir.
     private class RecipeInteractionSummary
     {
         public int LikedCount { get; set; }
@@ -1119,3 +1223,4 @@ public class RecipeService : IRecipeService
         public int ViewedCount { get; set; }
     }
 }
+

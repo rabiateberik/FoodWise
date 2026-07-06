@@ -1,4 +1,7 @@
-﻿// EcoPointController, Web arayüzünde kullanıcının eco puan özetini ve puan geçmişini gösterir.
+﻿
+// EcoPointController, Web arayüzünde kullanıcının eco puan sayfasını yönetir.
+// Eco puan özeti ve puan geçmişi doğrudan burada hesaplanmaz;
+// IEcoPointWebService üzerinden FoodWise.API'den alınır.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.EcoPoint;
@@ -15,6 +18,7 @@ public class EcoPointController : Controller
         _ecoPointWebService = ecoPointWebService;
     }
 
+    // Kullanıcının eco puan özetini ve puan geçmişini gösteren sayfayı açar.
     [HttpGet]
     public async Task<IActionResult> Index()
     {
@@ -27,6 +31,7 @@ public class EcoPointController : Controller
         var summary = await _ecoPointWebService.GetSummaryAsync(token);
         var history = await _ecoPointWebService.GetHistoryAsync(token);
 
+        // Sayfada kullanılacak özet ve geçmiş bilgileri tek ViewModel içinde birleştirilir.
         var model = new EcoPointPageViewModel
         {
             Summary = summary,
@@ -36,3 +41,4 @@ public class EcoPointController : Controller
         return View(model);
     }
 }
+

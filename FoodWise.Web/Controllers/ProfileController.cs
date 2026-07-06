@@ -1,5 +1,7 @@
-﻿// ProfileController, Web arayüzünde giriş yapan kullanıcının profil bilgilerini gösterir.
-// Profil ekranında kullanıcı bilgilerine ek olarak eco puan özeti de gösterilir.
+﻿
+// ProfileController, Web arayüzünde giriş yapan kullanıcının profil sayfasını yönetir.
+// Profil görüntüleme, profil güncelleme, şifre değiştirme ve hesap silme işlemleri burada karşılanır.
+// Controller API'ye doğrudan gitmez; profil işlemleri IProfileWebService üzerinden FoodWise.API'ye gönderilir.
 
 using FoodWise.Web.Services;
 using FoodWise.Web.ViewModels.Profile;
@@ -20,15 +22,17 @@ public class ProfileController : Controller
         _ecoPointWebService = ecoPointWebService;
     }
 
+    // Giriş yapan kullanıcının profil bilgilerini gösteren sayfayı açar.
     [HttpGet]
     public async Task<IActionResult> Index()
     {
         var token = HttpContext.Session.GetString("JWToken");
 
+        // Token yoksa kullanıcı giriş yapmamış kabul edilir.
         if (string.IsNullOrWhiteSpace(token))
             return RedirectToAction("Login", "Auth");
 
-        // Giriş yapan kullanıcının profil bilgileri API üzerinden alınır.
+        // Kullanıcının profil bilgileri API üzerinden alınır.
         var profile = await _profileWebService.GetMyProfileAsync(token);
 
         if (profile == null)
@@ -37,15 +41,18 @@ public class ProfileController : Controller
             return RedirectToAction("Index", "Home");
         }
 
-        // Profil bilgilerine ek olarak kullanıcının eco puan özeti alınır.
+        // Profil ekranında gösterilecek eco puan özeti ayrıca API'den alınır.
         var ecoPointSummary = await _ecoPointWebService.GetSummaryAsync(token);
 
+        // Eco puan bilgileri profil ViewModel'ine eklenerek sayfaya gönderilir.
         profile.EcoPoint = ecoPointSummary.TotalPoint;
         profile.EcoPointLevelName = ecoPointSummary.LevelName;
         profile.EcoPointHistoryCount = ecoPointSummary.HistoryCount;
 
         return View(profile);
     }
+
+    // Kullanıcının profil bilgilerini güncelleme isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateProfile(UpdateProfileViewModel model)
@@ -73,6 +80,7 @@ public class ProfileController : Controller
         return RedirectToAction("Index");
     }
 
+    // Kullanıcının şifre değiştirme isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
@@ -99,6 +107,8 @@ public class ProfileController : Controller
         TempData["SuccessMessage"] = "Şifre başarıyla değiştirildi.";
         return RedirectToAction("Index");
     }
+
+    // Kullanıcının hesabını pasif hale getirme isteğini API'ye gönderir.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteAccount(DeleteAccountViewModel model)
@@ -114,6 +124,7 @@ public class ProfileController : Controller
             return RedirectToAction("Index");
         }
 
+        // Yanlışlıkla hesap silmeyi önlemek için kullanıcının özel onay metnini yazması istenir.
         if (model.ConfirmText.Trim() != "HESABIMI SİL")
         {
             TempData["ErrorMessage"] = "Hesabı silmek için onay metnini doğru yazmalısın.";
@@ -128,9 +139,11 @@ public class ProfileController : Controller
             return RedirectToAction("Index");
         }
 
+        // Hesap pasif hale getirildikten sonra kullanıcı oturumu temizlenir.
         HttpContext.Session.Clear();
 
         TempData["SuccessMessage"] = "Hesabın başarıyla pasif hale getirildi.";
         return RedirectToAction("Login", "Auth");
     }
 }
+
